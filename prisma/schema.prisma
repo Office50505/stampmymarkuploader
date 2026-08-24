@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UploadStatus {
+  uploaded
+  cart
+  ordered
+  abandoned
+  expired
+}
+
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+
+  @@index([shop])
+}
+
+model Upload {
+  id               String       @id @default(cuid())
+  uploadId         String       @unique
+  shop             String
+  storageBucket    String
+  storageKey       String       @unique
+  storageUrl       String?
+  originalFilename String
+  contentType      String
+  fileSize         BigInt
+  uploadedAt       DateTime?
+  productId        String?
+  productHandle    String?
+  productTitle     String?
+  variantId        String?
+  variantTitle     String?
+  selectedSize     String?
+  quantity         Int?
+  sessionId        String?
+  cartToken        String?
+  customerId       String?
+  status           UploadStatus @default(uploaded)
+  orderId          String?
+  orderName        String?
+  orderLineItemId  String?
+  orderedAt        DateTime?
+  expiresAt        DateTime
+  removedAt        DateTime?
+  expiredAt        DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([shop, status, createdAt])
+  @@index([shop, orderId])
+  @@index([shop, sessionId])
+  @@index([expiresAt])
+}
+
+model WebhookDelivery {
+  id          String   @id
+  shop        String
+  topic       String
+  processedAt DateTime @default(now())
+
+  @@index([shop, topic])
+}
+
+model CleanupRun {
+  id             String   @id @default(cuid())
+  startedAt      DateTime @default(now())
+  finishedAt     DateTime?
+  expiredCount   Int      @default(0)
+  deletedCount   Int      @default(0)
+  errorCount     Int      @default(0)
+  retentionDays  Int
+  deleteObjects  Boolean
+  notes          String?
+}

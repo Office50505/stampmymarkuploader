@@ -1,0 +1,102 @@
+.uploadFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.uploadFilter {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #202223;
+  display: inline-block;
+  font-size: 13px;
+  line-height: 18px;
+  padding: 7px 11px;
+  text-decoration: none;
+}
+
+.uploadFilter[aria-current="page"] {
+  background: #202223;
+  border-color: #202223;
+  color: #fff;
+}
+
+.uploadTableWrap {
+  overflow-x: auto;
+}
+
+.uploadTable {
+  border-collapse: collapse;
+  min-width: 980px;
+  width: 100%;
+}
+
+.uploadTable th,
+.uploadTable td {
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  padding: 10px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.uploadTable th {
+  color: #4b5563;
+  font-weight: 600;
+}
+
+.thumb {
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #4b5563;
+  display: flex;
+  height: 48px;
+  justify-content: center;
+  overflow: hidden;
+  width: 48px;
+}
+
+.thumb img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.status {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 2px 8px;
+  text-transform: capitalize;
+}
+
+.status.uploaded,
+.status.cart,
+.status.abandoned {
+  background: #fff4de;
+  color: #916a00;
+}
+
+.status.ordered {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status.expired {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.fileName {
+  font-weight: 600;
+  max-width: 220px;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: #6b7280;
+}

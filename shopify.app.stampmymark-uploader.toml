@@ -1,0 +1,54 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "7e9d308d223c0520264018c9f61e57d5"
+name = "stampmymark-uploader"
+application_url = "https://shopify.dev/apps/default-app-home"
+embedded = true
+
+[webhooks]
+api_version = "2026-10"
+
+[[webhooks.subscriptions]]
+topics = ["orders/create"]
+uri = "/webhooks/orders/create"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/app/uninstalled"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders,read_products"
+
+[auth]
+redirect_urls = [
+  "https://shopify.dev/apps/default-app-home/auth/callback",
+  "https://shopify.dev/apps/default-app-home/auth/shopify/callback",
+  "https://shopify.dev/apps/default-app-home/api/auth/callback"
+]
+
+[events]
+api_version = "unstable"
+
+[[events.subscription]]
+handle = "product-created-noop"
+topic = "Product"
+actions = ["create"]
+triggers = ["product"]
+uri = "/events/product"
+query = """
+query product_created_noop($productId: ID!) {
+  product(id: $productId) {
+    id
+  }
+}
+"""
+
+[app_proxy]
+url = "https://shopify.dev/apps/default-app-home/apps/stamp-upload"
+subpath = "stamp-upload"
+prefix = "apps"
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true

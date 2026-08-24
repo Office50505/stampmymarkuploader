@@ -1,0 +1,50 @@
+name = "StampMyMark Uploader"
+client_id = "replace-with-shopify-api-key"
+application_url = "https://replace-with-your-app-url.example.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[access_scopes]
+scopes = "read_products,read_orders"
+
+[auth]
+redirect_urls = [
+  "https://replace-with-your-app-url.example.com/auth/callback",
+  "https://replace-with-your-app-url.example.com/auth/shopify/callback",
+  "https://replace-with-your-app-url.example.com/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-10"
+
+[[webhooks.subscriptions]]
+topics = ["orders/create"]
+uri = "/webhooks/orders/create"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/app/uninstalled"
+
+[events]
+api_version = "unstable"
+
+[[events.subscription]]
+handle = "product-created-noop"
+topic = "Product"
+actions = ["create"]
+triggers = ["product"]
+uri = "/events/product"
+query = """
+query product_created_noop($productId: ID!) {
+  product(id: $productId) {
+    id
+  }
+}
+"""
+
+[app_proxy]
+url = "https://replace-with-your-app-url.example.com/apps/stamp-upload"
+subpath = "stamp-upload"
+prefix = "apps"

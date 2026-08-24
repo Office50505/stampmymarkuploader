@@ -1,0 +1,97 @@
+{% liquid
+  assign selected_variant = product.selected_or_first_available_variant
+  assign max_bytes = block.settings.max_file_size_mb | times: 1048576
+%}
+
+<div
+  class="smm-upload"
+  data-stamp-upload
+  data-product-id="{{ product.id }}"
+  data-product-gid="gid://shopify/Product/{{ product.id }}"
+  data-product-handle="{{ product.handle | escape }}"
+  data-product-title="{{ product.title | escape }}"
+  data-variant-id="{{ selected_variant.id }}"
+  data-variant-gid="gid://shopify/ProductVariant/{{ selected_variant.id }}"
+  data-variant-title="{{ selected_variant.title | escape }}"
+  data-size-option-name="{{ block.settings.size_option_name | escape }}"
+  data-required="{{ block.settings.required }}"
+  data-max-bytes="{{ max_bytes }}"
+  data-customer-id="{% if customer %}{{ customer.id }}{% endif %}"
+>
+  {% if block.settings.show_required_marker %}
+    <div class="smm-upload__required" aria-hidden="true">*</div>
+  {% endif %}
+
+  <button class="smm-upload__button" type="button" data-upload-trigger>
+    {{ block.settings.button_label }}
+  </button>
+
+  <input
+    class="smm-upload__input"
+    type="file"
+    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
+    data-upload-input
+    hidden
+  >
+
+  <input type="hidden" name="properties[_stampmymark_upload_id]" data-upload-id-property disabled>
+  <input type="hidden" name="properties[_stampmymark_original_filename]" data-upload-filename-property disabled>
+
+  <div class="smm-upload__status" data-upload-status role="status" aria-live="polite"></div>
+
+  <div class="smm-upload__progress" data-upload-progress hidden>
+    <div class="smm-upload__progress-bar" data-upload-progress-bar></div>
+  </div>
+
+  <div class="smm-upload__preview" data-upload-preview hidden></div>
+
+  <div class="smm-upload__actions" data-upload-actions hidden>
+    <button type="button" class="smm-upload__link" data-upload-replace>Replace</button>
+    <button type="button" class="smm-upload__link smm-upload__link--danger" data-upload-remove>Remove</button>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Upload Picture",
+  "target": "section",
+  "stylesheet": "stamp-upload.css",
+  "javascript": "stamp-upload.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Upload Picture"
+    },
+    {
+      "type": "checkbox",
+      "id": "required",
+      "label": "Require upload before add to cart",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_required_marker",
+      "label": "Show required marker",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "size_option_name",
+      "label": "Size option name",
+      "default": "Size"
+    },
+    {
+      "type": "range",
+      "id": "max_file_size_mb",
+      "label": "Maximum file size",
+      "min": 1,
+      "max": 50,
+      "step": 1,
+      "unit": "MB",
+      "default": 25
+    }
+  ]
+}
+{% endschema %}

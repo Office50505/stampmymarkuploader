@@ -48,15 +48,14 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 
 SHOPIFY_API_KEY=your_shopify_client_id
 SHOPIFY_API_SECRET=your_shopify_client_secret
-SHOPIFY_APP_URL=https://your-app.up.railway.app
+SHOPIFY_APP_URL=https://stampmymarkuploader-production.up.railway.app
 SCOPES=read_products,read_orders
-SHOPIFY_SHOP_DOMAIN=hijr3v-kf.myshopify.com
 SHOP_CUSTOM_DOMAIN=stampmymark.com
 
 BUNNY_STORAGE_ZONE=stamptrial
 BUNNY_STORAGE_ACCESS_KEY=your_bunny_storage_zone_password
 BUNNY_STORAGE_ENDPOINT=https://sg.storage.bunnycdn.com
-BUNNY_PULL_ZONE_URL=https://your-pull-zone.b-cdn.net
+BUNNY_PULL_ZONE_URL=
 
 UPLOAD_MAX_BYTES=26214400
 UPLOAD_RETENTION_DAYS=30
@@ -77,7 +76,7 @@ In the Railway app service:
 Example:
 
 ```text
-https://stampmymark-uploader-production.up.railway.app
+https://stampmymarkuploader-production.up.railway.app
 ```
 
 Set `SHOPIFY_APP_URL` to that exact URL.

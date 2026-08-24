@@ -2,7 +2,7 @@
 
 client_id = "7e9d308d223c0520264018c9f61e57d5"
 name = "stampmymark-uploader"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://stampmymarkuploader-production.up.railway.app"
 embedded = true
 
 [webhooks]
@@ -22,9 +22,9 @@ scopes = "read_orders,read_products"
 
 [auth]
 redirect_urls = [
-  "https://shopify.dev/apps/default-app-home/auth/callback",
-  "https://shopify.dev/apps/default-app-home/auth/shopify/callback",
-  "https://shopify.dev/apps/default-app-home/api/auth/callback"
+  "https://stampmymarkuploader-production.up.railway.app/auth/callback",
+  "https://stampmymarkuploader-production.up.railway.app/auth/shopify/callback",
+  "https://stampmymarkuploader-production.up.railway.app/api/auth/callback"
 ]
 
 [events]
@@ -45,10 +45,9 @@ query product_created_noop($productId: ID!) {
 """
 
 [app_proxy]
-url = "https://shopify.dev/apps/default-app-home/apps/stamp-upload"
+url = "https://stampmymarkuploader-production.up.railway.app/apps/stamp-upload"
 subpath = "stamp-upload"
 prefix = "apps"
 
 [build]
-include_config_on_deploy = true
-automatically_update_urls_on_dev = true
+automatically_update_urls_on_dev = false

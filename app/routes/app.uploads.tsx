@@ -12,6 +12,14 @@ const filters = [
   ["expired", "Expired"]
 ] as const;
 
+const formatFileSize = (size: number) => {
+  if (size >= 1024 * 1024) {
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+};
+
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: adminStyles }
 ];
@@ -74,21 +82,24 @@ export default function UploadsPage() {
     <s-page>
       <TitleBar title="Uploads" />
       <s-section heading="Uploads">
-        <nav className="uploadFilters" aria-label="Upload filters">
-          {filters.map(([value, label]) => {
-            const href = value === "all" ? "/app/uploads" : `/app/uploads?status=${value}`;
-            return (
-              <Link
-                className="uploadFilter"
-                aria-current={filter === value ? "page" : undefined}
-                to={href}
-                key={value}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="uploadsToolbar">
+          <nav className="uploadFilters" aria-label="Upload filters">
+            {filters.map(([value, label]) => {
+              const href = value === "all" ? "/app/uploads" : `/app/uploads?status=${value}`;
+              return (
+                <Link
+                  className="uploadFilter"
+                  aria-current={filter === value ? "page" : undefined}
+                  to={href}
+                  key={value}
+                >
+                  {label}
+                </Link>
+              );
+            })}
+          </nav>
+          <span className="uploadCount">{rows.length} uploads</span>
+        </div>
 
         {query ? <p className="muted">Filtering by "{query}"</p> : null}
 
@@ -113,7 +124,15 @@ export default function UploadsPage() {
                     <div className="uploadFile">
                       <div className="thumb">
                         {row.previewUrl ? (
-                          <img src={row.previewUrl} alt="" loading="lazy" />
+                          <img
+                            src={row.previewUrl}
+                            alt=""
+                            loading="lazy"
+                            onError={(event) => {
+                              event.currentTarget.hidden = true;
+                              event.currentTarget.parentElement?.classList.add("thumb--failed");
+                            }}
+                          />
                         ) : row.contentType === "application/pdf" ? (
                           "PDF"
                         ) : (
@@ -122,6 +141,7 @@ export default function UploadsPage() {
                       </div>
                       <div className="uploadFileText">
                         <div className="fileName">{row.originalFilename}</div>
+                        <div className="muted">{formatFileSize(row.fileSize)}</div>
                         <div className="muted">{row.uploadId}</div>
                       </div>
                     </div>
@@ -134,8 +154,8 @@ export default function UploadsPage() {
                     <div className="tableText">{row.variantTitle ?? row.variantId ?? "Unknown"}</div>
                     {row.selectedSize ? <div className="muted">Size: {row.selectedSize}</div> : null}
                   </td>
-                  <td>{row.quantity ?? ""}</td>
-                  <td>{row.uploadedAt ? new Date(row.uploadedAt).toLocaleString() : "Pending"}</td>
+                  <td className="nowrap">{row.quantity ?? ""}</td>
+                  <td className="nowrap">{row.uploadedAt ? new Date(row.uploadedAt).toLocaleString() : "Pending"}</td>
                   <td>
                     <span className={`status ${row.status}`}>{row.status}</span>
                   </td>

@@ -1,11 +1,22 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
-import { getStoredUploadResponse } from "../lib/uploads.server";
+import {
+  getStoredUploadResponse,
+  verifyAdminFileUrlSignature
+} from "../lib/uploads.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
-  const result = await getStoredUploadResponse(session.shop, params.uploadId || "");
+  const uploadId = params.uploadId || "";
+  const signed = verifyAdminFileUrlSignature({
+    shop: url.searchParams.get("shop"),
+    uploadId,
+    expires: url.searchParams.get("expires"),
+    inline: url.searchParams.get("inline"),
+    signature: url.searchParams.get("signature")
+  });
+  const shop = signed?.shop ?? (await authenticate.admin(request)).session.shop;
+  const result = await getStoredUploadResponse(shop, uploadId);
 
   if (!result) {
     throw new Response("Upload not found", { status: 404 });
@@ -19,7 +30,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set(
     "Content-Disposition",
-    `${url.searchParams.get("inline") ? "inline" : "attachment"}; filename="${safeFilename}"`
+    `${signed?.inline ? "inline" : "attachment"}; filename="${safeFilename}"`
   );
 
   return new Response(file.body, {

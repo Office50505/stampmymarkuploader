@@ -1,8 +1,16 @@
+.uploadsToolbar {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
 .uploadFilters {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .uploadFilter {
@@ -22,6 +30,13 @@
   color: #fff;
 }
 
+.uploadCount {
+  color: #6b7280;
+  flex: 0 0 auto;
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .uploadTableWrap {
   overflow-x: auto;
   padding-bottom: 2px;
@@ -29,25 +44,25 @@
 
 .uploadTable {
   border-collapse: collapse;
-  min-width: 860px;
+  min-width: 0;
   table-layout: fixed;
   width: 100%;
 }
 
 .colFile {
-  width: 28%;
+  width: 29%;
 }
 
 .colProduct {
-  width: 17%;
+  width: 18%;
 }
 
 .colVariant {
-  width: 14%;
+  width: 15%;
 }
 
 .colQty {
-  width: 6%;
+  width: 5%;
 }
 
 .colUploaded {
@@ -59,7 +74,7 @@
 }
 
 .colOrder {
-  width: 7%;
+  width: 5%;
 }
 
 .colActions {
@@ -70,7 +85,7 @@
 .uploadTable td {
   border-bottom: 1px solid #e5e7eb;
   font-size: 13px;
-  padding: 10px;
+  padding: 13px 10px;
   text-align: left;
   vertical-align: top;
 }
@@ -82,7 +97,7 @@
 
 .thumb {
   align-items: center;
-  background: #f3f4f6;
+  background: #f8fafc;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
   color: #4b5563;
@@ -90,10 +105,11 @@
   flex: 0 0 auto;
   font-size: 12px;
   font-weight: 700;
-  height: 56px;
+  height: 64px;
   justify-content: center;
   overflow: hidden;
-  width: 56px;
+  position: relative;
+  width: 64px;
 }
 
 .thumb img {
@@ -102,10 +118,14 @@
   width: 100%;
 }
 
+.thumb--failed::after {
+  content: "Image";
+}
+
 .uploadFile {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -118,8 +138,9 @@
   display: inline-block;
   font-size: 12px;
   line-height: 18px;
-  padding: 2px 8px;
+  padding: 3px 9px;
   text-transform: capitalize;
+  white-space: nowrap;
 }
 
 .status.uploaded,
@@ -163,6 +184,10 @@
   font-size: 12px;
   line-height: 16px;
   overflow-wrap: anywhere;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 .uploadDetailGrid {
@@ -228,5 +253,14 @@
 @media (max-width: 760px) {
   .uploadDetailGrid {
     grid-template-columns: 1fr;
+  }
+
+  .uploadsToolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .uploadTable {
+    min-width: 780px;
   }
 }

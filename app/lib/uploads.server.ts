@@ -1,6 +1,7 @@
 import type { UploadStatus } from "@prisma/client";
+import crypto from "node:crypto";
 import prisma from "~/db.server";
-import { uploadConfig } from "./env.server";
+import { requireServerEnv, uploadConfig } from "./env.server";
 import {
   createUploadId,
   validateUploadRequest
@@ -320,11 +321,88 @@ export const createAdminFileUrl = async ({
     return null;
   }
 
+  const expires = Math.floor(Date.now() / 1000) + 10 * 60;
+  const inlineValue = inline ? "1" : "0";
+  const signature = signAdminFileUrl({
+    shop,
+    uploadId: upload.uploadId,
+    expires,
+    inline: inlineValue
+  });
+
   return {
-    url: `/app/uploads/${encodeURIComponent(upload.uploadId)}/file${
-      inline ? "?inline=1" : ""
-    }`
+    url:
+      `/app/uploads/${encodeURIComponent(upload.uploadId)}/file` +
+      `?shop=${encodeURIComponent(shop)}` +
+      `&expires=${expires}` +
+      `&inline=${inlineValue}` +
+      `&signature=${signature}`
   };
+};
+
+const adminFileSignaturePayload = ({
+  shop,
+  uploadId,
+  expires,
+  inline
+}: {
+  shop: string;
+  uploadId: string;
+  expires: number;
+  inline: string;
+}) => `${shop}:${uploadId}:${expires}:${inline}`;
+
+const signAdminFileUrl = (input: {
+  shop: string;
+  uploadId: string;
+  expires: number;
+  inline: string;
+}) =>
+  crypto
+    .createHmac("sha256", requireServerEnv("SHOPIFY_API_SECRET"))
+    .update(adminFileSignaturePayload(input))
+    .digest("hex");
+
+export const verifyAdminFileUrlSignature = ({
+  shop,
+  uploadId,
+  expires,
+  inline,
+  signature
+}: {
+  shop: string | null;
+  uploadId: string;
+  expires: string | null;
+  inline: string | null;
+  signature: string | null;
+}) => {
+  if (!shop || !expires || !signature) {
+    return null;
+  }
+
+  const expiresAt = Number(expires);
+  if (!Number.isFinite(expiresAt) || expiresAt < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+
+  const inlineValue = inline === "1" ? "1" : "0";
+  const expected = signAdminFileUrl({
+    shop,
+    uploadId,
+    expires: expiresAt,
+    inline: inlineValue
+  });
+  const expectedBuffer = Buffer.from(expected, "hex");
+  const actualBuffer = Buffer.from(signature, "hex");
+
+  if (
+    expectedBuffer.length !== actualBuffer.length ||
+    !crypto.timingSafeEqual(expectedBuffer, actualBuffer)
+  ) {
+    return null;
+  }
+
+  return { shop, inline: inlineValue === "1" };
 };
 
 export const getStoredUploadResponse = async (shop: string, uploadId: string) => {

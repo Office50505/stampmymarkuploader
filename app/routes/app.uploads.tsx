@@ -68,6 +68,21 @@ const formatStatus = (status: string) => statusLabels[status] ?? status;
 const shortenUploadId = (uploadId: string) =>
   uploadId.length > 14 ? `${uploadId.slice(0, 10)}...${uploadId.slice(-4)}` : uploadId;
 
+const formatIpLocation = (row: {
+  ipCountry: string | null;
+  ipCountryCode: string | null;
+  ipAsn: string | null;
+}) => {
+  const country = row.ipCountry || row.ipCountryCode;
+  const asn = row.ipAsn;
+
+  if (country && asn) {
+    return `${country} · ${asn}`;
+  }
+
+  return country || asn || "Unknown";
+};
+
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: adminStyles }
 ];
@@ -136,6 +151,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         status: upload.status,
         uploadedAt: upload.uploadedAt?.toISOString() ?? null,
         createdAt: upload.createdAt.toISOString(),
+        ipAddress: upload.ipAddress,
+        ipCountryCode: upload.ipCountryCode,
+        ipCountry: upload.ipCountry,
+        ipContinent: upload.ipContinent,
+        ipAsn: upload.ipAsn,
+        ipAsName: upload.ipAsName,
         orderName: upload.orderName,
         orderId: upload.orderId,
         previewUrl: preview?.url ?? null,
@@ -207,6 +228,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           status: selectedUpload.status,
           uploadedAt: selectedUpload.uploadedAt?.toISOString() ?? null,
           createdAt: selectedUpload.createdAt.toISOString(),
+          ipAddress: selectedUpload.ipAddress,
+          ipCountryCode: selectedUpload.ipCountryCode,
+          ipCountry: selectedUpload.ipCountry,
+          ipContinent: selectedUpload.ipContinent,
+          ipAsn: selectedUpload.ipAsn,
+          ipAsName: selectedUpload.ipAsName,
           orderName: selectedUpload.orderName,
           orderId: selectedUpload.orderId,
           previewUrl: selectedInlineUrl?.url ?? null,
@@ -487,7 +514,7 @@ export default function UploadsPage() {
                   <th className="colProduct">Product</th>
                   <th className="colVariant">Variant / Size</th>
                   <th className="colQty">Qty</th>
-                  <th className="colUploaded">Uploaded</th>
+                  <th className="colLocation">IP location</th>
                   <th className="colStatus">Status</th>
                   <th className="colOrder">Order</th>
                   <th className="colActions">Actions</th>
@@ -568,7 +595,15 @@ export default function UploadsPage() {
                         {row.selectedSize ? <div className="muted">Size: {row.selectedSize}</div> : null}
                       </td>
                       <td className="nowrap">{row.quantity ?? ""}</td>
-                      <td className="nowrap">{row.uploadedAt ? new Date(row.uploadedAt).toLocaleString() : "Pending"}</td>
+                      <td>
+                        <div
+                          className="tableText"
+                          title={row.ipAddress ?? formatIpLocation(row)}
+                        >
+                          {formatIpLocation(row)}
+                        </div>
+                        {row.ipAddress ? <div className="muted">{row.ipAddress}</div> : null}
+                      </td>
                       <td>
                         <span className={`status ${row.status}`}>{formatStatus(row.status)}</span>
                       </td>
@@ -637,6 +672,9 @@ export default function UploadsPage() {
                 <div><dt>Size</dt><dd>{selectedUpload.selectedSize ?? ""}</dd></div>
                 <div><dt>Quantity</dt><dd>{selectedUpload.quantity ?? ""}</dd></div>
                 <div><dt>Uploaded</dt><dd>{selectedUpload.uploadedAt ? new Date(selectedUpload.uploadedAt).toLocaleString() : "Pending"}</dd></div>
+                <div><dt>IP location</dt><dd>{formatIpLocation(selectedUpload)}</dd></div>
+                <div><dt>IP address</dt><dd>{selectedUpload.ipAddress ?? "Unknown"}</dd></div>
+                <div><dt>Network</dt><dd>{selectedUpload.ipAsName ?? selectedUpload.ipAsn ?? "Unknown"}</dd></div>
                 <div><dt>Order</dt><dd>{selectedUpload.orderName ?? ""}</dd></div>
               </dl>
             </aside>

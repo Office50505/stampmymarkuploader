@@ -58,6 +58,15 @@ model Upload {
   sessionId        String?
   cartToken        String?
   customerId       String?
+  ipAddress        String?
+  ipCountryCode    String?
+  ipCountry        String?
+  ipContinentCode  String?
+  ipContinent      String?
+  ipAsn            String?
+  ipAsName         String?
+  ipAsDomain       String?
+  ipGeolocatedAt   DateTime?
   status           UploadStatus @default(uploaded)
   orderId          String?
   orderName        String?
@@ -72,6 +81,7 @@ model Upload {
   @@index([shop, status, createdAt])
   @@index([shop, orderId])
   @@index([shop, sessionId])
+  @@index([shop, ipCountryCode])
   @@index([expiresAt])
 }
 

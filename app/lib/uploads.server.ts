@@ -12,6 +12,7 @@ import {
   storageBucket,
   uploadStoredFile
 } from "./storage.server";
+import type { IpLocation } from "./ip-geolocation.server";
 
 export type UploadInitInput = {
   shop: string;
@@ -28,6 +29,7 @@ export type UploadInitInput = {
   sessionId?: string | null;
   cartToken?: string | null;
   customerId?: string | null;
+  ipLocation?: IpLocation | null;
 };
 
 const cleanText = (value: string | null | undefined, maxLength: number) => {
@@ -120,6 +122,15 @@ export const initUpload = async (input: UploadInitInput) => {
       sessionId,
       cartToken: cleanText(input.cartToken, 160),
       customerId: cleanText(input.customerId, 64),
+      ipAddress: cleanText(input.ipLocation?.ipAddress, 64),
+      ipCountryCode: cleanText(input.ipLocation?.ipCountryCode, 8),
+      ipCountry: cleanText(input.ipLocation?.ipCountry, 120),
+      ipContinentCode: cleanText(input.ipLocation?.ipContinentCode, 8),
+      ipContinent: cleanText(input.ipLocation?.ipContinent, 120),
+      ipAsn: cleanText(input.ipLocation?.ipAsn, 32),
+      ipAsName: cleanText(input.ipLocation?.ipAsName, 160),
+      ipAsDomain: cleanText(input.ipLocation?.ipAsDomain, 160),
+      ipGeolocatedAt: input.ipLocation?.ipGeolocatedAt ?? null,
       status: "uploaded",
       expiresAt
     }
@@ -383,7 +394,12 @@ const buildUploadWhere = ({
             { uploadId: { contains: cleanedQuery, mode: "insensitive" } },
             { originalFilename: { contains: cleanedQuery, mode: "insensitive" } },
             { productTitle: { contains: cleanedQuery, mode: "insensitive" } },
-            { orderName: { contains: cleanedQuery, mode: "insensitive" } }
+            { orderName: { contains: cleanedQuery, mode: "insensitive" } },
+            { ipAddress: { contains: cleanedQuery, mode: "insensitive" } },
+            { ipCountryCode: { contains: cleanedQuery, mode: "insensitive" } },
+            { ipCountry: { contains: cleanedQuery, mode: "insensitive" } },
+            { ipAsn: { contains: cleanedQuery, mode: "insensitive" } },
+            { ipAsName: { contains: cleanedQuery, mode: "insensitive" } }
           ]
         }
       : {})

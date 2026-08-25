@@ -16,6 +16,11 @@ export const bunnyConfig = {
   pullZoneUrl: (process.env.BUNNY_PULL_ZONE_URL || "").replace(/\/$/, "")
 };
 
+export const ipinfoConfig = {
+  token: process.env.IPINFO_TOKEN || "",
+  enabled: (process.env.IP_GEOLOCATION_PROVIDER || "").toLowerCase() === "ipinfo"
+};
+
 export const requireServerEnv = (key: string) => {
   const value = process.env[key];
   if (!value) {

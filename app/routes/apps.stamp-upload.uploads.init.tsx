@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { errorResponse, getShopFromAppProxy, jsonResponse } from "../lib/http.server";
+import { getClientIpFromRequest, lookupIpLocation } from "../lib/ip-geolocation.server";
 import { initUpload } from "../lib/uploads.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -16,6 +17,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return errorResponse("Invalid JSON body.", 400);
   }
 
+  const ipLocation = await lookupIpLocation(getClientIpFromRequest(request));
+
   const result = await initUpload({
     shop,
     filename: String(body.filename ?? ""),
@@ -30,7 +33,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     quantity: body.quantity ? Number(body.quantity) : null,
     sessionId: body.sessionId ? String(body.sessionId) : null,
     cartToken: body.cartToken ? String(body.cartToken) : null,
-    customerId: body.customerId ? String(body.customerId) : null
+    customerId: body.customerId ? String(body.customerId) : null,
+    ipLocation
   });
 
   if (!result.ok) {

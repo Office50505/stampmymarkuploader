@@ -22,6 +22,8 @@
     <div class="smm-upload__required" aria-hidden="true">*</div>
   {% endif %}
 
+  <div class="smm-upload__preview" data-upload-preview hidden></div>
+
   <button class="smm-upload__button" type="button" data-upload-trigger>
     {{ block.settings.button_label }}
   </button>
@@ -38,17 +40,6 @@
   <input type="hidden" name="properties[_stampmymark_original_filename]" data-upload-filename-property disabled>
 
   <div class="smm-upload__status" data-upload-status role="status" aria-live="polite"></div>
-
-  <div class="smm-upload__progress" data-upload-progress hidden>
-    <div class="smm-upload__progress-bar" data-upload-progress-bar></div>
-  </div>
-
-  <div class="smm-upload__preview" data-upload-preview hidden></div>
-
-  <div class="smm-upload__actions" data-upload-actions hidden>
-    <button type="button" class="smm-upload__link" data-upload-replace>Replace</button>
-    <button type="button" class="smm-upload__link smm-upload__link--danger" data-upload-remove>Remove</button>
-  </div>
 </div>
 
 {% schema %}

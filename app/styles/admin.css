@@ -24,12 +24,46 @@
 
 .uploadTableWrap {
   overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .uploadTable {
   border-collapse: collapse;
-  min-width: 980px;
+  min-width: 860px;
+  table-layout: fixed;
   width: 100%;
+}
+
+.colFile {
+  width: 28%;
+}
+
+.colProduct {
+  width: 17%;
+}
+
+.colVariant {
+  width: 14%;
+}
+
+.colQty {
+  width: 6%;
+}
+
+.colUploaded {
+  width: 13%;
+}
+
+.colStatus {
+  width: 10%;
+}
+
+.colOrder {
+  width: 7%;
+}
+
+.colActions {
+  width: 5%;
 }
 
 .uploadTable th,
@@ -38,7 +72,7 @@
   font-size: 13px;
   padding: 10px;
   text-align: left;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .uploadTable th {
@@ -53,16 +87,30 @@
   border-radius: 6px;
   color: #4b5563;
   display: flex;
-  height: 48px;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  height: 56px;
   justify-content: center;
   overflow: hidden;
-  width: 48px;
+  width: 56px;
 }
 
 .thumb img {
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   width: 100%;
+}
+
+.uploadFile {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+}
+
+.uploadFileText {
+  min-width: 0;
 }
 
 .status {
@@ -93,10 +141,92 @@
 
 .fileName {
   font-weight: 600;
-  max-width: 220px;
   overflow-wrap: anywhere;
+}
+
+.tableText {
+  overflow-wrap: anywhere;
+}
+
+.tableAction {
+  color: #005bd3;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.tableAction:hover {
+  text-decoration: underline;
 }
 
 .muted {
   color: #6b7280;
+  font-size: 12px;
+  line-height: 16px;
+  overflow-wrap: anywhere;
+}
+
+.uploadDetailGrid {
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(220px, 360px) minmax(0, 1fr);
+}
+
+.detailPreview {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  display: block;
+  max-height: 480px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.detailFileTile {
+  align-items: center;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  color: #4b5563;
+  display: flex;
+  font-weight: 700;
+  height: 180px;
+  justify-content: center;
+  width: 180px;
+}
+
+.detailTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.detailTable th,
+.detailTable td {
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+  padding: 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.detailTable th {
+  color: #4b5563;
+  font-weight: 600;
+  width: 150px;
+}
+
+.detailTable td {
+  overflow-wrap: anywhere;
+}
+
+.detailActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (max-width: 760px) {
+  .uploadDetailGrid {
+    grid-template-columns: 1fr;
+  }
 }

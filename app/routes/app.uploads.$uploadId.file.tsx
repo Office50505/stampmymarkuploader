@@ -12,11 +12,14 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 
   const { upload, file } = result;
+  const safeFilename = upload.originalFilename.replace(/["\r\n]/g, "");
   const headers = new Headers();
   headers.set("Content-Type", upload.contentType);
+  headers.set("Cache-Control", "private, no-store");
+  headers.set("X-Content-Type-Options", "nosniff");
   headers.set(
     "Content-Disposition",
-    `${url.searchParams.get("inline") ? "inline" : "attachment"}; filename="${upload.originalFilename.replaceAll('"', "")}"`
+    `${url.searchParams.get("inline") ? "inline" : "attachment"}; filename="${safeFilename}"`
   );
 
   return new Response(file.body, {

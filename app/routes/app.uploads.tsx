@@ -96,21 +96,21 @@ export default function UploadsPage() {
           <table className="uploadTable">
             <thead>
               <tr>
-                <th>File</th>
-                <th>Product</th>
-                <th>Variant / Size</th>
-                <th>Qty</th>
-                <th>Uploaded</th>
-                <th>Status</th>
-                <th>Order</th>
-                <th>Actions</th>
+                <th className="colFile">File</th>
+                <th className="colProduct">Product</th>
+                <th className="colVariant">Variant / Size</th>
+                <th className="colQty">Qty</th>
+                <th className="colUploaded">Uploaded</th>
+                <th className="colStatus">Status</th>
+                <th className="colOrder">Order</th>
+                <th className="colActions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((row) => (
                 <tr key={row.uploadId}>
                   <td>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div className="uploadFile">
                       <div className="thumb">
                         {row.previewUrl ? (
                           <img src={row.previewUrl} alt="" loading="lazy" />
@@ -120,18 +120,18 @@ export default function UploadsPage() {
                           "File"
                         )}
                       </div>
-                      <div>
+                      <div className="uploadFileText">
                         <div className="fileName">{row.originalFilename}</div>
                         <div className="muted">{row.uploadId}</div>
                       </div>
                     </div>
                   </td>
                   <td>
-                    <div>{row.productTitle ?? row.productId ?? "Unknown"}</div>
+                    <div className="tableText">{row.productTitle ?? row.productId ?? "Unknown"}</div>
                     {row.productId ? <div className="muted">{row.productId}</div> : null}
                   </td>
                   <td>
-                    <div>{row.variantTitle ?? row.variantId ?? "Unknown"}</div>
+                    <div className="tableText">{row.variantTitle ?? row.variantId ?? "Unknown"}</div>
                     {row.selectedSize ? <div className="muted">Size: {row.selectedSize}</div> : null}
                   </td>
                   <td>{row.quantity ?? ""}</td>
@@ -141,7 +141,7 @@ export default function UploadsPage() {
                   </td>
                   <td>{row.orderName ?? ""}</td>
                   <td>
-                    <Link to={`/app/uploads/${row.uploadId}`}>Open</Link>
+                    <Link className="tableAction" to={`/app/uploads/${row.uploadId}`}>Open</Link>
                   </td>
                 </tr>
               ))}

@@ -61,22 +61,22 @@ export default function UploadDetailPage() {
         <p>
           <Link to="/app/uploads">Back to uploads</Link>
         </p>
-        <div style={{ display: "grid", gap: 20, gridTemplateColumns: "minmax(0, 360px) minmax(0, 1fr)" }}>
+        <div className="uploadDetailGrid">
           <div>
             {fileUrl && isImage ? (
               <img
                 src={fileUrl}
                 alt={upload.originalFilename}
-                style={{ maxWidth: "100%", borderRadius: 6, border: "1px solid #e5e7eb" }}
+                className="detailPreview"
               />
             ) : (
-              <div className="thumb" style={{ width: 160, height: 160 }}>
+              <div className="detailFileTile">
                 {upload.contentType === "application/pdf" ? "PDF" : "File"}
               </div>
             )}
           </div>
           <div>
-            <table className="uploadTable" style={{ minWidth: 0 }}>
+            <table className="detailTable">
               <tbody>
                 <tr><th>Upload ID</th><td>{upload.uploadId}</td></tr>
                 <tr><th>Filename</th><td>{upload.originalFilename}</td></tr>
@@ -93,11 +93,10 @@ export default function UploadDetailPage() {
               </tbody>
             </table>
             {fileUrl ? (
-              <p>
-                <a href={fileUrl} target="_blank" rel="noreferrer">View original</a>
-                {" | "}
-                <a href={`/app/uploads/${upload.uploadId}/download-url`} target="_blank" rel="noreferrer">Download original</a>
-              </p>
+              <div className="detailActions">
+                <a className="tableAction" href={fileUrl} target="_blank" rel="noreferrer">View original</a>
+                <a className="tableAction" href={`/app/uploads/${upload.uploadId}/download-url`} target="_blank" rel="noreferrer">Download original</a>
+              </div>
             ) : null}
           </div>
         </div>

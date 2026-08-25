@@ -362,25 +362,27 @@ export default function UploadsPage() {
               defaultValue={query}
             />
           </div>
-          <div className="filterField dateField">
-            <label htmlFor="upload-date-from">From</label>
-            <input
-              id="upload-date-from"
-              className="uploadSearchInput"
-              type="date"
-              name="dateFrom"
-              defaultValue={dateFrom}
-            />
-          </div>
-          <div className="filterField dateField">
-            <label htmlFor="upload-date-to">To</label>
-            <input
-              id="upload-date-to"
-              className="uploadSearchInput"
-              type="date"
-              name="dateTo"
-              defaultValue={dateTo}
-            />
+          <div className="dateFilterGroup" aria-label="Upload date range">
+            <div className="datePillField">
+              <label htmlFor="upload-date-from">From</label>
+              <input
+                id="upload-date-from"
+                className="datePillInput"
+                type="date"
+                name="dateFrom"
+                defaultValue={dateFrom}
+              />
+            </div>
+            <div className="datePillField">
+              <label htmlFor="upload-date-to">To</label>
+              <input
+                id="upload-date-to"
+                className="datePillInput"
+                type="date"
+                name="dateTo"
+                defaultValue={dateTo}
+              />
+            </div>
           </div>
           <button className="secondaryButton" type="submit">Search</button>
           {query || dateFrom || dateTo ? (

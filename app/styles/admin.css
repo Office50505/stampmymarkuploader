@@ -135,7 +135,7 @@
 .uploadFilters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 0;
 }
 
@@ -144,9 +144,10 @@
   border-radius: 6px;
   color: #202223;
   display: inline-block;
-  font-size: 13px;
-  line-height: 18px;
-  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  padding: 5px 9px;
   text-decoration: none;
 }
 
@@ -181,9 +182,9 @@
 .uploadSearch {
   align-items: end;
   display: flex;
-  gap: 8px;
-  margin-bottom: 18px;
   flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .uploadSearchInput {
@@ -192,9 +193,10 @@
   color: #202223;
   flex: 1 1 auto;
   font: inherit;
-  min-height: 36px;
+  font-size: 13px;
+  min-height: 32px;
   min-width: 0;
-  padding: 7px 10px;
+  padding: 5px 9px;
 }
 
 .filterField {
@@ -219,11 +221,59 @@
   width: 156px;
 }
 
+.dateFilterGroup {
+  align-items: end;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.datePillField {
+  align-items: center;
+  background: #fff;
+  border: 1px solid #c9cccf;
+  border-radius: 8px;
+  display: inline-flex;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px;
+}
+
+.datePillField:focus-within {
+  border-color: #005bd3;
+  box-shadow: 0 0 0 1px #005bd3;
+}
+
+.datePillField label {
+  color: #202223;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.datePillInput {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: #202223;
+  font: inherit;
+  font-size: 12px;
+  height: 30px;
+  line-height: 16px;
+  min-width: 118px;
+  padding: 0;
+}
+
+.datePillInput:focus {
+  outline: 0;
+}
+
 .quickFilters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: -6px 0 16px;
+  gap: 6px;
+  margin: -2px 0 14px;
 }
 
 .quickFilter {
@@ -234,8 +284,8 @@
   display: inline-flex;
   font-size: 12px;
   font-weight: 600;
-  line-height: 18px;
-  padding: 5px 10px;
+  line-height: 16px;
+  padding: 4px 9px;
   text-decoration: none;
 }
 
@@ -256,11 +306,11 @@
   border-radius: 6px;
   display: inline-flex;
   font: inherit;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   justify-content: center;
-  min-height: 36px;
-  padding: 7px 12px;
+  min-height: 32px;
+  padding: 5px 10px;
   text-decoration: none;
 }
 
@@ -323,7 +373,7 @@
   align-items: center;
   display: flex;
   flex: 0 0 auto;
-  gap: 10px;
+  gap: 8px;
 }
 
 .uploadTable {
@@ -501,9 +551,10 @@
   border-radius: 6px;
   color: #005bd3;
   display: inline-flex;
+  font-size: 12px;
   font-weight: 600;
-  min-height: 30px;
-  padding: 5px 10px;
+  min-height: 28px;
+  padding: 4px 8px;
   text-decoration: none;
 }
 
@@ -684,14 +735,14 @@
 .paginationBar {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
 .pageControls {
   align-items: center;
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .pageArrow {
@@ -701,13 +752,13 @@
   border-radius: 6px;
   color: #202223;
   display: inline-flex;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  height: 34px;
+  height: 30px;
   justify-content: center;
   line-height: 1;
   text-decoration: none;
-  width: 34px;
+  width: 30px;
 }
 
 .pageArrow:hover {
@@ -818,6 +869,21 @@
   .dateField,
   .searchField {
     width: 100%;
+  }
+
+  .dateFilterGroup {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .datePillField {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .datePillInput {
+    flex: 1 1 auto;
   }
 
   .settingsGrid {

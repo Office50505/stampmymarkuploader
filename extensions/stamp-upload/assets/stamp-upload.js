@@ -373,7 +373,7 @@
         state.uploading = false;
         setLineItemProperties(root, form, state.uploadId, state.filename);
         showPreview(root, file, removeUpload);
-        setStatus(root, "File uploaded successfully.", "success");
+        setStatus(root, "");
         setButton(trigger, "uploaded", "Change File");
 
         if (required) {

@@ -1,6 +1,5 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { isRouteErrorResponse, Outlet, useLoaderData, useRouteError } from "react-router";
-import { useEffect } from "react";
+import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
@@ -27,19 +26,7 @@ export default function App() {
 export function ErrorBoundary() {
   const error = useRouteError();
 
-  if (isRouteErrorResponse(error) && error.status === 200) {
-    return <RecoverFromBareSuccess />;
-  }
-
   return boundary.error(error);
-}
-
-function RecoverFromBareSuccess() {
-  useEffect(() => {
-    window.location.replace(`/app${window.location.search}`);
-  }, []);
-
-  return <p>Opening StampMyMark uploader...</p>;
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

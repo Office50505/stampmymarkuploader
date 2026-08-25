@@ -1,7 +1,7 @@
 import { redirect, type LoaderFunctionArgs } from "react-router";
 import { useEffect } from "react";
 
-const target = "/app/uploads";
+const target = "/app";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -13,5 +13,5 @@ export default function InstalledAppEntryRedirect() {
     window.location.replace(target + window.location.search);
   }, []);
 
-  return <p>Opening uploads...</p>;
+  return <p>Opening StampMyMark uploader...</p>;
 }

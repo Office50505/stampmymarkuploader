@@ -7,7 +7,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const nestedPath = splat.startsWith("app") ? splat.slice(3) : splat;
   const path = nestedPath
     ? `/${nestedPath.replace(/^\/+/, "")}`
-    : "/uploads";
+    : "";
 
   throw redirect(`/app${path}${url.search}`);
 };
@@ -16,9 +16,9 @@ export default function InstalledAppNestedRedirect() {
   useEffect(() => {
     const path = window.location.pathname.includes("/app/")
       ? window.location.pathname.replace(/^.*\/app/, "/app")
-      : "/app/uploads";
+      : "/app";
     window.location.replace(path + window.location.search);
   }, []);
 
-  return <p>Opening uploads...</p>;
+  return <p>Opening StampMyMark uploader...</p>;
 }

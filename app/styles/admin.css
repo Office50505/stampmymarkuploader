@@ -1,3 +1,25 @@
+.dashboardHero {
+  align-items: center;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.dashboardHero h1 {
+  font-size: 20px;
+  line-height: 26px;
+  margin: 0;
+}
+
+.dashboardHero p {
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 18px;
+  margin: 4px 0 0;
+  max-width: 560px;
+}
+
 .statsGrid {
   display: grid;
   gap: 12px;
@@ -32,6 +54,64 @@
   display: block;
   font-size: 24px;
   line-height: 28px;
+}
+
+.sectionHeader {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin: 6px 0 12px;
+}
+
+.sectionHeader h2 {
+  font-size: 15px;
+  line-height: 20px;
+  margin: 0;
+}
+
+.recentGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.recentUpload {
+  align-items: center;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  color: #202223;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  text-decoration: none;
+}
+
+.recentUpload:hover {
+  border-color: #8c9196;
+}
+
+.recentMeta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.recentMeta > span:not(.status) {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.emptyState {
+  border: 1px dashed #c9cccf;
+  border-radius: 8px;
+  color: #6b7280;
+  font-size: 13px;
+  padding: 18px;
 }
 
 .uploadsToolbar {
@@ -441,6 +521,11 @@
   }
 
   .uploadsToolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboardHero {
     align-items: flex-start;
     flex-direction: column;
   }

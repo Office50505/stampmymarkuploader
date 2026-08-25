@@ -1,1 +1,436 @@
-"use strict";(function(){const T=["image/jpeg","image/png","image/webp","application/pdf"],P=["jpg","jpeg","png","webp","pdf"],I="/apps/stamp-upload/uploads/",h="smm_upload_session_id",p=(e,t)=>e.querySelector(t);function U(){let e=window.sessionStorage.getItem(h);return e||(e="sess_"+(window.crypto&&window.crypto.randomUUID?window.crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2)).replace(/-/g,""),window.sessionStorage.setItem(h,e)),e}function S(){const e=document.cookie.match(/(?:^|; )cart=([^;]+)/);return e?decodeURIComponent(e[1]):null}function q(e){return(e.split(".").pop()||"").toLowerCase()}function x(e){const t=e/1024/1024;return t>=1?t.toFixed(1)+" MB":Math.ceil(e/1024)+" KB"}function u(e,t,a){const n=p(e,"[data-upload-status]");n&&(n.textContent=t||"",n.classList.toggle("is-error",a==="error"),n.classList.toggle("is-success",a==="success"))}function c(e,t,a){e.textContent=a,e.dataset.uploadState=t,e.disabled=t==="uploading"}function D(e){return e.closest("form[action*='/cart/add']")||document.querySelector("form[action*='/cart/add']")}function E(e){const t=e.dataset.sizeOptionName||"Size",a=Array.from(document.querySelectorAll("[name^='options']")).find(d=>d.name==="options["+t+"]");if(a&&"value"in a)return a.value;const n=document.querySelector("select[name^='options']");return n?n.value:e.dataset.variantTitle||null}function _(e){const t=e&&e.querySelector("[name='quantity']"),a=t?Number(t.value):1;return Number.isFinite(a)&&a>0?a:1}function L(e,t){const a=t&&t.querySelector("[name='id']");return a&&a.value?a.value:e.dataset.variantId||null}function C(e,t,a,n,d){let i=p(e,a);t&&(!i||!t.contains(i))&&(i=t.querySelector(`[name="${n}"]`),i||(i=document.createElement("input"),i.type="hidden",i.name=n,t.appendChild(i))),i&&(i.value=d||"",i.disabled=!d)}function v(e,t,a,n){C(e,t,"[data-upload-id-property]","properties[_stampmymark_upload_id]",a),C(e,t,"[data-upload-filename-property]","properties[_stampmymark_original_filename]",n)}function N(e){return e?Array.from(e.querySelectorAll("[type='submit'], button[name='add']")):[]}function f(e,t){N(e).forEach(a=>{t?a.dataset.smmDisabled==="true"&&(a.disabled=!1,delete a.dataset.smmDisabled):a.disabled||(a.disabled=!0,a.dataset.smmDisabled="true")})}async function w(e,t){const a=await fetch(I+e,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(t)}),n=await a.json().catch(()=>({}));if(!a.ok||n.ok===!1)throw new Error(n.errors&&n.errors.join(" ")||"Upload request failed.");return n}function F(e,t,a,n){const d=new FormData;return d.append("uploadId",e),d.append("sessionId",a),d.append("file",t),new Promise((i,s)=>{const r=new XMLHttpRequest;r.open("POST",I+"file"),r.upload.addEventListener("progress",l=>{l.lengthComputable&&n(Math.max(1,Math.round(l.loaded/l.total*100)))}),r.addEventListener("load",()=>{let l={};try{l=JSON.parse(r.responseText||"{}")}catch(o){l={}}r.status>=200&&r.status<300&&l.ok!==!1?i(l):s(new Error(l.errors&&l.errors.join(" ")||"Upload failed."))}),r.addEventListener("error",()=>s(new Error("Upload failed."))),r.send(d)})}function g(e){const t=p(e,"[data-upload-preview]");t&&(t.hidden=!0,t.innerHTML="")}function M(e,t,a){const n=p(e,"[data-upload-preview]");if(!n)return;n.innerHTML="",n.hidden=!1;const d=document.createElement("div");if(d.className="smm-upload__preview-shell",t.type.startsWith("image/")){const s=document.createElement("img");s.alt=t.name,s.src=URL.createObjectURL(t),s.addEventListener("load",()=>URL.revokeObjectURL(s.src),{once:!0}),d.appendChild(s)}else{const s=document.createElement("div");s.className="smm-upload__preview-file",s.innerHTML="<strong>PDF</strong>";const r=document.createElement("span");r.className="smm-upload__preview-name",r.textContent=t.name,s.appendChild(r),d.appendChild(s)}const i=document.createElement("button");i.type="button",i.className="smm-upload__remove",i.setAttribute("aria-label","Remove uploaded file"),i.textContent="x",i.addEventListener("click",a),d.appendChild(i),n.appendChild(d)}function R(e){if(e.dataset.smmReady==="true")return;e.dataset.smmReady="true";const t=p(e,"[data-upload-trigger]"),a=p(e,"[data-upload-input]"),n=D(e),d=e.dataset.required==="true",i=t.textContent.trim()||"Upload Picture",s=U(),r={uploadId:null,filename:null,uploading:!1,file:null};d&&f(n,!1),c(t,"idle",i);async function l(){if(r.uploading)return;const o=r.uploadId;if(r.uploadId=null,r.filename=null,r.file=null,a.value="",g(e),v(e,n,"",""),u(e,""),c(t,"idle",i),d&&f(n,!1),o)try{await w("remove",{uploadId:o,sessionId:s})}catch(m){}}t.addEventListener("click",()=>{r.uploading||a.click()}),a.addEventListener("change",async()=>{const o=a.files&&a.files[0];if(!o)return;const m=Number(e.dataset.maxBytes||"0");if(!(T.includes(o.type)||P.includes(q(o.name)))){a.value="",g(e),u(e,"Please upload a JPG, PNG, WEBP, or PDF file.","error");return}if(m&&o.size>m){a.value="",g(e),u(e,"File is too large. Maximum size is "+x(m)+".","error");return}if(r.uploadId)try{await w("remove",{uploadId:r.uploadId,sessionId:s})}catch(y){}r.uploading=!0,r.uploadId=null,r.filename=null,r.file=o,g(e),v(e,n,"",""),d&&f(n,!1),u(e,"Uploading original file..."),c(t,"uploading","0% Uploading... Please wait.");try{const y=await w("init",{filename:o.name,contentType:o.type,fileSize:o.size,productId:e.dataset.productId,productGid:e.dataset.productGid,productHandle:e.dataset.productHandle,productTitle:e.dataset.productTitle,variantId:L(e,n),variantGid:e.dataset.variantGid,variantTitle:e.dataset.variantTitle,selectedSize:E(e),quantity:_(n),sessionId:s,cartToken:S(),customerId:e.dataset.customerId||null});await F(y.uploadId,o,s,j=>{c(t,"uploading",j+"% Uploading... Please wait.")}),r.uploadId=y.uploadId,r.filename=o.name,r.uploading=!1,v(e,n,r.uploadId,r.filename),M(e,o,l),u(e,"File uploaded successfully.","success"),c(t,"uploaded","Change File"),d&&f(n,!0)}catch(y){r.uploading=!1,r.uploadId=null,r.filename=null,r.file=null,a.value="",g(e),v(e,n,"",""),c(t,"idle",i),d&&f(n,!1),u(e,y.message||"Upload failed. Please try again.","error")}}),n&&n.addEventListener("submit",async o=>{if(r.uploading){o.preventDefault(),u(e,"Please wait until the file finishes uploading.","error");return}if(d&&!r.uploadId){o.preventDefault(),u(e,"Please upload a picture before adding this product to cart.","error");return}if(r.uploadId){o.preventDefault();try{await w("cart",{uploadId:r.uploadId,sessionId:s,cartToken:S(),quantity:_(n),selectedSize:E(e),variantId:L(e,n)}),n.submit()}catch(m){u(e,m.message||"Could not attach upload to cart.","error")}}})}document.querySelectorAll("[data-stamp-upload]").forEach(R)})();
+"use strict";
+
+(function () {
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+  const allowedExtensions = ["jpg", "jpeg", "png", "webp", "pdf"];
+  const appProxyBase = "/apps/stamp-upload/uploads/";
+  const sessionKey = "smm_upload_session_id";
+
+  const find = (root, selector) => root.querySelector(selector);
+
+  function getSessionId() {
+    let sessionId = window.sessionStorage.getItem(sessionKey);
+
+    if (!sessionId) {
+      const randomId =
+        window.crypto && window.crypto.randomUUID
+          ? window.crypto.randomUUID()
+          : String(Date.now()) + Math.random().toString(16).slice(2);
+
+      sessionId = `sess_${randomId}`.replace(/-/g, "");
+      window.sessionStorage.setItem(sessionKey, sessionId);
+    }
+
+    return sessionId;
+  }
+
+  function getCartToken() {
+    const match = document.cookie.match(/(?:^|; )cart=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  function getExtension(filename) {
+    return (filename.split(".").pop() || "").toLowerCase();
+  }
+
+  function formatFileSize(bytes) {
+    const mb = bytes / 1024 / 1024;
+    return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+  }
+
+  function setStatus(root, message, state) {
+    const status = find(root, "[data-upload-status]");
+    if (!status) return;
+
+    status.textContent = message || "";
+    status.classList.toggle("is-error", state === "error");
+    status.classList.toggle("is-success", state === "success");
+  }
+
+  function setButton(button, state, label) {
+    button.textContent = label;
+    button.dataset.uploadState = state;
+    button.disabled = state === "uploading";
+  }
+
+  function getProductForm(root) {
+    return (
+      root.closest("form[action*='/cart/add']") ||
+      document.querySelector("form[action*='/cart/add']")
+    );
+  }
+
+  function getSelectedSize(root) {
+    const optionName = root.dataset.sizeOptionName || "Size";
+    const namedOption = Array.from(document.querySelectorAll("[name^='options']")).find(
+      (input) => input.name === `options[${optionName}]`
+    );
+
+    if (namedOption && "value" in namedOption) {
+      return namedOption.value;
+    }
+
+    const firstOption = document.querySelector("select[name^='options']");
+    return firstOption ? firstOption.value : root.dataset.variantTitle || null;
+  }
+
+  function getQuantity(form) {
+    const quantityInput = form && form.querySelector("[name='quantity']");
+    const quantity = quantityInput ? Number(quantityInput.value) : 1;
+    return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+  }
+
+  function getVariantId(root, form) {
+    const variantInput = form && form.querySelector("[name='id']");
+    return variantInput && variantInput.value ? variantInput.value : root.dataset.variantId || null;
+  }
+
+  function setHiddenProperty(root, form, selector, name, value) {
+    let input = find(root, selector);
+
+    if (form && (!input || !form.contains(input))) {
+      input = form.querySelector(`[name="${name}"]`);
+
+      if (!input) {
+        input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        form.appendChild(input);
+      }
+    }
+
+    if (input) {
+      input.value = value || "";
+      input.disabled = !value;
+    }
+  }
+
+  function buildAdminUploadUrl(root, uploadId) {
+    const appUrl = (root.dataset.appUrl || "").trim().replace(/\/+$/, "");
+    if (!appUrl || !uploadId) return "";
+
+    return `${appUrl}/app/uploads?selected=${encodeURIComponent(uploadId)}`;
+  }
+
+  function setLineItemProperties(root, form, uploadId, filename) {
+    setHiddenProperty(
+      root,
+      form,
+      "[data-upload-id-property]",
+      "properties[_stampmymark_upload_id]",
+      uploadId
+    );
+    setHiddenProperty(
+      root,
+      form,
+      "[data-upload-filename-property]",
+      "properties[_stampmymark_original_filename]",
+      filename
+    );
+    setHiddenProperty(
+      root,
+      form,
+      "[data-upload-artwork-property]",
+      "properties[StampMyMark artwork]",
+      buildAdminUploadUrl(root, uploadId)
+    );
+  }
+
+  function getSubmitButtons(form) {
+    return form ? Array.from(form.querySelectorAll("[type='submit'], button[name='add']")) : [];
+  }
+
+  function setAddToCartEnabled(form, enabled) {
+    getSubmitButtons(form).forEach((button) => {
+      if (enabled) {
+        if (button.dataset.smmDisabled === "true") {
+          button.disabled = false;
+          delete button.dataset.smmDisabled;
+        }
+      } else if (!button.disabled) {
+        button.disabled = true;
+        button.dataset.smmDisabled = "true";
+      }
+    });
+  }
+
+  async function postJson(path, payload) {
+    const response = await fetch(appProxyBase + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const body = await response.json().catch(() => ({}));
+
+    if (!response.ok || body.ok === false) {
+      throw new Error((body.errors && body.errors.join(" ")) || "Upload request failed.");
+    }
+
+    return body;
+  }
+
+  function uploadFile(uploadId, file, sessionId, onProgress) {
+    const formData = new FormData();
+    formData.append("uploadId", uploadId);
+    formData.append("sessionId", sessionId);
+    formData.append("file", file);
+
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open("POST", appProxyBase + "file");
+      request.upload.addEventListener("progress", (event) => {
+        if (event.lengthComputable) {
+          onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100)));
+        }
+      });
+      request.addEventListener("load", () => {
+        let body = {};
+
+        try {
+          body = JSON.parse(request.responseText || "{}");
+        } catch (_error) {
+          body = {};
+        }
+
+        if (request.status >= 200 && request.status < 300 && body.ok !== false) {
+          resolve(body);
+        } else {
+          reject(new Error((body.errors && body.errors.join(" ")) || "Upload failed."));
+        }
+      });
+      request.addEventListener("error", () => reject(new Error("Upload failed.")));
+      request.send(formData);
+    });
+  }
+
+  function clearPreview(root) {
+    const preview = find(root, "[data-upload-preview]");
+    if (!preview) return;
+
+    preview.hidden = true;
+    preview.innerHTML = "";
+  }
+
+  function showPreview(root, file, onRemove) {
+    const preview = find(root, "[data-upload-preview]");
+    if (!preview) return;
+
+    preview.innerHTML = "";
+    preview.hidden = false;
+
+    const shell = document.createElement("div");
+    shell.className = "smm-upload__preview-shell";
+
+    if (file.type.startsWith("image/")) {
+      const image = document.createElement("img");
+      image.alt = file.name;
+      image.src = URL.createObjectURL(file);
+      image.addEventListener("load", () => URL.revokeObjectURL(image.src), { once: true });
+      shell.appendChild(image);
+    } else {
+      const fileTile = document.createElement("div");
+      fileTile.className = "smm-upload__preview-file";
+      fileTile.innerHTML = "<strong>PDF</strong>";
+
+      const fileName = document.createElement("span");
+      fileName.className = "smm-upload__preview-name";
+      fileName.textContent = file.name;
+      fileTile.appendChild(fileName);
+      shell.appendChild(fileTile);
+    }
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "smm-upload__remove";
+    removeButton.setAttribute("aria-label", "Remove uploaded file");
+    removeButton.textContent = "x";
+    removeButton.addEventListener("click", onRemove);
+    shell.appendChild(removeButton);
+
+    preview.appendChild(shell);
+  }
+
+  function enhanceUploader(root) {
+    if (root.dataset.smmReady === "true") return;
+    root.dataset.smmReady = "true";
+
+    const trigger = find(root, "[data-upload-trigger]");
+    const fileInput = find(root, "[data-upload-input]");
+    const form = getProductForm(root);
+    const required = root.dataset.required === "true";
+    const idleLabel = trigger.textContent.trim() || "Upload Picture";
+    const sessionId = getSessionId();
+    const state = {
+      uploadId: null,
+      filename: null,
+      uploading: false,
+      file: null
+    };
+
+    if (required) {
+      setAddToCartEnabled(form, false);
+    }
+    setButton(trigger, "idle", idleLabel);
+
+    async function removeUpload() {
+      if (state.uploading) return;
+
+      const previousUploadId = state.uploadId;
+      state.uploadId = null;
+      state.filename = null;
+      state.file = null;
+      fileInput.value = "";
+      clearPreview(root);
+      setLineItemProperties(root, form, "", "");
+      setStatus(root, "");
+      setButton(trigger, "idle", idleLabel);
+
+      if (required) {
+        setAddToCartEnabled(form, false);
+      }
+
+      if (previousUploadId) {
+        try {
+          await postJson("remove", { uploadId: previousUploadId, sessionId });
+        } catch (_error) {
+          // Removal is best-effort; the cleanup job can still expire abandoned files.
+        }
+      }
+    }
+
+    trigger.addEventListener("click", () => {
+      if (!state.uploading) {
+        fileInput.click();
+      }
+    });
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+
+      const maxBytes = Number(root.dataset.maxBytes || "0");
+      if (!(allowedTypes.includes(file.type) || allowedExtensions.includes(getExtension(file.name)))) {
+        fileInput.value = "";
+        clearPreview(root);
+        setStatus(root, "Please upload a JPG, PNG, WEBP, or PDF file.", "error");
+        return;
+      }
+
+      if (maxBytes && file.size > maxBytes) {
+        fileInput.value = "";
+        clearPreview(root);
+        setStatus(root, `File is too large. Maximum size is ${formatFileSize(maxBytes)}.`, "error");
+        return;
+      }
+
+      if (state.uploadId) {
+        try {
+          await postJson("remove", { uploadId: state.uploadId, sessionId });
+        } catch (_error) {
+          // Ignore previous upload removal errors while replacing the file.
+        }
+      }
+
+      state.uploading = true;
+      state.uploadId = null;
+      state.filename = null;
+      state.file = file;
+      clearPreview(root);
+      setLineItemProperties(root, form, "", "");
+
+      if (required) {
+        setAddToCartEnabled(form, false);
+      }
+
+      setStatus(root, "Uploading original file...");
+      setButton(trigger, "uploading", "0% Uploading... Please wait.");
+
+      try {
+        const initResult = await postJson("init", {
+          filename: file.name,
+          contentType: file.type,
+          fileSize: file.size,
+          productId: root.dataset.productId,
+          productGid: root.dataset.productGid,
+          productHandle: root.dataset.productHandle,
+          productTitle: root.dataset.productTitle,
+          variantId: getVariantId(root, form),
+          variantGid: root.dataset.variantGid,
+          variantTitle: root.dataset.variantTitle,
+          selectedSize: getSelectedSize(root),
+          quantity: getQuantity(form),
+          sessionId,
+          cartToken: getCartToken(),
+          customerId: root.dataset.customerId || null
+        });
+
+        await uploadFile(initResult.uploadId, file, sessionId, (percent) => {
+          setButton(trigger, "uploading", `${percent}% Uploading... Please wait.`);
+        });
+
+        state.uploadId = initResult.uploadId;
+        state.filename = file.name;
+        state.uploading = false;
+        setLineItemProperties(root, form, state.uploadId, state.filename);
+        showPreview(root, file, removeUpload);
+        setStatus(root, "File uploaded successfully.", "success");
+        setButton(trigger, "uploaded", "Change File");
+
+        if (required) {
+          setAddToCartEnabled(form, true);
+        }
+      } catch (error) {
+        state.uploading = false;
+        state.uploadId = null;
+        state.filename = null;
+        state.file = null;
+        fileInput.value = "";
+        clearPreview(root);
+        setLineItemProperties(root, form, "", "");
+        setButton(trigger, "idle", idleLabel);
+
+        if (required) {
+          setAddToCartEnabled(form, false);
+        }
+
+        setStatus(root, error.message || "Upload failed. Please try again.", "error");
+      }
+    });
+
+    if (form) {
+      form.addEventListener("submit", async (event) => {
+        if (state.uploading) {
+          event.preventDefault();
+          setStatus(root, "Please wait until the file finishes uploading.", "error");
+          return;
+        }
+
+        if (required && !state.uploadId) {
+          event.preventDefault();
+          setStatus(root, "Please upload a picture before adding this product to cart.", "error");
+          return;
+        }
+
+        if (state.uploadId) {
+          event.preventDefault();
+
+          try {
+            await postJson("cart", {
+              uploadId: state.uploadId,
+              sessionId,
+              cartToken: getCartToken(),
+              quantity: getQuantity(form),
+              selectedSize: getSelectedSize(root),
+              variantId: getVariantId(root, form)
+            });
+            form.submit();
+          } catch (error) {
+            setStatus(root, error.message || "Could not attach upload to cart.", "error");
+          }
+        }
+      });
+    }
+  }
+
+  document.querySelectorAll("[data-stamp-upload]").forEach(enhanceUploader);
+})();

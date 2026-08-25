@@ -219,7 +219,7 @@
 }
 
 .uploadsLayout.hasDetail {
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .uploadTableWrap {
@@ -232,13 +232,13 @@
 
 .uploadTable {
   border-collapse: collapse;
-  min-width: 0;
+  min-width: 1040px;
   table-layout: fixed;
   width: 100%;
 }
 
 .colFile {
-  width: 29%;
+  width: 30%;
 }
 
 .colProduct {
@@ -246,7 +246,7 @@
 }
 
 .colVariant {
-  width: 15%;
+  width: 14%;
 }
 
 .colQty {
@@ -254,7 +254,7 @@
 }
 
 .colUploaded {
-  width: 13%;
+  width: 14%;
 }
 
 .colStatus {
@@ -266,7 +266,7 @@
 }
 
 .colActions {
-  width: 5%;
+  width: 4%;
 }
 
 .uploadTable th,
@@ -292,6 +292,17 @@
 
 .uploadTable tbody tr:hover {
   background: #f8fafc;
+}
+
+.uploadTable .colQty,
+.uploadTable .colUploaded,
+.uploadTable .colStatus,
+.uploadTable .colActions,
+.uploadTable td:nth-child(4),
+.uploadTable td:nth-child(5),
+.uploadTable td:nth-child(6),
+.uploadTable td:nth-child(8) {
+  white-space: nowrap;
 }
 
 .thumb {
@@ -360,12 +371,22 @@
 }
 
 .fileName {
+  display: -webkit-box;
   font-weight: 600;
+  line-clamp: 2;
   overflow-wrap: anywhere;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .tableText {
+  display: -webkit-box;
+  line-clamp: 2;
   overflow-wrap: anywhere;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .tableAction {

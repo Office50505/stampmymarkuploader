@@ -16,6 +16,7 @@
   data-size-option-name="{{ block.settings.size_option_name | escape }}"
   data-required="{{ block.settings.required }}"
   data-max-bytes="{{ max_bytes }}"
+  data-app-url="{{ block.settings.app_url | default: 'https://stampmymarkuploader-production.up.railway.app' | escape }}"
   data-customer-id="{% if customer %}{{ customer.id }}{% endif %}"
 >
   {% if block.settings.show_required_marker %}
@@ -38,6 +39,7 @@
 
   <input type="hidden" name="properties[_stampmymark_upload_id]" data-upload-id-property disabled>
   <input type="hidden" name="properties[_stampmymark_original_filename]" data-upload-filename-property disabled>
+  <input type="hidden" name="properties[StampMyMark artwork]" data-upload-artwork-property disabled>
 
   <div class="smm-upload__status" data-upload-status role="status" aria-live="polite"></div>
 </div>
@@ -82,6 +84,12 @@
       "step": 1,
       "unit": "MB",
       "default": 25
+    },
+    {
+      "type": "text",
+      "id": "app_url",
+      "label": "App dashboard URL",
+      "default": "https://stampmymarkuploader-production.up.railway.app"
     }
   ]
 }

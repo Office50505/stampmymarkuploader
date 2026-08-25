@@ -314,18 +314,30 @@ export default function UploadsPage() {
                             )}
                           </div>
                           <div className="uploadFileText">
-                            <div className="fileName">{row.originalFilename}</div>
+                            <div className="fileName" title={row.originalFilename}>
+                              {row.originalFilename}
+                            </div>
                             <div className="muted">{formatFileSize(row.fileSize)}</div>
                             <div className="muted">{row.uploadId}</div>
                           </div>
                         </div>
                       </td>
                       <td>
-                        <div className="tableText">{row.productTitle ?? row.productId ?? "Unknown"}</div>
+                        <div
+                          className="tableText"
+                          title={row.productTitle ?? row.productId ?? "Unknown"}
+                        >
+                          {row.productTitle ?? row.productId ?? "Unknown"}
+                        </div>
                         {row.productId ? <div className="muted">{row.productId}</div> : null}
                       </td>
                       <td>
-                        <div className="tableText">{row.variantTitle ?? row.variantId ?? "Unknown"}</div>
+                        <div
+                          className="tableText"
+                          title={row.variantTitle ?? row.variantId ?? "Unknown"}
+                        >
+                          {row.variantTitle ?? row.variantId ?? "Unknown"}
+                        </div>
                         {row.selectedSize ? <div className="muted">Size: {row.selectedSize}</div> : null}
                       </td>
                       <td className="nowrap">{row.quantity ?? ""}</td>

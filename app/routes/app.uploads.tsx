@@ -1,6 +1,6 @@
 import type { KeyboardEvent, MouseEvent } from "react";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
-import { Form, Link, useLoaderData, useNavigate } from "react-router";
+import { Form, Link, useLoaderData } from "react-router";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -28,6 +28,15 @@ const formatFileSize = (size: number) => {
   return `${Math.max(1, Math.round(size / 1024))} KB`;
 };
 
+const parseDateFilter = (value: string | null, endOfDay = false) => {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: adminStyles }
 ];
@@ -37,6 +46,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
   const filter = url.searchParams.get("status") ?? "all";
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
+  const dateFromValue = url.searchParams.get("dateFrom") ?? "";
+  const dateToValue = url.searchParams.get("dateTo") ?? "";
+  const dateFrom = parseDateFilter(dateFromValue);
+  const dateTo = parseDateFilter(dateToValue, true);
   const selectedUploadId = url.searchParams.get("selected") ?? "";
   const requestedPage = Number(url.searchParams.get("page") ?? "1");
   const status =
@@ -46,7 +59,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const totalUploads = await countUploads({
     shop: session.shop,
     status,
-    query
+    query,
+    dateFrom,
+    dateTo
   });
   const totalPages = Math.max(1, Math.ceil(totalUploads / pageSize));
   const page = Math.min(
@@ -58,20 +73,23 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     shop: session.shop,
     status,
     query,
+    dateFrom,
+    dateTo,
     page,
     pageSize
   });
 
   const rows = await Promise.all(
     uploads.map(async (upload) => {
-      const preview =
-        upload.contentType.startsWith("image/") && upload.status !== "expired"
+      const file =
+        upload.status !== "expired"
           ? await createAdminFileUrl({
               shop: session.shop,
               uploadId: upload.uploadId,
               inline: true
             })
           : null;
+      const preview = upload.contentType.startsWith("image/") ? file : null;
 
       return {
         uploadId: upload.uploadId,
@@ -89,7 +107,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         createdAt: upload.createdAt.toISOString(),
         orderName: upload.orderName,
         orderId: upload.orderId,
-        previewUrl: preview?.url ?? null
+        previewUrl: preview?.url ?? null,
+        fileUrl: file?.url ?? null
       };
     })
   );
@@ -130,6 +149,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     rows,
     filter,
     query,
+    dateFrom: dateFromValue,
+    dateTo: dateToValue,
     pagination: {
       page,
       pageSize,
@@ -164,25 +185,25 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function UploadsPage() {
-  const { rows, filter, query, pagination, stats, selectedUpload } =
+  const { rows, filter, query, dateFrom, dateTo, pagination, stats, selectedUpload } =
     useLoaderData<typeof loader>();
-  const navigate = useNavigate();
   const activeSelectedId = selectedUpload?.uploadId ?? "";
   const shouldIgnoreRowActivation = (target: EventTarget | null) =>
     target instanceof Element &&
     Boolean(target.closest("a, button, input, select, textarea"));
   const openUploadRow = (href: string, event: MouseEvent<HTMLTableRowElement>) => {
-    if (shouldIgnoreRowActivation(event.target)) {
+    if (!href || shouldIgnoreRowActivation(event.target)) {
       return;
     }
 
-    navigate(href);
+    window.open(href, "_blank", "noopener,noreferrer");
   };
   const openUploadRowFromKeyboard = (
     href: string,
     event: KeyboardEvent<HTMLTableRowElement>
   ) => {
     if (
+      !href ||
       shouldIgnoreRowActivation(event.target) ||
       (event.key !== "Enter" && event.key !== " ")
     ) {
@@ -190,16 +211,20 @@ export default function UploadsPage() {
     }
 
     event.preventDefault();
-    navigate(href);
+    window.open(href, "_blank", "noopener,noreferrer");
   };
   const buildUploadsHref = ({
     nextFilter = filter,
     nextQuery = query,
+    nextDateFrom = dateFrom,
+    nextDateTo = dateTo,
     nextPage = pagination.page,
     selected
   }: {
     nextFilter?: string;
     nextQuery?: string;
+    nextDateFrom?: string;
+    nextDateTo?: string;
     nextPage?: number;
     selected?: string | null;
   } = {}) => {
@@ -211,6 +236,14 @@ export default function UploadsPage() {
 
     if (nextQuery) {
       params.set("q", nextQuery);
+    }
+
+    if (nextDateFrom) {
+      params.set("dateFrom", nextDateFrom);
+    }
+
+    if (nextDateTo) {
+      params.set("dateTo", nextDateTo);
     }
 
     if (nextPage > 1) {
@@ -258,6 +291,8 @@ export default function UploadsPage() {
                   to={buildUploadsHref({
                     nextFilter: value,
                     nextQuery: "",
+                    nextDateFrom: "",
+                    nextDateTo: "",
                     nextPage: 1,
                     selected: null
                   })}
@@ -275,25 +310,62 @@ export default function UploadsPage() {
 
         <Form method="get" className="uploadSearch" role="search">
           {filter !== "all" ? <input type="hidden" name="status" value={filter} /> : null}
-          <input
-            className="uploadSearchInput"
-            type="search"
-            name="q"
-            placeholder="Search filename, upload ID, product, or order"
-            defaultValue={query}
-          />
+          <div className="filterField searchField">
+            <label htmlFor="upload-search">Search</label>
+            <input
+              id="upload-search"
+              className="uploadSearchInput"
+              type="search"
+              name="q"
+              placeholder="Filename, upload ID, product, or order"
+              defaultValue={query}
+            />
+          </div>
+          <div className="filterField dateField">
+            <label htmlFor="upload-date-from">From</label>
+            <input
+              id="upload-date-from"
+              className="uploadSearchInput"
+              type="date"
+              name="dateFrom"
+              defaultValue={dateFrom}
+            />
+          </div>
+          <div className="filterField dateField">
+            <label htmlFor="upload-date-to">To</label>
+            <input
+              id="upload-date-to"
+              className="uploadSearchInput"
+              type="date"
+              name="dateTo"
+              defaultValue={dateTo}
+            />
+          </div>
           <button className="secondaryButton" type="submit">Search</button>
-          {query ? (
+          {query || dateFrom || dateTo ? (
             <Link
               className="secondaryButton"
-              to={buildUploadsHref({ nextQuery: "", nextPage: 1, selected: null })}
+              to={buildUploadsHref({
+                nextQuery: "",
+                nextDateFrom: "",
+                nextDateTo: "",
+                nextPage: 1,
+                selected: null
+              })}
             >
               Clear
             </Link>
           ) : null}
         </Form>
 
-        {query ? <p className="muted">Filtering by "{query}"</p> : null}
+        {query || dateFrom || dateTo ? (
+          <p className="muted">
+            Filtering
+            {query ? ` by "${query}"` : ""}
+            {dateFrom ? ` from ${dateFrom}` : ""}
+            {dateTo ? ` to ${dateTo}` : ""}
+          </p>
+        ) : null}
 
         <div className={selectedUpload ? "uploadsLayout hasDetail" : "uploadsLayout"}>
           <div className="uploadTableWrap">
@@ -347,21 +419,21 @@ export default function UploadsPage() {
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const selectedHref = buildUploadsHref({
-                    selected: row.uploadId
-                  });
+                  const fileHref = row.fileUrl ?? "";
                   return (
                     <tr
                       className={
                         activeSelectedId === row.uploadId
-                          ? "isSelected isClickable"
-                          : "isClickable"
+                          ? `isSelected${fileHref ? " isClickable" : ""}`
+                          : fileHref
+                            ? "isClickable"
+                            : undefined
                       }
                       key={row.uploadId}
-                      onClick={(event) => openUploadRow(selectedHref, event)}
-                      onKeyDown={(event) => openUploadRowFromKeyboard(selectedHref, event)}
-                      role="link"
-                      tabIndex={0}
+                      onClick={(event) => openUploadRow(fileHref, event)}
+                      onKeyDown={(event) => openUploadRowFromKeyboard(fileHref, event)}
+                      role={fileHref ? "link" : undefined}
+                      tabIndex={fileHref ? 0 : undefined}
                     >
                       <td>
                         <div className="uploadFile">
@@ -388,7 +460,16 @@ export default function UploadsPage() {
                             </div>
                             <div className="muted">{formatFileSize(row.fileSize)}</div>
                             <div className="muted">{row.uploadId}</div>
-                            <Link className="inlineAction" to={selectedHref}>Open details</Link>
+                            {row.fileUrl ? (
+                              <a
+                                className="inlineAction"
+                                href={row.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {row.contentType.startsWith("image/") ? "Open photo" : "Open file"}
+                              </a>
+                            ) : null}
                           </div>
                         </div>
                       </td>
@@ -417,7 +498,16 @@ export default function UploadsPage() {
                       </td>
                       <td>{row.orderName ?? ""}</td>
                       <td>
-                        <Link className="tableAction" to={selectedHref}>Open</Link>
+                        {row.fileUrl ? (
+                          <a
+                            className="tableAction"
+                            href={row.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open
+                          </a>
+                        ) : null}
                       </td>
                     </tr>
                   );

@@ -330,6 +330,8 @@ type UploadListInput = {
   shop: string;
   status?: UploadStatus | "unordered";
   query?: string;
+  dateFrom?: Date | null;
+  dateTo?: Date | null;
 };
 
 type UploadPageInput = UploadListInput & {
@@ -350,7 +352,9 @@ const cleanUploadQuery = (query?: string) =>
 const buildUploadWhere = ({
   shop,
   status,
-  query
+  query,
+  dateFrom,
+  dateTo
 }: UploadListInput): Prisma.UploadWhereInput => {
   const statusFilter =
     status === "unordered"
@@ -359,10 +363,20 @@ const buildUploadWhere = ({
         ? { status }
         : {};
   const cleanedQuery = cleanUploadQuery(query);
+  const createdAtFilter =
+    dateFrom || dateTo
+      ? {
+          createdAt: {
+            ...(dateFrom ? { gte: dateFrom } : {}),
+            ...(dateTo ? { lte: dateTo } : {})
+          }
+        }
+      : {};
 
   return {
     shop,
     ...statusFilter,
+    ...createdAtFilter,
     ...(cleanedQuery
       ? {
           OR: [

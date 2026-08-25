@@ -168,9 +168,11 @@
 }
 
 .uploadSearch {
+  align-items: end;
   display: flex;
   gap: 8px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
 }
 
 .uploadSearchInput {
@@ -182,6 +184,28 @@
   min-height: 36px;
   min-width: 0;
   padding: 7px 10px;
+}
+
+.filterField {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.filterField label {
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.searchField {
+  flex: 1 1 320px;
+}
+
+.dateField {
+  width: 156px;
 }
 
 .primaryButton,
@@ -654,7 +678,13 @@
   }
 
   .uploadSearch {
+    align-items: stretch;
     flex-direction: column;
+  }
+
+  .dateField,
+  .searchField {
+    width: 100%;
   }
 
   .uploadsLayout.hasDetail {

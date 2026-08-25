@@ -4,6 +4,7 @@ import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
 import {
+  countUploads,
   createAdminFileUrl,
   getUploadForAdmin,
   listUploads
@@ -16,6 +17,7 @@ const filters = [
   ["unordered", "Unordered/Abandoned"],
   ["expired", "Expired"]
 ] as const;
+const pageSize = 10;
 
 const formatFileSize = (size: number) => {
   if (size >= 1024 * 1024) {
@@ -33,17 +35,30 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
   const filter = url.searchParams.get("status") ?? "all";
-  const query = url.searchParams.get("q") ?? "";
+  const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
   const selectedUploadId = url.searchParams.get("selected") ?? "";
+  const requestedPage = Number(url.searchParams.get("page") ?? "1");
   const status =
     filter === "ordered" || filter === "expired" || filter === "unordered"
       ? filter
       : undefined;
+  const totalUploads = await countUploads({
+    shop: session.shop,
+    status,
+    query
+  });
+  const totalPages = Math.max(1, Math.ceil(totalUploads / pageSize));
+  const page = Math.min(
+    totalPages,
+    Math.max(1, Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1)
+  );
 
   const uploads = await listUploads({
     shop: session.shop,
     status,
-    query
+    query,
+    page,
+    pageSize
   });
 
   const rows = await Promise.all(
@@ -114,6 +129,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     rows,
     filter,
     query,
+    pagination: {
+      page,
+      pageSize,
+      totalUploads,
+      totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages
+    },
     stats: { all, ordered, unordered, expired },
     selectedUpload: selectedUpload
       ? {
@@ -140,10 +163,41 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function UploadsPage() {
-  const { rows, filter, query, stats, selectedUpload } = useLoaderData<typeof loader>();
+  const { rows, filter, query, pagination, stats, selectedUpload } =
+    useLoaderData<typeof loader>();
   const activeSelectedId = selectedUpload?.uploadId ?? "";
-  const filterSearch = filter === "all" ? "" : `&status=${filter}`;
-  const querySearch = query ? `&q=${encodeURIComponent(query)}` : "";
+  const buildUploadsHref = ({
+    nextFilter = filter,
+    nextQuery = query,
+    nextPage = pagination.page,
+    selected
+  }: {
+    nextFilter?: string;
+    nextQuery?: string;
+    nextPage?: number;
+    selected?: string | null;
+  } = {}) => {
+    const params = new URLSearchParams();
+
+    if (nextFilter !== "all") {
+      params.set("status", nextFilter);
+    }
+
+    if (nextQuery) {
+      params.set("q", nextQuery);
+    }
+
+    if (nextPage > 1) {
+      params.set("page", String(nextPage));
+    }
+
+    if (selected) {
+      params.set("selected", selected);
+    }
+
+    const search = params.toString();
+    return `/app/uploads${search ? `?${search}` : ""}`;
+  };
 
   return (
     <s-page>
@@ -171,12 +225,16 @@ export default function UploadsPage() {
         <div className="uploadsToolbar">
           <nav className="uploadFilters" aria-label="Upload filters">
             {filters.map(([value, label]) => {
-              const href = value === "all" ? "/app/uploads" : `/app/uploads?status=${value}`;
               return (
                 <Link
                   className="uploadFilter"
                   aria-current={filter === value ? "page" : undefined}
-                  to={href}
+                  to={buildUploadsHref({
+                    nextFilter: value,
+                    nextQuery: "",
+                    nextPage: 1,
+                    selected: null
+                  })}
                   key={value}
                 >
                   {label}
@@ -184,7 +242,9 @@ export default function UploadsPage() {
               );
             })}
           </nav>
-          <span className="uploadCount">{rows.length} uploads</span>
+          <span className="uploadCount">
+            Showing {rows.length} of {pagination.totalUploads} uploads
+          </span>
         </div>
 
         <Form method="get" className="uploadSearch" role="search">
@@ -197,7 +257,14 @@ export default function UploadsPage() {
             defaultValue={query}
           />
           <button className="secondaryButton" type="submit">Search</button>
-          {query ? <Link className="secondaryButton" to={filter === "all" ? "/app/uploads" : `/app/uploads?status=${filter}`}>Clear</Link> : null}
+          {query ? (
+            <Link
+              className="secondaryButton"
+              to={buildUploadsHref({ nextQuery: "", nextPage: 1, selected: null })}
+            >
+              Clear
+            </Link>
+          ) : null}
         </Form>
 
         {query ? <p className="muted">Filtering by "{query}"</p> : null}
@@ -219,10 +286,9 @@ export default function UploadsPage() {
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const selectedHref =
-                    `/app/uploads?selected=${encodeURIComponent(row.uploadId)}` +
-                    filterSearch +
-                    querySearch;
+                  const selectedHref = buildUploadsHref({
+                    selected: row.uploadId
+                  });
                   return (
                     <tr
                       className={activeSelectedId === row.uploadId ? "isSelected" : undefined}
@@ -269,7 +335,7 @@ export default function UploadsPage() {
                       </td>
                       <td>{row.orderName ?? ""}</td>
                       <td>
-                        <Link className="tableAction" to={selectedHref}>View</Link>
+                        <Link className="tableAction" to={selectedHref}>Open</Link>
                       </td>
                     </tr>
                   );
@@ -281,6 +347,39 @@ export default function UploadsPage() {
                 ) : null}
               </tbody>
             </table>
+            <div className="paginationBar" aria-label="Upload pagination">
+              {pagination.hasPrevious ? (
+                <Link
+                  className="pageArrow"
+                  aria-label="Previous page"
+                  to={buildUploadsHref({
+                    nextPage: pagination.page - 1,
+                    selected: null
+                  })}
+                >
+                  ‹
+                </Link>
+              ) : (
+                <span className="pageArrow isDisabled" aria-hidden="true">‹</span>
+              )}
+              <span className="pageStatus">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              {pagination.hasNext ? (
+                <Link
+                  className="pageArrow"
+                  aria-label="Next page"
+                  to={buildUploadsHref({
+                    nextPage: pagination.page + 1,
+                    selected: null
+                  })}
+                >
+                  ›
+                </Link>
+              ) : (
+                <span className="pageArrow isDisabled" aria-hidden="true">›</span>
+              )}
+            </div>
           </div>
 
           {selectedUpload ? (
@@ -290,7 +389,7 @@ export default function UploadsPage() {
                   <h2>{selectedUpload.originalFilename}</h2>
                   <p>{selectedUpload.uploadId}</p>
                 </div>
-                <Link className="panelClose" to={`/app/uploads${filter === "all" ? "" : `?status=${filter}`}${query ? `${filter === "all" ? "?" : "&"}q=${encodeURIComponent(query)}` : ""}`}>Close</Link>
+                <Link className="panelClose" to={buildUploadsHref({ selected: null })}>Close</Link>
               </div>
 
               <div className="panelPreview">

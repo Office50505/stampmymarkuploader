@@ -1,4 +1,4 @@
-import type { UploadStatus } from "@prisma/client";
+import type { Prisma, UploadStatus } from "@prisma/client";
 import crypto from "node:crypto";
 import prisma from "~/db.server";
 import { requireServerEnv, uploadConfig } from "./env.server";
@@ -326,39 +326,75 @@ export const removeUpload = async ({
   return { ok: true as const };
 };
 
-export const listUploads = async ({
-  shop,
-  status,
-  query
-}: {
+type UploadListInput = {
   shop: string;
   status?: UploadStatus | "unordered";
   query?: string;
-}) => {
+};
+
+type UploadPageInput = UploadListInput & {
+  page?: number;
+  pageSize?: number;
+};
+
+const cleanUploadQuery = (query?: string) =>
+  query
+    ? query
+        .normalize("NFKC")
+        .replace(/[\u0000-\u001f\u007f]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 120)
+    : "";
+
+const buildUploadWhere = ({
+  shop,
+  status,
+  query
+}: UploadListInput): Prisma.UploadWhereInput => {
   const statusFilter =
     status === "unordered"
       ? { status: { in: ["uploaded", "cart", "abandoned"] as UploadStatus[] } }
       : status
         ? { status }
         : {};
+  const cleanedQuery = cleanUploadQuery(query);
+
+  return {
+    shop,
+    ...statusFilter,
+    ...(cleanedQuery
+      ? {
+          OR: [
+            { uploadId: { contains: cleanedQuery, mode: "insensitive" } },
+            { originalFilename: { contains: cleanedQuery, mode: "insensitive" } },
+            { productTitle: { contains: cleanedQuery, mode: "insensitive" } },
+            { orderName: { contains: cleanedQuery, mode: "insensitive" } }
+          ]
+        }
+      : {})
+  };
+};
+
+export const countUploads = async (input: UploadListInput) => {
+  return prisma.upload.count({
+    where: buildUploadWhere(input)
+  });
+};
+
+export const listUploads = async ({
+  page = 1,
+  pageSize = 10,
+  ...input
+}: UploadPageInput) => {
+  const safePage = Math.max(1, Math.floor(page));
+  const safePageSize = Math.min(50, Math.max(1, Math.floor(pageSize)));
 
   return prisma.upload.findMany({
-    where: {
-      shop,
-      ...statusFilter,
-      ...(query
-        ? {
-            OR: [
-              { uploadId: { contains: query, mode: "insensitive" } },
-              { originalFilename: { contains: query, mode: "insensitive" } },
-              { productTitle: { contains: query, mode: "insensitive" } },
-              { orderName: { contains: query, mode: "insensitive" } }
-            ]
-          }
-        : {})
-    },
+    where: buildUploadWhere(input),
     orderBy: { createdAt: "desc" },
-    take: 100
+    skip: (safePage - 1) * safePageSize,
+    take: safePageSize
   });
 };
 

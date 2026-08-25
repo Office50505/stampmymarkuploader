@@ -38,14 +38,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const latest = await Promise.all(
     latestUploads.map(async (upload) => {
-      const preview =
-        upload.contentType.startsWith("image/") && upload.status !== "expired"
+      const file =
+        upload.status !== "expired"
           ? await createAdminFileUrl({
               shop,
               uploadId: upload.uploadId,
               inline: true
             })
           : null;
+      const preview = upload.contentType.startsWith("image/") ? file : null;
 
       return {
         uploadId: upload.uploadId,
@@ -56,7 +57,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         selectedSize: upload.selectedSize,
         status: upload.status,
         uploadedAt: upload.uploadedAt?.toISOString() ?? null,
-        previewUrl: preview?.url ?? null
+        previewUrl: preview?.url ?? null,
+        fileUrl: file?.url ?? null
       };
     })
   );
@@ -108,10 +110,13 @@ export default function DashboardIndex() {
 
         <div className="recentGrid">
           {latest.map((upload) => (
-            <Link
-              className="recentUpload"
+            <a
+              className={upload.fileUrl ? "recentUpload" : "recentUpload isDisabled"}
               key={upload.uploadId}
-              to={`/app/uploads?selected=${encodeURIComponent(upload.uploadId)}`}
+              href={upload.fileUrl ?? undefined}
+              target="_blank"
+              rel="noreferrer"
+              aria-disabled={upload.fileUrl ? undefined : true}
             >
               <div className="thumb">
                 {upload.previewUrl ? (
@@ -131,7 +136,7 @@ export default function DashboardIndex() {
                   {upload.selectedSize ? <span>{upload.selectedSize}</span> : null}
                 </div>
               </div>
-            </Link>
+            </a>
           ))}
           {latest.length === 0 ? (
             <div className="emptyState">No uploads yet.</div>

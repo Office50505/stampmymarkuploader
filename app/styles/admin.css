@@ -92,6 +92,16 @@
   border-color: #8c9196;
 }
 
+.recentUpload.isDisabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.recentUpload.isDisabled:hover {
+  background: #fff;
+  border-color: #dfe3e8;
+}
+
 .recentMeta {
   align-items: center;
   display: flex;
@@ -154,6 +164,7 @@
 }
 
 .uploadFilter[aria-current="page"]:hover,
+.quickFilter[aria-current="page"]:hover,
 .primaryButton:hover {
   background: #111827;
   border-color: #111827;
@@ -208,6 +219,36 @@
   width: 156px;
 }
 
+.quickFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -6px 0 16px;
+}
+
+.quickFilter {
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  color: #202223;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  padding: 5px 10px;
+  text-decoration: none;
+}
+
+.quickFilter:hover {
+  background: #f9fafb;
+}
+
+.quickFilter[aria-current="page"] {
+  background: #202223;
+  border-color: #202223;
+  color: #fff;
+}
+
 .primaryButton,
 .secondaryButton {
   align-items: center;
@@ -252,6 +293,37 @@
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(31, 33, 36, 0.06);
   overflow-x: auto;
+}
+
+.feedHeader {
+  align-items: center;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.feedHeader h2 {
+  color: #202223;
+  font-size: 14px;
+  line-height: 20px;
+  margin: 0;
+}
+
+.feedHeader p {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 16px;
+  margin: 2px 0 0;
+}
+
+.feedActions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 10px;
 }
 
 .uploadTable {
@@ -611,12 +683,9 @@
 
 .paginationBar {
   align-items: center;
-  background: #f9fafb;
-  border-bottom: 1px solid #e5e7eb;
   display: flex;
   gap: 10px;
-  justify-content: space-between;
-  padding: 12px;
+  justify-content: flex-end;
 }
 
 .pageControls {
@@ -658,6 +727,64 @@
   white-space: nowrap;
 }
 
+.tableEmpty {
+  color: #6b7280;
+  font-size: 13px;
+  padding: 14px 0;
+  text-align: center;
+}
+
+.settingsGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settingsCard {
+  background: #fff;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(31, 33, 36, 0.06);
+  padding: 16px;
+}
+
+.settingsCard h2 {
+  font-size: 15px;
+  line-height: 20px;
+  margin: 0 0 10px;
+}
+
+.settingsList {
+  margin: 0;
+}
+
+.settingsList div {
+  border-top: 1px solid #e5e7eb;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 160px minmax(0, 1fr);
+  padding: 10px 0;
+}
+
+.settingsList div:first-child {
+  border-top: 0;
+}
+
+.settingsList dt {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.settingsList dd {
+  color: #202223;
+  font-size: 13px;
+  line-height: 18px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .uploadDetailGrid {
     grid-template-columns: 1fr;
@@ -682,9 +809,23 @@
     flex-direction: column;
   }
 
+  .feedHeader,
+  .feedActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .dateField,
   .searchField {
     width: 100%;
+  }
+
+  .settingsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .settingsList div {
+    grid-template-columns: 1fr;
   }
 
   .uploadsLayout.hasDetail {

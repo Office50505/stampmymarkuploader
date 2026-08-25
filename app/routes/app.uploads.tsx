@@ -15,7 +15,7 @@ import adminStyles from "../styles/admin.css?url";
 const filters = [
   ["all", "All"],
   ["ordered", "Ordered"],
-  ["unordered", "Unordered/Abandoned"],
+  ["unordered", "Unordered"],
   ["expired", "Expired"]
 ] as const;
 const pageSize = 10;
@@ -36,6 +36,37 @@ const parseDateFilter = (value: string | null, endOfDay = false) => {
   const date = new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
   return Number.isNaN(date.getTime()) ? null : date;
 };
+
+const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+
+const getQuickRanges = () => {
+  const today = new Date();
+  const last7 = new Date(today);
+  const last30 = new Date(today);
+
+  last7.setUTCDate(today.getUTCDate() - 6);
+  last30.setUTCDate(today.getUTCDate() - 29);
+
+  return [
+    { label: "Today", dateFrom: toDateInputValue(today), dateTo: toDateInputValue(today) },
+    { label: "7 days", dateFrom: toDateInputValue(last7), dateTo: toDateInputValue(today) },
+    { label: "30 days", dateFrom: toDateInputValue(last30), dateTo: toDateInputValue(today) },
+    { label: "All time", dateFrom: "", dateTo: "" }
+  ];
+};
+
+const statusLabels: Record<string, string> = {
+  uploaded: "Unordered",
+  cart: "In cart",
+  abandoned: "Abandoned",
+  ordered: "Ordered",
+  expired: "Expired"
+};
+
+const formatStatus = (status: string) => statusLabels[status] ?? status;
+
+const shortenUploadId = (uploadId: string) =>
+  uploadId.length > 14 ? `${uploadId.slice(0, 10)}...${uploadId.slice(-4)}` : uploadId;
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: adminStyles }
@@ -151,6 +182,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     query,
     dateFrom: dateFromValue,
     dateTo: dateToValue,
+    quickRanges: getQuickRanges(),
     pagination: {
       page,
       pageSize,
@@ -185,8 +217,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export default function UploadsPage() {
-  const { rows, filter, query, dateFrom, dateTo, pagination, stats, selectedUpload } =
-    useLoaderData<typeof loader>();
+  const {
+    rows,
+    filter,
+    query,
+    dateFrom,
+    dateTo,
+    quickRanges,
+    pagination,
+    stats,
+    selectedUpload
+  } = useLoaderData<typeof loader>();
   const activeSelectedId = selectedUpload?.uploadId ?? "";
   const shouldIgnoreRowActivation = (target: EventTarget | null) =>
     target instanceof Element &&
@@ -358,6 +399,28 @@ export default function UploadsPage() {
           ) : null}
         </Form>
 
+        <div className="quickFilters" aria-label="Quick date filters">
+          {quickRanges.map((range) => {
+            const isActive = dateFrom === range.dateFrom && dateTo === range.dateTo;
+
+            return (
+              <Link
+                className="quickFilter"
+                aria-current={isActive ? "page" : undefined}
+                key={range.label}
+                to={buildUploadsHref({
+                  nextDateFrom: range.dateFrom,
+                  nextDateTo: range.dateTo,
+                  nextPage: 1,
+                  selected: null
+                })}
+              >
+                {range.label}
+              </Link>
+            );
+          })}
+        </div>
+
         {query || dateFrom || dateTo ? (
           <p className="muted">
             Filtering
@@ -369,39 +432,50 @@ export default function UploadsPage() {
 
         <div className={selectedUpload ? "uploadsLayout hasDetail" : "uploadsLayout"}>
           <div className="uploadTableWrap">
-            <div className="paginationBar" aria-label="Upload pagination">
-              <span className="pageStatus">
-                Page {pagination.page} of {pagination.totalPages}
-              </span>
-              <div className="pageControls">
-                {pagination.hasPrevious ? (
-                  <Link
-                    className="pageArrow"
-                    aria-label="Previous page"
-                    to={buildUploadsHref({
-                      nextPage: pagination.page - 1,
-                      selected: null
-                    })}
-                  >
-                    ‹
-                  </Link>
-                ) : (
-                  <span className="pageArrow isDisabled" aria-hidden="true">‹</span>
-                )}
-                {pagination.hasNext ? (
-                  <Link
-                    className="pageArrow"
-                    aria-label="Next page"
-                    to={buildUploadsHref({
-                      nextPage: pagination.page + 1,
-                      selected: null
-                    })}
-                  >
-                    ›
-                  </Link>
-                ) : (
-                  <span className="pageArrow isDisabled" aria-hidden="true">›</span>
-                )}
+            <div className="feedHeader">
+              <div>
+                <h2>Upload feed</h2>
+                <p>{rows.length} visible · Click a row to open the file</p>
+              </div>
+              <div className="feedActions">
+                <Link className="secondaryButton" to={buildUploadsHref({ selected: null })}>
+                  Refresh
+                </Link>
+                <div className="paginationBar" aria-label="Upload pagination">
+                  <span className="pageStatus">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  <div className="pageControls">
+                    {pagination.hasPrevious ? (
+                      <Link
+                        className="pageArrow"
+                        aria-label="Previous page"
+                        to={buildUploadsHref({
+                          nextPage: pagination.page - 1,
+                          selected: null
+                        })}
+                      >
+                        ‹
+                      </Link>
+                    ) : (
+                      <span className="pageArrow isDisabled" aria-hidden="true">‹</span>
+                    )}
+                    {pagination.hasNext ? (
+                      <Link
+                        className="pageArrow"
+                        aria-label="Next page"
+                        to={buildUploadsHref({
+                          nextPage: pagination.page + 1,
+                          selected: null
+                        })}
+                      >
+                        ›
+                      </Link>
+                    ) : (
+                      <span className="pageArrow isDisabled" aria-hidden="true">›</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
             <table className="uploadTable">
@@ -459,7 +533,7 @@ export default function UploadsPage() {
                               {row.originalFilename}
                             </div>
                             <div className="muted">{formatFileSize(row.fileSize)}</div>
-                            <div className="muted">{row.uploadId}</div>
+                            <div className="muted">ID {shortenUploadId(row.uploadId)}</div>
                             {row.fileUrl ? (
                               <a
                                 className="inlineAction"
@@ -494,7 +568,7 @@ export default function UploadsPage() {
                       <td className="nowrap">{row.quantity ?? ""}</td>
                       <td className="nowrap">{row.uploadedAt ? new Date(row.uploadedAt).toLocaleString() : "Pending"}</td>
                       <td>
-                        <span className={`status ${row.status}`}>{row.status}</span>
+                        <span className={`status ${row.status}`}>{formatStatus(row.status)}</span>
                       </td>
                       <td>{row.orderName ?? ""}</td>
                       <td>
@@ -514,7 +588,9 @@ export default function UploadsPage() {
                 })}
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>No uploads found.</td>
+                    <td colSpan={8}>
+                      <div className="tableEmpty">No uploads match these filters.</div>
+                    </td>
                   </tr>
                 ) : null}
               </tbody>
@@ -551,7 +627,7 @@ export default function UploadsPage() {
               </div>
 
               <dl className="detailList">
-                <div><dt>Status</dt><dd><span className={`status ${selectedUpload.status}`}>{selectedUpload.status}</span></dd></div>
+                <div><dt>Status</dt><dd><span className={`status ${selectedUpload.status}`}>{formatStatus(selectedUpload.status)}</span></dd></div>
                 <div><dt>File size</dt><dd>{formatFileSize(selectedUpload.fileSize)}</dd></div>
                 <div><dt>Type</dt><dd>{selectedUpload.contentType}</dd></div>
                 <div><dt>Product</dt><dd>{selectedUpload.productTitle ?? selectedUpload.productId ?? "Unknown"}</dd></div>

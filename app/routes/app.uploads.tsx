@@ -132,7 +132,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           createdAt: selectedUpload.createdAt.toISOString(),
           orderName: selectedUpload.orderName,
           orderId: selectedUpload.orderId,
-          storageKey: selectedUpload.storageKey,
           previewUrl: selectedInlineUrl?.url ?? null,
           downloadUrl: selectedDownloadUrl?.url ?? null
         }
@@ -323,7 +322,6 @@ export default function UploadsPage() {
                 <div><dt>Quantity</dt><dd>{selectedUpload.quantity ?? ""}</dd></div>
                 <div><dt>Uploaded</dt><dd>{selectedUpload.uploadedAt ? new Date(selectedUpload.uploadedAt).toLocaleString() : "Pending"}</dd></div>
                 <div><dt>Order</dt><dd>{selectedUpload.orderName ?? ""}</dd></div>
-                <div><dt>Storage key</dt><dd>{selectedUpload.storageKey}</dd></div>
               </dl>
             </aside>
           ) : null}

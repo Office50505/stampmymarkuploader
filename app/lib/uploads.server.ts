@@ -4,6 +4,7 @@ import prisma from "~/db.server";
 import { requireServerEnv, uploadConfig } from "./env.server";
 import {
   createUploadId,
+  detectContentTypeFromBytes,
   validateUploadRequest
 } from "./upload-validation.server";
 import {
@@ -29,7 +30,54 @@ export type UploadInitInput = {
   customerId?: string | null;
 };
 
+const cleanText = (value: string | null | undefined, maxLength: number) => {
+  if (!value) {
+    return null;
+  }
+
+  const cleaned = value
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+
+  return cleaned || null;
+};
+
+const cleanQuantity = (quantity: number | null | undefined) => {
+  if (typeof quantity !== "number" || !Number.isFinite(quantity) || quantity < 1) {
+    return null;
+  }
+
+  return Math.min(Math.floor(quantity), 9999);
+};
+
+const validateUploadSession = (
+  upload: { sessionId: string | null },
+  sessionId?: string | null
+) => {
+  if (!upload.sessionId || !sessionId || upload.sessionId !== sessionId) {
+    return {
+      ok: false as const,
+      status: 403,
+      errors: ["Upload session could not be verified."]
+    };
+  }
+
+  return { ok: true as const };
+};
+
 export const initUpload = async (input: UploadInitInput) => {
+  const sessionId = cleanText(input.sessionId, 128);
+  if (!sessionId) {
+    return {
+      ok: false as const,
+      status: 400,
+      errors: ["Upload session is required."]
+    };
+  }
+
   const validation = validateUploadRequest({
     filename: input.filename,
     contentType: input.contentType,
@@ -59,19 +107,19 @@ export const initUpload = async (input: UploadInitInput) => {
       storageBucket: bucket,
       storageKey: key,
       storageUrl: `bunny://${bucket}/${key}`,
-      originalFilename: input.filename,
+      originalFilename: validation.displayFilename,
       contentType: input.contentType,
       fileSize: input.fileSize,
-      productId: input.productId,
-      productHandle: input.productHandle,
-      productTitle: input.productTitle,
-      variantId: input.variantId,
-      variantTitle: input.variantTitle,
-      selectedSize: input.selectedSize,
-      quantity: input.quantity,
-      sessionId: input.sessionId,
-      cartToken: input.cartToken,
-      customerId: input.customerId,
+      productId: cleanText(input.productId, 64),
+      productHandle: cleanText(input.productHandle, 160),
+      productTitle: cleanText(input.productTitle, 255),
+      variantId: cleanText(input.variantId, 64),
+      variantTitle: cleanText(input.variantTitle, 255),
+      selectedSize: cleanText(input.selectedSize, 120),
+      quantity: cleanQuantity(input.quantity),
+      sessionId,
+      cartToken: cleanText(input.cartToken, 160),
+      customerId: cleanText(input.customerId, 64),
       status: "uploaded",
       expiresAt
     }
@@ -108,8 +156,9 @@ export const storeUploadFile = async ({
     return { ok: false as const, status: 404, errors: ["Upload not found."] };
   }
 
-  if (upload.sessionId && sessionId && upload.sessionId !== sessionId) {
-    return { ok: false as const, status: 403, errors: ["Upload mismatch."] };
+  const sessionValidation = validateUploadSession(upload, sessionId);
+  if (!sessionValidation.ok) {
+    return sessionValidation;
   }
 
   const validation = validateUploadRequest({
@@ -136,6 +185,15 @@ export const storeUploadFile = async ({
   }
 
   const body = Buffer.from(await file.arrayBuffer());
+  const detectedContentType = detectContentTypeFromBytes(body);
+  if (!detectedContentType || detectedContentType !== upload.contentType) {
+    return {
+      ok: false as const,
+      status: 422,
+      errors: ["Uploaded file contents do not match the allowed file type."]
+    };
+  }
+
   await uploadStoredFile({
     key: upload.storageKey,
     contentType: upload.contentType,
@@ -175,8 +233,9 @@ export const completeUpload = async ({
     return { ok: false as const, status: 404, errors: ["Upload not found."] };
   }
 
-  if (upload.sessionId && sessionId && upload.sessionId !== sessionId) {
-    return { ok: false as const, status: 403, errors: ["Upload mismatch."] };
+  const sessionValidation = validateUploadSession(upload, sessionId);
+  if (!sessionValidation.ok) {
+    return sessionValidation;
   }
 
   if (!upload.uploadedAt) {
@@ -215,18 +274,19 @@ export const markUploadInCart = async ({
     };
   }
 
-  if (upload.sessionId && sessionId && upload.sessionId !== sessionId) {
-    return { ok: false as const, status: 403, errors: ["Upload mismatch."] };
+  const sessionValidation = validateUploadSession(upload, sessionId);
+  if (!sessionValidation.ok) {
+    return sessionValidation;
   }
 
   await prisma.upload.update({
     where: { uploadId },
     data: {
       status: "cart",
-      cartToken,
-      quantity: quantity ?? upload.quantity,
-      selectedSize: selectedSize ?? upload.selectedSize,
-      variantId: variantId ?? upload.variantId
+      cartToken: cleanText(cartToken, 160),
+      quantity: cleanQuantity(quantity) ?? upload.quantity,
+      selectedSize: cleanText(selectedSize, 120) ?? upload.selectedSize,
+      variantId: cleanText(variantId, 64) ?? upload.variantId
     }
   });
 
@@ -250,8 +310,9 @@ export const removeUpload = async ({
     return { ok: true as const };
   }
 
-  if (upload.sessionId && sessionId && upload.sessionId !== sessionId) {
-    return { ok: false as const, status: 403, errors: ["Upload mismatch."] };
+  const sessionValidation = validateUploadSession(upload, sessionId);
+  if (!sessionValidation.ok) {
+    return sessionValidation;
   }
 
   await prisma.upload.update({

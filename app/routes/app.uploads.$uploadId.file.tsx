@@ -4,6 +4,7 @@ import {
   getStoredUploadResponse,
   verifyAdminFileUrlSignature
 } from "../lib/uploads.server";
+import { sanitizeDisplayFilename } from "../lib/upload-validation.server";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const url = new URL(request.url);
@@ -23,7 +24,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 
   const { upload, file } = result;
-  const safeFilename = upload.originalFilename.replace(/["\r\n]/g, "");
+  const safeFilename = sanitizeDisplayFilename(upload.originalFilename);
   const headers = new Headers();
   headers.set("Content-Type", upload.contentType);
   headers.set("Cache-Control", "private, no-store");

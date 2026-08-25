@@ -43,8 +43,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       uploadedAt: upload.uploadedAt?.toISOString() ?? null,
       createdAt: upload.createdAt.toISOString(),
       orderName: upload.orderName,
-      orderId: upload.orderId,
-      storageKey: upload.storageKey
+      orderId: upload.orderId
     },
     fileUrl: fileUrl?.url ?? null
   };
@@ -89,7 +88,6 @@ export default function UploadDetailPage() {
                 <tr><th>Quantity</th><td>{upload.quantity ?? ""}</td></tr>
                 <tr><th>Uploaded</th><td>{upload.uploadedAt ? new Date(upload.uploadedAt).toLocaleString() : "Pending"}</td></tr>
                 <tr><th>Order</th><td>{upload.orderName ?? ""}</td></tr>
-                <tr><th>Storage key</th><td>{upload.storageKey}</td></tr>
               </tbody>
             </table>
             {fileUrl ? (

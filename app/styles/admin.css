@@ -294,6 +294,15 @@
   background: #f8fafc;
 }
 
+.uploadTable tbody tr.isClickable {
+  cursor: pointer;
+}
+
+.uploadTable tbody tr.isClickable:focus-visible {
+  outline: 2px solid #005bd3;
+  outline-offset: -2px;
+}
+
 .uploadTable .colQty,
 .uploadTable .colUploaded,
 .uploadTable .colStatus,
@@ -405,6 +414,20 @@
 .tableAction:hover {
   background: #dbeafe;
   text-decoration: none;
+}
+
+.inlineAction {
+  color: #005bd3;
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  margin-top: 5px;
+  text-decoration: none;
+}
+
+.inlineAction:hover {
+  text-decoration: underline;
 }
 
 .muted {
@@ -565,10 +588,17 @@
 .paginationBar {
   align-items: center;
   background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
   display: flex;
   gap: 10px;
-  justify-content: flex-end;
+  justify-content: space-between;
   padding: 12px;
+}
+
+.pageControls {
+  align-items: center;
+  display: flex;
+  gap: 8px;
 }
 
 .pageArrow {

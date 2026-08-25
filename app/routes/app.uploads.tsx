@@ -1,5 +1,6 @@
+import type { KeyboardEvent, MouseEvent } from "react";
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
-import { Form, Link, useLoaderData } from "react-router";
+import { Form, Link, useLoaderData, useNavigate } from "react-router";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
@@ -165,7 +166,32 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function UploadsPage() {
   const { rows, filter, query, pagination, stats, selectedUpload } =
     useLoaderData<typeof loader>();
+  const navigate = useNavigate();
   const activeSelectedId = selectedUpload?.uploadId ?? "";
+  const shouldIgnoreRowActivation = (target: EventTarget | null) =>
+    target instanceof Element &&
+    Boolean(target.closest("a, button, input, select, textarea"));
+  const openUploadRow = (href: string, event: MouseEvent<HTMLTableRowElement>) => {
+    if (shouldIgnoreRowActivation(event.target)) {
+      return;
+    }
+
+    navigate(href);
+  };
+  const openUploadRowFromKeyboard = (
+    href: string,
+    event: KeyboardEvent<HTMLTableRowElement>
+  ) => {
+    if (
+      shouldIgnoreRowActivation(event.target) ||
+      (event.key !== "Enter" && event.key !== " ")
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    navigate(href);
+  };
   const buildUploadsHref = ({
     nextFilter = filter,
     nextQuery = query,
@@ -271,6 +297,41 @@ export default function UploadsPage() {
 
         <div className={selectedUpload ? "uploadsLayout hasDetail" : "uploadsLayout"}>
           <div className="uploadTableWrap">
+            <div className="paginationBar" aria-label="Upload pagination">
+              <span className="pageStatus">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <div className="pageControls">
+                {pagination.hasPrevious ? (
+                  <Link
+                    className="pageArrow"
+                    aria-label="Previous page"
+                    to={buildUploadsHref({
+                      nextPage: pagination.page - 1,
+                      selected: null
+                    })}
+                  >
+                    ‹
+                  </Link>
+                ) : (
+                  <span className="pageArrow isDisabled" aria-hidden="true">‹</span>
+                )}
+                {pagination.hasNext ? (
+                  <Link
+                    className="pageArrow"
+                    aria-label="Next page"
+                    to={buildUploadsHref({
+                      nextPage: pagination.page + 1,
+                      selected: null
+                    })}
+                  >
+                    ›
+                  </Link>
+                ) : (
+                  <span className="pageArrow isDisabled" aria-hidden="true">›</span>
+                )}
+              </div>
+            </div>
             <table className="uploadTable">
               <thead>
                 <tr>
@@ -291,8 +352,16 @@ export default function UploadsPage() {
                   });
                   return (
                     <tr
-                      className={activeSelectedId === row.uploadId ? "isSelected" : undefined}
+                      className={
+                        activeSelectedId === row.uploadId
+                          ? "isSelected isClickable"
+                          : "isClickable"
+                      }
                       key={row.uploadId}
+                      onClick={(event) => openUploadRow(selectedHref, event)}
+                      onKeyDown={(event) => openUploadRowFromKeyboard(selectedHref, event)}
+                      role="link"
+                      tabIndex={0}
                     >
                       <td>
                         <div className="uploadFile">
@@ -319,6 +388,7 @@ export default function UploadsPage() {
                             </div>
                             <div className="muted">{formatFileSize(row.fileSize)}</div>
                             <div className="muted">{row.uploadId}</div>
+                            <Link className="inlineAction" to={selectedHref}>Open details</Link>
                           </div>
                         </div>
                       </td>
@@ -359,39 +429,6 @@ export default function UploadsPage() {
                 ) : null}
               </tbody>
             </table>
-            <div className="paginationBar" aria-label="Upload pagination">
-              {pagination.hasPrevious ? (
-                <Link
-                  className="pageArrow"
-                  aria-label="Previous page"
-                  to={buildUploadsHref({
-                    nextPage: pagination.page - 1,
-                    selected: null
-                  })}
-                >
-                  ‹
-                </Link>
-              ) : (
-                <span className="pageArrow isDisabled" aria-hidden="true">‹</span>
-              )}
-              <span className="pageStatus">
-                Page {pagination.page} of {pagination.totalPages}
-              </span>
-              {pagination.hasNext ? (
-                <Link
-                  className="pageArrow"
-                  aria-label="Next page"
-                  to={buildUploadsHref({
-                    nextPage: pagination.page + 1,
-                    selected: null
-                  })}
-                >
-                  ›
-                </Link>
-              ) : (
-                <span className="pageArrow isDisabled" aria-hidden="true">›</span>
-              )}
-            </div>
           </div>
 
           {selectedUpload ? (

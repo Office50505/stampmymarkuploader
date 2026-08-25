@@ -342,7 +342,7 @@
         setAddToCartEnabled(form, false);
       }
 
-      setStatus(root, "Uploading original file...");
+      setStatus(root, "");
       setButton(trigger, "uploading", "0% Uploading... Please wait.");
 
       try {

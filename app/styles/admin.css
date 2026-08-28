@@ -58,7 +58,7 @@
 .statsGrid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   margin-bottom: 18px;
 }
 
@@ -542,11 +542,19 @@
   white-space: nowrap;
 }
 
-.status.uploaded,
-.status.cart,
-.status.abandoned {
+.status.uploaded {
   background: #fff4de;
   color: #916a00;
+}
+
+.status.cart {
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.status.abandoned {
+  background: #ffedd5;
+  color: #9a3412;
 }
 
 .status.ordered {

@@ -16,9 +16,15 @@ const filters = [
   ["all", "All"],
   ["ordered", "Ordered"],
   ["unordered", "Unordered"],
+  ["cart", "In cart"],
+  ["abandoned", "Abandoned"],
   ["expired", "Expired"]
 ] as const;
 const pageSize = 10;
+type UploadFilter = (typeof filters)[number][0];
+
+const isUploadFilter = (value: string): value is UploadFilter =>
+  filters.some(([filterValue]) => filterValue === value);
 
 const formatFileSize = (size: number) => {
   if (size >= 1024 * 1024) {
@@ -95,7 +101,8 @@ export const links: LinksFunction = () => [
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const url = new URL(request.url);
-  const filter = url.searchParams.get("status") ?? "all";
+  const requestedFilter = url.searchParams.get("status") ?? "all";
+  const filter = isUploadFilter(requestedFilter) ? requestedFilter : "all";
   const query = (url.searchParams.get("q") ?? "").trim().slice(0, 120);
   const dateFromValue = url.searchParams.get("dateFrom") ?? "";
   const dateToValue = url.searchParams.get("dateTo") ?? "";
@@ -103,10 +110,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const dateTo = parseDateFilter(dateToValue, true);
   const selectedUploadId = url.searchParams.get("selected") ?? "";
   const requestedPage = Number(url.searchParams.get("page") ?? "1");
-  const status =
-    filter === "ordered" || filter === "expired" || filter === "unordered"
-      ? filter
-      : undefined;
+  const status = filter === "all" ? undefined : filter;
   const totalUploads = await countUploads({
     shop: session.shop,
     status,
@@ -174,7 +178,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     })
   );
 
-  const [all, ordered, unordered, expired] = await Promise.all([
+  const [all, ordered, unordered, inCart, abandoned, expired] = await Promise.all([
     prisma.upload.count({ where: { shop: session.shop } }),
     prisma.upload.count({ where: { shop: session.shop, status: "ordered" } }),
     prisma.upload.count({
@@ -183,6 +187,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         status: { in: ["uploaded", "cart", "abandoned"] }
       }
     }),
+    prisma.upload.count({ where: { shop: session.shop, status: "cart" } }),
+    prisma.upload.count({ where: { shop: session.shop, status: "abandoned" } }),
     prisma.upload.count({ where: { shop: session.shop, status: "expired" } })
   ]);
 
@@ -221,7 +227,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       hasPrevious: page > 1,
       hasNext: page < totalPages
     },
-    stats: { all, ordered, unordered, expired },
+    stats: { all, ordered, unordered, inCart, abandoned, expired },
     selectedUpload: selectedUpload
       ? {
           uploadId: selectedUpload.uploadId,
@@ -358,6 +364,14 @@ export default function UploadsPage() {
           <Link className="statCard" to="/app/uploads?status=unordered">
             <span>Unordered</span>
             <strong>{stats.unordered}</strong>
+          </Link>
+          <Link className="statCard" to="/app/uploads?status=cart">
+            <span>In cart</span>
+            <strong>{stats.inCart}</strong>
+          </Link>
+          <Link className="statCard" to="/app/uploads?status=abandoned">
+            <span>Abandoned</span>
+            <strong>{stats.abandoned}</strong>
           </Link>
           <Link className="statCard" to="/app/uploads?status=expired">
             <span>Expired</span>

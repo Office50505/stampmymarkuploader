@@ -62,6 +62,10 @@ model Upload {
   cartToken        String?
   customerId       String?
   ipAddress        String?
+  ipCity           String?
+  ipRegion         String?
+  ipRegionCode     String?
+  ipPostalCode     String?
   ipCountryCode    String?
   ipCountry        String?
   ipContinentCode  String?

@@ -69,18 +69,23 @@ const shortenUploadId = (uploadId: string) =>
   uploadId.length > 14 ? `${uploadId.slice(0, 10)}...${uploadId.slice(-4)}` : uploadId;
 
 const formatIpLocation = (row: {
+  ipCity: string | null;
+  ipRegion: string | null;
   ipCountry: string | null;
   ipCountryCode: string | null;
   ipAsn: string | null;
 }) => {
-  const country = row.ipCountry || row.ipCountryCode;
-  const asn = row.ipAsn;
+  const parts = [
+    row.ipCity,
+    row.ipRegion,
+    row.ipCountry || row.ipCountryCode
+  ].filter(Boolean);
 
-  if (country && asn) {
-    return `${country} · ${asn}`;
+  if (parts.length > 0) {
+    return parts.join(", ");
   }
 
-  return country || asn || "Unknown";
+  return row.ipAsn || "Unknown";
 };
 
 export const links: LinksFunction = () => [
@@ -152,6 +157,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         uploadedAt: upload.uploadedAt?.toISOString() ?? null,
         createdAt: upload.createdAt.toISOString(),
         ipAddress: upload.ipAddress,
+        ipCity: upload.ipCity,
+        ipRegion: upload.ipRegion,
+        ipRegionCode: upload.ipRegionCode,
+        ipPostalCode: upload.ipPostalCode,
         ipCountryCode: upload.ipCountryCode,
         ipCountry: upload.ipCountry,
         ipContinent: upload.ipContinent,
@@ -229,6 +238,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           uploadedAt: selectedUpload.uploadedAt?.toISOString() ?? null,
           createdAt: selectedUpload.createdAt.toISOString(),
           ipAddress: selectedUpload.ipAddress,
+          ipCity: selectedUpload.ipCity,
+          ipRegion: selectedUpload.ipRegion,
+          ipRegionCode: selectedUpload.ipRegionCode,
+          ipPostalCode: selectedUpload.ipPostalCode,
           ipCountryCode: selectedUpload.ipCountryCode,
           ipCountry: selectedUpload.ipCountry,
           ipContinent: selectedUpload.ipContinent,

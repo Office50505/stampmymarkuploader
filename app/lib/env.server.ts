@@ -21,6 +21,11 @@ export const ipinfoConfig = {
   enabled: (process.env.IP_GEOLOCATION_PROVIDER || "").toLowerCase() === "ipinfo"
 };
 
+export const ipgeolocationConfig = {
+  apiKey: process.env.IPGEOLOCATION_API_KEY || "",
+  enabled: (process.env.IP_GEOLOCATION_PROVIDER || "").toLowerCase() === "ipgeolocation"
+};
+
 export const requireServerEnv = (key: string) => {
   const value = process.env[key];
   if (!value) {

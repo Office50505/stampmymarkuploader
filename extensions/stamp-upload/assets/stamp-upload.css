@@ -62,6 +62,55 @@
   color: #067647;
 }
 
+.smm-upload__text-fields {
+  display: block;
+  margin-top: 18px;
+}
+
+.smm-upload__text-fields[hidden] {
+  display: none;
+}
+
+.smm-upload__field {
+  margin: 0 0 14px;
+}
+
+.smm-upload__label {
+  color: #222;
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0 0 8px;
+}
+
+.smm-upload__textarea {
+  appearance: none;
+  background: #fff;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #222;
+  display: block;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  min-height: 70px;
+  padding: 12px 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.smm-upload__textarea::placeholder {
+  color: #d1d5db;
+}
+
+.smm-upload__textarea:focus {
+  border-color: #9ca3af;
+  outline: 2px solid rgba(18, 152, 232, 0.18);
+  outline-offset: 0;
+}
+
 .smm-upload__preview {
   align-items: center;
   display: flex;

@@ -23,7 +23,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     cartToken: body.cartToken ? String(body.cartToken) : null,
     quantity: body.quantity ? Number(body.quantity) : null,
     selectedSize: body.selectedSize ? String(body.selectedSize) : null,
-    variantId: body.variantId ? String(body.variantId) : null
+    variantId: body.variantId ? String(body.variantId) : null,
+    textAbove: body.textAbove ? String(body.textAbove) : null,
+    textBelow: body.textBelow ? String(body.textBelow) : null,
+    designerNotes: body.designerNotes ? String(body.designerNotes) : null
   });
 
   if (!result.ok) {

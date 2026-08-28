@@ -234,6 +234,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
           ipContinent: selectedUpload.ipContinent,
           ipAsn: selectedUpload.ipAsn,
           ipAsName: selectedUpload.ipAsName,
+          textAbove: selectedUpload.textAbove,
+          textBelow: selectedUpload.textBelow,
+          designerNotes: selectedUpload.designerNotes,
           orderName: selectedUpload.orderName,
           orderId: selectedUpload.orderId,
           previewUrl: selectedInlineUrl?.url ?? null,
@@ -662,6 +665,30 @@ export default function UploadsPage() {
                   <a className="secondaryButton" href={selectedUpload.downloadUrl} target="_blank" rel="noreferrer">Download</a>
                 ) : null}
               </div>
+
+              {selectedUpload.textAbove || selectedUpload.textBelow || selectedUpload.designerNotes ? (
+                <section className="detailNotes" aria-label="Customer personalization text">
+                  <h3>Customer text</h3>
+                  {selectedUpload.textAbove ? (
+                    <div>
+                      <span>Above</span>
+                      <p>{selectedUpload.textAbove}</p>
+                    </div>
+                  ) : null}
+                  {selectedUpload.textBelow ? (
+                    <div>
+                      <span>Below</span>
+                      <p>{selectedUpload.textBelow}</p>
+                    </div>
+                  ) : null}
+                  {selectedUpload.designerNotes ? (
+                    <div>
+                      <span>Notes</span>
+                      <p>{selectedUpload.designerNotes}</p>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
 
               <dl className="detailList">
                 <div><dt>Status</dt><dd><span className={`status ${selectedUpload.status}`}>{formatStatus(selectedUpload.status)}</span></dd></div>

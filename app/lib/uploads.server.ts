@@ -263,7 +263,10 @@ export const markUploadInCart = async ({
   cartToken,
   quantity,
   selectedSize,
-  variantId
+  variantId,
+  textAbove,
+  textBelow,
+  designerNotes
 }: {
   shop: string;
   uploadId: string;
@@ -272,6 +275,9 @@ export const markUploadInCart = async ({
   quantity?: number | null;
   selectedSize?: string | null;
   variantId?: string | null;
+  textAbove?: string | null;
+  textBelow?: string | null;
+  designerNotes?: string | null;
 }) => {
   const upload = await prisma.upload.findFirst({
     where: { shop, uploadId, removedAt: null }
@@ -297,7 +303,10 @@ export const markUploadInCart = async ({
       cartToken: cleanText(cartToken, 160),
       quantity: cleanQuantity(quantity) ?? upload.quantity,
       selectedSize: cleanText(selectedSize, 120) ?? upload.selectedSize,
-      variantId: cleanText(variantId, 64) ?? upload.variantId
+      variantId: cleanText(variantId, 64) ?? upload.variantId,
+      textAbove: cleanText(textAbove, 1000),
+      textBelow: cleanText(textBelow, 1000),
+      designerNotes: cleanText(designerNotes, 1500)
     }
   });
 
@@ -399,7 +408,10 @@ const buildUploadWhere = ({
             { ipCountryCode: { contains: cleanedQuery, mode: "insensitive" } },
             { ipCountry: { contains: cleanedQuery, mode: "insensitive" } },
             { ipAsn: { contains: cleanedQuery, mode: "insensitive" } },
-            { ipAsName: { contains: cleanedQuery, mode: "insensitive" } }
+            { ipAsName: { contains: cleanedQuery, mode: "insensitive" } },
+            { textAbove: { contains: cleanedQuery, mode: "insensitive" } },
+            { textBelow: { contains: cleanedQuery, mode: "insensitive" } },
+            { designerNotes: { contains: cleanedQuery, mode: "insensitive" } }
           ]
         }
       : {})

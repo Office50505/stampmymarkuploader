@@ -55,6 +55,9 @@ model Upload {
   variantTitle     String?
   selectedSize     String?
   quantity         Int?
+  textAbove        String?
+  textBelow        String?
+  designerNotes    String?
   sessionId        String?
   cartToken        String?
   customerId       String?

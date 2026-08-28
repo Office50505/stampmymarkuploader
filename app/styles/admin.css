@@ -682,6 +682,41 @@
   margin-top: 14px;
 }
 
+.detailNotes {
+  border-top: 1px solid #e5e7eb;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.detailNotes h3 {
+  color: #202223;
+  font-size: 13px;
+  line-height: 18px;
+  margin: 0 0 10px;
+}
+
+.detailNotes div {
+  margin-top: 10px;
+}
+
+.detailNotes span {
+  color: #6b7280;
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  margin-bottom: 4px;
+}
+
+.detailNotes p {
+  color: #202223;
+  font-size: 13px;
+  line-height: 19px;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
 .uploadDetailPanel {
   align-self: start;
   background: #fff;

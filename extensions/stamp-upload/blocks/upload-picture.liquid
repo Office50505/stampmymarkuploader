@@ -4,7 +4,9 @@
 %}
 
 <div
+  id="smm-upload-{{ block.id }}"
   class="smm-upload"
+  style="display:block;margin:16px 0 18px;width:100%;"
   data-stamp-upload
   data-product-id="{{ product.id }}"
   data-product-gid="gid://shopify/Product/{{ product.id }}"
@@ -18,14 +20,20 @@
   data-max-bytes="{{ max_bytes }}"
   data-app-url="{{ block.settings.app_url | default: 'https://stampmymarkuploader-production.up.railway.app' | escape }}"
   data-customer-id="{% if customer %}{{ customer.id }}{% endif %}"
+  data-show-text-fields-after-upload="{{ block.settings.show_text_fields_after_upload }}"
 >
   {% if block.settings.show_required_marker %}
-    <div class="smm-upload__required" aria-hidden="true">*</div>
+    <div class="smm-upload__required" style="color:#111;font-size:14px;line-height:18px;margin-bottom:8px;" aria-hidden="true">*</div>
   {% endif %}
 
   <div class="smm-upload__preview" data-upload-preview hidden></div>
 
-  <button class="smm-upload__button" type="button" data-upload-trigger>
+  <button
+    class="smm-upload__button"
+    type="button"
+    data-upload-trigger
+    style="align-items:center;appearance:none;background:#1298e8;border:0;border-radius:3px;color:#fff;cursor:pointer;display:inline-flex;font-family:inherit;font-size:14px;font-weight:600;justify-content:center;line-height:20px;min-height:42px;padding:10px 16px;text-align:center;width:100%;"
+  >
     {{ block.settings.button_label }}
   </button>
 
@@ -40,8 +48,63 @@
   <input type="hidden" name="properties[_stampmymark_upload_id]" data-upload-id-property disabled>
   <input type="hidden" name="properties[_stampmymark_original_filename]" data-upload-filename-property disabled>
   <input type="hidden" name="properties[StampMyMark artwork]" data-upload-artwork-property disabled>
+  <input type="hidden" name="properties[Above]" data-upload-text-above-property disabled>
+  <input type="hidden" name="properties[Below]" data-upload-text-below-property disabled>
+  <input type="hidden" name="properties[Notes]" data-upload-designer-notes-property disabled>
 
   <div class="smm-upload__status" data-upload-status role="status" aria-live="polite"></div>
+
+  {% if block.settings.show_text_fields_after_upload %}
+    <div class="smm-upload__text-fields" data-upload-text-fields hidden>
+      {% if block.settings.show_text_above_field %}
+        <div class="smm-upload__field">
+          <label class="smm-upload__label" for="smm-upload-text-above-{{ block.id }}">
+            {{ block.settings.text_above_label }}
+          </label>
+          <textarea
+            id="smm-upload-text-above-{{ block.id }}"
+            class="smm-upload__textarea"
+            rows="2"
+            placeholder="{{ block.settings.text_above_placeholder | escape }}"
+            data-upload-text-field
+            data-upload-text-above
+          ></textarea>
+        </div>
+      {% endif %}
+
+      {% if block.settings.show_text_below_field %}
+        <div class="smm-upload__field">
+          <label class="smm-upload__label" for="smm-upload-text-below-{{ block.id }}">
+            {{ block.settings.text_below_label }}
+          </label>
+          <textarea
+            id="smm-upload-text-below-{{ block.id }}"
+            class="smm-upload__textarea"
+            rows="2"
+            placeholder="{{ block.settings.text_below_placeholder | escape }}"
+            data-upload-text-field
+            data-upload-text-below
+          ></textarea>
+        </div>
+      {% endif %}
+
+      {% if block.settings.show_designer_notes_field %}
+        <div class="smm-upload__field">
+          <label class="smm-upload__label" for="smm-upload-designer-notes-{{ block.id }}">
+            {{ block.settings.designer_notes_label }}
+          </label>
+          <textarea
+            id="smm-upload-designer-notes-{{ block.id }}"
+            class="smm-upload__textarea"
+            rows="2"
+            placeholder="{{ block.settings.designer_notes_placeholder | escape }}"
+            data-upload-text-field
+            data-upload-designer-notes
+          ></textarea>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 
 {% schema %}
@@ -84,6 +147,66 @@
       "step": 1,
       "unit": "MB",
       "default": 25
+    },
+    {
+      "type": "checkbox",
+      "id": "show_text_fields_after_upload",
+      "label": "Show text fields only after upload",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_text_above_field",
+      "label": "Show text above field",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "text_above_label",
+      "label": "Text above label",
+      "default": "Text Above the Picture"
+    },
+    {
+      "type": "text",
+      "id": "text_above_placeholder",
+      "label": "Text above placeholder",
+      "default": "You can leave this blank if you do not want any text here."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_text_below_field",
+      "label": "Show text below field",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "text_below_label",
+      "label": "Text below label",
+      "default": "Text Below the Picture"
+    },
+    {
+      "type": "text",
+      "id": "text_below_placeholder",
+      "label": "Text below placeholder",
+      "default": "You can leave this blank if you do not want any text here."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_designer_notes_field",
+      "label": "Show notes field",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "designer_notes_label",
+      "label": "Notes label",
+      "default": "Notes For Your Designer"
+    },
+    {
+      "type": "text",
+      "id": "designer_notes_placeholder",
+      "label": "Notes placeholder",
+      "default": "You can leave this blank if you do not want any text here."
     },
     {
       "type": "text",

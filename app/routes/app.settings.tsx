@@ -1,56 +1,81 @@
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
 import { Link, useLoaderData } from "react-router";
 import { TitleBar } from "@shopify/app-bridge-react";
+import prisma from "../db.server";
+import { bunnyConfig } from "../lib/env.server";
 import { authenticate } from "../shopify.server";
-import { bunnyConfig, uploadConfig } from "../lib/env.server";
 import adminStyles from "../styles/admin.css?url";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: adminStyles }
 ];
 
-const supportedFileTypes = ["JPG", "JPEG", "PNG", "WEBP", "PDF"];
-
-const formatFileSize = (size: number) => {
-  if (size >= 1024 * 1024) {
-    return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  }
-
-  return `${Math.max(1, Math.round(size / 1024))} KB`;
-};
-
-const configuredState = (value: string) => (value ? "Configured" : "Missing");
+const formatDateTime = (value: Date | null) =>
+  value ? value.toLocaleString() : "No uploads yet";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
 
-  return {
-    shop: session.shop,
-    appUrl: process.env.SHOPIFY_APP_URL || process.env.HOST || "",
-    appProxyPath: "/apps/stamp-upload",
-    upload: {
-      maxFileSize: formatFileSize(uploadConfig.maxBytes),
-      retentionDays: uploadConfig.retentionDays,
-      deleteExpiredObjects: uploadConfig.deleteExpiredObjects ? "Enabled" : "Disabled",
-      supportedFileTypes: supportedFileTypes.join(", ")
-    },
-    bunny: {
-      storageZone: bunnyConfig.storageZone,
-      endpoint: bunnyConfig.endpoint,
-      pullZoneUrl: bunnyConfig.pullZoneUrl,
-      accessKeyStatus: configuredState(bunnyConfig.accessKey)
-    },
-    operations: {
-      cleanupCommand: "npm run cleanup",
-      appProxyTarget: "/apps/stamp-upload",
-      orderWebhook: "orders/create",
-      themeBlock: "Upload Picture"
-    }
-  };
+  try {
+    const [uploadCount, latestUpload] = await Promise.all([
+      prisma.upload.count({ where: { shop: session.shop } }),
+      prisma.upload.findFirst({
+        where: { shop: session.shop },
+        orderBy: { createdAt: "desc" },
+        select: { createdAt: true }
+      })
+    ]);
+
+    const cdnReady = Boolean(
+      bunnyConfig.storageZone &&
+        bunnyConfig.accessKey &&
+        bunnyConfig.endpoint &&
+        bunnyConfig.pullZoneUrl
+    );
+
+    return {
+      database: {
+        ok: true,
+        title: "Healthy",
+        message: "Upload records are being saved normally.",
+        uploadCount,
+        latestUploadAt: latestUpload?.createdAt.toISOString() ?? null
+      },
+      cdn: {
+        ok: cdnReady,
+        title: cdnReady ? "Ready" : "Needs attention",
+        message: cdnReady
+          ? "Customer files can be stored and previewed securely."
+          : "File storage or preview delivery is not fully connected.",
+        storageReady: Boolean(bunnyConfig.storageZone && bunnyConfig.accessKey),
+        previewReady: Boolean(bunnyConfig.pullZoneUrl)
+      }
+    };
+  } catch {
+    return {
+      database: {
+        ok: false,
+        title: "Needs attention",
+        message: "Upload records could not be checked right now.",
+        uploadCount: 0,
+        latestUploadAt: null
+      },
+      cdn: {
+        ok: false,
+        title: "Not checked",
+        message: "File delivery was not checked because the database check failed.",
+        storageReady: false,
+        previewReady: false
+      }
+    };
+  }
 };
 
 export default function SettingsPage() {
   const data = useLoaderData<typeof loader>();
+  const latestUploadDate = data.database.latestUploadAt
+    ? new Date(data.database.latestUploadAt)
+    : null;
 
   return (
     <s-page>
@@ -58,100 +83,55 @@ export default function SettingsPage() {
       <s-section heading="Settings">
         <div className="dashboardHero">
           <div>
-            <h1>Uploader settings</h1>
-            <p>
-              Review the live app configuration without exposing Shopify or Bunny.net
-              secrets.
-            </p>
+            <h1>System health</h1>
+            <p>Quick checks for the two things that matter most: saved uploads and file delivery.</p>
           </div>
           <Link className="primaryButton" to="/app/uploads">View uploads</Link>
         </div>
 
-        <div className="settingsGrid">
-          <section className="settingsCard" aria-labelledby="upload-settings">
-            <h2 id="upload-settings">Upload rules</h2>
-            <dl className="settingsList">
+        <div className="healthGrid">
+          <section className="healthCard" aria-labelledby="database-health">
+            <div className="healthCardHeader">
               <div>
-                <dt>Allowed files</dt>
-                <dd>{data.upload.supportedFileTypes}</dd>
+                <span className="healthEyebrow">Upload records</span>
+                <h2 id="database-health">Database</h2>
+              </div>
+              <span className={data.database.ok ? "healthBadge ok" : "healthBadge warning"}>
+                {data.database.title}
+              </span>
+            </div>
+            <p>{data.database.message}</p>
+            <dl className="healthFacts">
+              <div>
+                <dt>Total uploads</dt>
+                <dd>{data.database.uploadCount}</dd>
               </div>
               <div>
-                <dt>Maximum size</dt>
-                <dd>{data.upload.maxFileSize}</dd>
-              </div>
-              <div>
-                <dt>Retention</dt>
-                <dd>{data.upload.retentionDays} days</dd>
-              </div>
-              <div>
-                <dt>Delete expired files</dt>
-                <dd>{data.upload.deleteExpiredObjects}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="settingsCard" aria-labelledby="storage-settings">
-            <h2 id="storage-settings">Bunny.net storage</h2>
-            <dl className="settingsList">
-              <div>
-                <dt>Storage zone</dt>
-                <dd>{data.bunny.storageZone || "Not configured"}</dd>
-              </div>
-              <div>
-                <dt>Storage endpoint</dt>
-                <dd>{data.bunny.endpoint || "Not configured"}</dd>
-              </div>
-              <div>
-                <dt>Pull zone URL</dt>
-                <dd>{data.bunny.pullZoneUrl || "Not configured"}</dd>
-              </div>
-              <div>
-                <dt>Access key</dt>
-                <dd>{data.bunny.accessKeyStatus}</dd>
+                <dt>Latest upload</dt>
+                <dd>{formatDateTime(latestUploadDate)}</dd>
               </div>
             </dl>
           </section>
 
-          <section className="settingsCard" aria-labelledby="shopify-settings">
-            <h2 id="shopify-settings">Shopify connection</h2>
-            <dl className="settingsList">
+          <section className="healthCard" aria-labelledby="cdn-health">
+            <div className="healthCardHeader">
               <div>
-                <dt>Shop</dt>
-                <dd>{data.shop}</dd>
+                <span className="healthEyebrow">File previews</span>
+                <h2 id="cdn-health">Bunny CDN</h2>
+              </div>
+              <span className={data.cdn.ok ? "healthBadge ok" : "healthBadge warning"}>
+                {data.cdn.title}
+              </span>
+            </div>
+            <p>{data.cdn.message}</p>
+            <dl className="healthFacts">
+              <div>
+                <dt>File storage</dt>
+                <dd>{data.cdn.storageReady ? "Connected" : "Needs setup"}</dd>
               </div>
               <div>
-                <dt>App URL</dt>
-                <dd>{data.appUrl || "Not configured"}</dd>
-              </div>
-              <div>
-                <dt>App proxy</dt>
-                <dd>{data.appProxyPath}</dd>
-              </div>
-              <div>
-                <dt>Theme block</dt>
-                <dd>{data.operations.themeBlock}</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="settingsCard" aria-labelledby="operations-settings">
-            <h2 id="operations-settings">Operations</h2>
-            <dl className="settingsList">
-              <div>
-                <dt>Order webhook</dt>
-                <dd>{data.operations.orderWebhook}</dd>
-              </div>
-              <div>
-                <dt>Cleanup command</dt>
-                <dd><code>{data.operations.cleanupCommand}</code></dd>
-              </div>
-              <div>
-                <dt>Storefront proxy</dt>
-                <dd>{data.operations.appProxyTarget}</dd>
-              </div>
-              <div>
-                <dt>Deployment</dt>
-                <dd>Push app code to Railway. Deploy theme extension changes with Shopify CLI.</dd>
+                <dt>Preview links</dt>
+                <dd>{data.cdn.previewReady ? "Available" : "Needs setup"}</dd>
               </div>
             </dl>
           </section>

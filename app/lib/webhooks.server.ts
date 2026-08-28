@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "~/db.server";
 
 type OrderWebhookLineItem = {
@@ -17,6 +18,22 @@ type OrderWebhookPayload = {
   created_at?: string;
   line_items?: OrderWebhookLineItem[];
 };
+
+const cleanText = (value: string | null | undefined, maxLength: number) => {
+  if (!value) return null;
+
+  const cleaned = value
+    .normalize("NFKC")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+
+  return cleaned || null;
+};
+
+const getLineItemProperty = (lineItem: OrderWebhookLineItem, name: string) =>
+  lineItem.properties?.find((property) => property.name === name)?.value;
 
 export const processOrderCreateWebhook = async ({
   webhookId,
@@ -51,13 +68,20 @@ export const processOrderCreateWebhook = async ({
     });
 
     for (const lineItem of payload.line_items ?? []) {
-      const uploadId = lineItem.properties?.find(
-        (property) => property.name === "_stampmymark_upload_id"
-      )?.value;
+      const uploadId = getLineItemProperty(lineItem, "_stampmymark_upload_id");
 
       if (!uploadId) {
         continue;
       }
+
+      const textData: Prisma.UploadUpdateManyMutationInput = {};
+      const textAbove = cleanText(getLineItemProperty(lineItem, "Above"), 1000);
+      const textBelow = cleanText(getLineItemProperty(lineItem, "Below"), 1000);
+      const designerNotes = cleanText(getLineItemProperty(lineItem, "Notes"), 1500);
+
+      if (textAbove) textData.textAbove = textAbove;
+      if (textBelow) textData.textBelow = textBelow;
+      if (designerNotes) textData.designerNotes = designerNotes;
 
       const result = await tx.upload.updateMany({
         where: {
@@ -75,7 +99,8 @@ export const processOrderCreateWebhook = async ({
           variantId: lineItem.variant_id ? String(lineItem.variant_id) : undefined,
           productTitle: lineItem.title,
           variantTitle: lineItem.variant_title,
-          quantity: lineItem.quantity
+          quantity: lineItem.quantity,
+          ...textData
         }
       });
 

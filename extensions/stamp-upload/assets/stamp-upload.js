@@ -60,6 +60,38 @@
     );
   }
 
+  function getTextFieldValue(root, selector) {
+    const field = find(root, selector);
+    return field ? field.value.trim() : "";
+  }
+
+  function getTextFieldPayload(root) {
+    return {
+      textAbove: getTextFieldValue(root, "[data-upload-text-above]"),
+      textBelow: getTextFieldValue(root, "[data-upload-text-below]"),
+      designerNotes: getTextFieldValue(root, "[data-upload-designer-notes]")
+    };
+  }
+
+  function setTextFieldsVisible(root, visible, clearValues) {
+    const fields = find(root, "[data-upload-text-fields]");
+
+    root.classList.toggle("smm-upload--uploaded", visible);
+
+    if (!fields) return;
+
+    fields.hidden = !visible;
+    fields.setAttribute("aria-hidden", visible ? "false" : "true");
+
+    Array.from(root.querySelectorAll("[data-upload-text-field]")).forEach((field) => {
+      field.disabled = !visible;
+
+      if (clearValues) {
+        field.value = "";
+      }
+    });
+  }
+
   function getSelectedSize(root) {
     const optionName = root.dataset.sizeOptionName || "Size";
     const namedOption = Array.from(document.querySelectorAll("[name^='options']")).find(
@@ -133,6 +165,44 @@
       "[data-upload-artwork-property]",
       "properties[StampMyMark artwork]",
       buildAdminUploadUrl(root, uploadId)
+    );
+  }
+
+  function setTextLineItemProperties(root, form) {
+    const text = getTextFieldPayload(root);
+
+    setHiddenProperty(
+      root,
+      form,
+      "[data-upload-text-above-property]",
+      "properties[Above]",
+      text.textAbove
+    );
+    setHiddenProperty(
+      root,
+      form,
+      "[data-upload-text-below-property]",
+      "properties[Below]",
+      text.textBelow
+    );
+    setHiddenProperty(
+      root,
+      form,
+      "[data-upload-designer-notes-property]",
+      "properties[Notes]",
+      text.designerNotes
+    );
+  }
+
+  function clearTextLineItemProperties(root, form) {
+    setHiddenProperty(root, form, "[data-upload-text-above-property]", "properties[Above]", "");
+    setHiddenProperty(root, form, "[data-upload-text-below-property]", "properties[Below]", "");
+    setHiddenProperty(
+      root,
+      form,
+      "[data-upload-designer-notes-property]",
+      "properties[Notes]",
+      ""
     );
   }
 
@@ -270,6 +340,7 @@
     if (required) {
       setAddToCartEnabled(form, false);
     }
+    setTextFieldsVisible(root, false, false);
     setButton(trigger, "idle", idleLabel);
 
     async function removeUpload() {
@@ -281,7 +352,9 @@
       state.file = null;
       fileInput.value = "";
       clearPreview(root);
+      setTextFieldsVisible(root, false, true);
       setLineItemProperties(root, form, "", "");
+      clearTextLineItemProperties(root, form);
       setStatus(root, "");
       setButton(trigger, "idle", idleLabel);
 
@@ -312,6 +385,8 @@
       if (!(allowedTypes.includes(file.type) || allowedExtensions.includes(getExtension(file.name)))) {
         fileInput.value = "";
         clearPreview(root);
+        setTextFieldsVisible(root, false, false);
+        clearTextLineItemProperties(root, form);
         setStatus(root, "Please upload a JPG, PNG, WEBP, or PDF file.", "error");
         return;
       }
@@ -319,6 +394,8 @@
       if (maxBytes && file.size > maxBytes) {
         fileInput.value = "";
         clearPreview(root);
+        setTextFieldsVisible(root, false, false);
+        clearTextLineItemProperties(root, form);
         setStatus(root, `File is too large. Maximum size is ${formatFileSize(maxBytes)}.`, "error");
         return;
       }
@@ -336,7 +413,9 @@
       state.filename = null;
       state.file = file;
       clearPreview(root);
+      setTextFieldsVisible(root, false, false);
       setLineItemProperties(root, form, "", "");
+      clearTextLineItemProperties(root, form);
 
       if (required) {
         setAddToCartEnabled(form, false);
@@ -373,6 +452,7 @@
         state.uploading = false;
         setLineItemProperties(root, form, state.uploadId, state.filename);
         showPreview(root, file, removeUpload);
+        setTextFieldsVisible(root, true, false);
         setStatus(root, "");
         setButton(trigger, "uploaded", "Change File");
 
@@ -386,7 +466,9 @@
         state.file = null;
         fileInput.value = "";
         clearPreview(root);
+        setTextFieldsVisible(root, false, false);
         setLineItemProperties(root, form, "", "");
+        clearTextLineItemProperties(root, form);
         setButton(trigger, "idle", idleLabel);
 
         if (required) {
@@ -415,14 +497,18 @@
           event.preventDefault();
 
           try {
+            const textFields = getTextFieldPayload(root);
+
             await postJson("cart", {
               uploadId: state.uploadId,
               sessionId,
               cartToken: getCartToken(),
               quantity: getQuantity(form),
               selectedSize: getSelectedSize(root),
-              variantId: getVariantId(root, form)
+              variantId: getVariantId(root, form),
+              ...textFields
             });
+            setTextLineItemProperties(root, form);
             form.submit();
           } catch (error) {
             setStatus(root, error.message || "Could not attach upload to cart.", "error");

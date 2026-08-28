@@ -1,5 +1,5 @@
 import type { LinksFunction, LoaderFunctionArgs } from "react-router";
-import { Link, useLoaderData } from "react-router";
+import { Link, useLoaderData, useRevalidator } from "react-router";
 import { TitleBar } from "@shopify/app-bridge-react";
 import prisma from "../db.server";
 import { authenticate } from "../shopify.server";
@@ -71,6 +71,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function DashboardIndex() {
   const { stats, latest } = useLoaderData<typeof loader>();
+  const revalidator = useRevalidator();
+  const isRefreshing = revalidator.state !== "idle";
 
   return (
     <s-page>
@@ -81,7 +83,19 @@ export default function DashboardIndex() {
             <h1>StampMyMark uploads</h1>
             <p>Track artwork files as soon as customers upload them, before cart or checkout.</p>
           </div>
-          <Link className="primaryButton" to="/app/uploads">View all uploads</Link>
+          <div className="heroActions">
+            <button
+              aria-label="Refresh dashboard"
+              className="iconButton"
+              disabled={isRefreshing}
+              onClick={() => revalidator.revalidate()}
+              title="Refresh dashboard"
+              type="button"
+            >
+              ↻
+            </button>
+            <Link className="primaryButton" to="/app/uploads">View all uploads</Link>
+          </div>
         </div>
 
         <div className="statsGrid" aria-label="Upload summary">

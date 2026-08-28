@@ -60,6 +60,16 @@
     );
   }
 
+  function getCartAddUrl() {
+    const rootPath = window.Shopify && window.Shopify.routes ? window.Shopify.routes.root : "/";
+    return `${rootPath.replace(/\/?$/, "/")}cart/add.js`;
+  }
+
+  function getCartUrl() {
+    const rootPath = window.Shopify && window.Shopify.routes ? window.Shopify.routes.root : "/";
+    return `${rootPath.replace(/\/?$/, "/")}cart`;
+  }
+
   function getTextFieldValue(root, selector) {
     const field = find(root, selector);
     return field ? field.value.trim() : "";
@@ -137,14 +147,12 @@
     }
   }
 
-  function buildAdminUploadUrl(root, uploadId) {
-    const appUrl = (root.dataset.appUrl || "").trim().replace(/\/+$/, "");
-    if (!appUrl || !uploadId) return "";
-
-    return `${appUrl}/app/uploads?selected=${encodeURIComponent(uploadId)}`;
+  function buildArtworkUploadUrl(root, uploadId, artworkUrl) {
+    if (artworkUrl) return artworkUrl;
+    return "";
   }
 
-  function setLineItemProperties(root, form, uploadId, filename) {
+  function setLineItemProperties(root, form, uploadId, filename, artworkUrl) {
     setHiddenProperty(
       root,
       form,
@@ -164,7 +172,7 @@
       form,
       "[data-upload-artwork-property]",
       "properties[StampMyMark artwork]",
-      buildAdminUploadUrl(root, uploadId)
+      buildArtworkUploadUrl(root, uploadId, artworkUrl)
     );
   }
 
@@ -194,6 +202,149 @@
     );
   }
 
+  function setFormDataValue(formData, name, value) {
+    formData.delete(name);
+
+    if (value) {
+      formData.append(name, value);
+    }
+  }
+
+  function setFormDataLineItemProperties(root, formData, uploadId, filename, artworkUrl) {
+    setFormDataValue(formData, "properties[_stampmymark_upload_id]", uploadId);
+    setFormDataValue(formData, "properties[_stampmymark_original_filename]", filename);
+    setFormDataValue(
+      formData,
+      "properties[StampMyMark artwork]",
+      buildArtworkUploadUrl(root, uploadId, artworkUrl)
+    );
+
+    const text = getTextFieldPayload(root);
+    setFormDataValue(formData, "properties[Above]", text.textAbove);
+    setFormDataValue(formData, "properties[Below]", text.textBelow);
+    setFormDataValue(formData, "properties[Notes]", text.designerNotes);
+  }
+
+  function syncLineItemProperties(root, form, uploadId, filename, artworkUrl) {
+    setLineItemProperties(root, form, uploadId, filename, artworkUrl);
+    setTextLineItemProperties(root, form);
+  }
+
+  function getCartPayload(root, form, sessionId, uploadId) {
+    return {
+      uploadId,
+      sessionId,
+      cartToken: getCartToken(),
+      quantity: getQuantity(form),
+      selectedSize: getSelectedSize(root),
+      variantId: getVariantId(root, form),
+      ...getTextFieldPayload(root)
+    };
+  }
+
+  function sendCartUpdate(root, form, sessionId, uploadId) {
+    const payload = getCartPayload(root, form, sessionId, uploadId);
+
+    fetch(appProxyBase + "cart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true
+    }).catch(() => {
+      // The order webhook can still link the upload when line-item properties are present.
+    });
+  }
+
+  async function addToShopifyCart(root, form, sessionId, uploadId, filename, artworkUrl) {
+    if (!form) {
+      throw new Error("Product form was not found. Please refresh the page and try again.");
+    }
+
+    syncLineItemProperties(root, form, uploadId, filename, artworkUrl);
+
+    const formData = new FormData(form);
+    setFormDataLineItemProperties(root, formData, uploadId, filename, artworkUrl);
+
+    if (!formData.get("id")) {
+      const variantId = getVariantId(root, form);
+
+      if (variantId) {
+        formData.set("id", variantId);
+      }
+    }
+
+    if (!formData.get("quantity")) {
+      formData.set("quantity", String(getQuantity(form)));
+    }
+
+    const response = await fetch(getCartAddUrl(), {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: formData
+    });
+    const body = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(body.description || body.message || "Could not add this product to cart.");
+    }
+
+    await postJson("cart", getCartPayload(root, form, sessionId, uploadId));
+
+    return body;
+  }
+
+  async function handleAddToCart(root, form, sessionId, state, event, button) {
+    if (state.uploading) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setStatus(root, "Please wait until the file finishes uploading.", "error");
+      return;
+    }
+
+    if (root.dataset.required === "true" && !state.uploadId) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setStatus(root, "Please upload a picture before adding this product to cart.", "error");
+      return;
+    }
+
+    if (!state.uploadId) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    if (button.dataset.smmAdding === "true") return;
+
+    const previousLabel = button.textContent;
+    button.dataset.smmAdding = "true";
+    button.disabled = true;
+
+    if (button.tagName === "BUTTON") {
+      button.textContent = "Adding...";
+    }
+
+    try {
+      await addToShopifyCart(
+        root,
+        form,
+        sessionId,
+        state.uploadId,
+        state.filename,
+        state.artworkUrl
+      );
+      window.location.href = getCartUrl();
+    } catch (error) {
+      button.disabled = false;
+      delete button.dataset.smmAdding;
+
+      if (button.tagName === "BUTTON") {
+        button.textContent = previousLabel;
+      }
+
+      setStatus(root, error.message || "Could not add this product to cart.", "error");
+    }
+  }
+
   function clearTextLineItemProperties(root, form) {
     setHiddenProperty(root, form, "[data-upload-text-above-property]", "properties[Above]", "");
     setHiddenProperty(root, form, "[data-upload-text-below-property]", "properties[Below]", "");
@@ -207,7 +358,56 @@
   }
 
   function getSubmitButtons(form) {
-    return form ? Array.from(form.querySelectorAll("[type='submit'], button[name='add']")) : [];
+    if (!form) return [];
+
+    const buttons = Array.from(form.querySelectorAll("[type='submit'], button[name='add']"));
+
+    if (form.id) {
+      buttons.push(...Array.from(document.querySelectorAll(`[form="${form.id}"]`)));
+    }
+
+    return Array.from(new Set(buttons));
+  }
+
+  function getControlText(control) {
+    if (!control) return "";
+
+    return (
+      control.getAttribute("aria-label") ||
+      control.getAttribute("value") ||
+      control.textContent ||
+      ""
+    ).trim();
+  }
+
+  function isAddToCartControl(control, form) {
+    if (!control || !form) return false;
+
+    const name = (control.getAttribute("name") || "").toLowerCase();
+    const type = (control.getAttribute("type") || "").toLowerCase();
+    const text = getControlText(control).toLowerCase();
+    const looksLikeAddToCart =
+      name === "add" ||
+      control.hasAttribute("data-add-to-cart") ||
+      text.includes("add to cart") ||
+      (type === "submit" && !text.includes("checkout") && !text.includes("buy with"));
+
+    if (!looksLikeAddToCart) return false;
+
+    const formId = control.getAttribute("form");
+    const isConnectedToForm =
+      control.form === form ||
+      (form.id && formId === form.id) ||
+      form.contains(control);
+
+    return isConnectedToForm || text.includes("add to cart");
+  }
+
+  function getClickedAddToCartControl(target, form) {
+    if (!target || !target.closest) return null;
+
+    const control = target.closest("button,input[type='submit'],input[type='button'],[role='button']");
+    return isAddToCartControl(control, form) ? control : null;
   }
 
   function setAddToCartEnabled(form, enabled) {
@@ -333,6 +533,7 @@
     const state = {
       uploadId: null,
       filename: null,
+      artworkUrl: null,
       uploading: false,
       file: null
     };
@@ -349,6 +550,7 @@
       const previousUploadId = state.uploadId;
       state.uploadId = null;
       state.filename = null;
+      state.artworkUrl = null;
       state.file = null;
       fileInput.value = "";
       clearPreview(root);
@@ -411,6 +613,7 @@
       state.uploading = true;
       state.uploadId = null;
       state.filename = null;
+      state.artworkUrl = null;
       state.file = file;
       clearPreview(root);
       setTextFieldsVisible(root, false, false);
@@ -449,8 +652,9 @@
 
         state.uploadId = initResult.uploadId;
         state.filename = file.name;
+        state.artworkUrl = initResult.artworkUrl || null;
         state.uploading = false;
-        setLineItemProperties(root, form, state.uploadId, state.filename);
+        setLineItemProperties(root, form, state.uploadId, state.filename, state.artworkUrl);
         showPreview(root, file, removeUpload);
         setTextFieldsVisible(root, true, false);
         setStatus(root, "");
@@ -463,6 +667,7 @@
         state.uploading = false;
         state.uploadId = null;
         state.filename = null;
+        state.artworkUrl = null;
         state.file = null;
         fileInput.value = "";
         clearPreview(root);
@@ -480,7 +685,41 @@
     });
 
     if (form) {
-      form.addEventListener("submit", async (event) => {
+      form.addEventListener("formdata", (event) => {
+        if (state.uploadId) {
+          setFormDataLineItemProperties(
+            root,
+            event.formData,
+            state.uploadId,
+            state.filename,
+            state.artworkUrl
+          );
+        }
+      });
+
+      getSubmitButtons(form).forEach((button) => {
+        button.addEventListener(
+          "click",
+          async (event) => {
+            await handleAddToCart(root, form, sessionId, state, event, button);
+          },
+          true
+        );
+      });
+
+      document.addEventListener(
+        "click",
+        async (event) => {
+          const button = getClickedAddToCartControl(event.target, form);
+
+          if (button) {
+            await handleAddToCart(root, form, sessionId, state, event, button);
+          }
+        },
+        true
+      );
+
+      form.addEventListener("submit", (event) => {
         if (state.uploading) {
           event.preventDefault();
           setStatus(root, "Please wait until the file finishes uploading.", "error");
@@ -494,27 +733,10 @@
         }
 
         if (state.uploadId) {
-          event.preventDefault();
-
-          try {
-            const textFields = getTextFieldPayload(root);
-
-            await postJson("cart", {
-              uploadId: state.uploadId,
-              sessionId,
-              cartToken: getCartToken(),
-              quantity: getQuantity(form),
-              selectedSize: getSelectedSize(root),
-              variantId: getVariantId(root, form),
-              ...textFields
-            });
-            setTextLineItemProperties(root, form);
-            form.submit();
-          } catch (error) {
-            setStatus(root, error.message || "Could not attach upload to cart.", "error");
-          }
+          syncLineItemProperties(root, form, state.uploadId, state.filename, state.artworkUrl);
+          sendCartUpdate(root, form, sessionId, state.uploadId);
         }
-      });
+      }, true);
     }
   }
 

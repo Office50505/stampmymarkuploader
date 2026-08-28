@@ -44,6 +44,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return jsonResponse({
     ok: true,
     uploadId: result.uploadId,
-    expiresAt: result.expiresAt
+    expiresAt: result.expiresAt,
+    artworkUrl: result.artworkUrl
   });
 };

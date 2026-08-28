@@ -1,4 +1,4 @@
-import type { Prisma, UploadStatus } from "@prisma/client";
+import type { Prisma, Upload, UploadStatus } from "@prisma/client";
 import crypto from "node:crypto";
 import prisma from "~/db.server";
 import { requireServerEnv, uploadConfig } from "./env.server";
@@ -102,7 +102,7 @@ export const initUpload = async (input: UploadInitInput) => {
     Date.now() + uploadConfig.retentionDays * 24 * 60 * 60 * 1000
   );
 
-  await prisma.upload.create({
+  const upload = await prisma.upload.create({
     data: {
       uploadId,
       shop: input.shop,
@@ -140,7 +140,8 @@ export const initUpload = async (input: UploadInitInput) => {
     ok: true as const,
     uploadId,
     storageKey: key,
-    expiresAt
+    expiresAt,
+    artworkUrl: createOrderFileUrl(upload)
   };
 };
 
@@ -477,6 +478,62 @@ export const createAdminFileUrl = async ({
       `&inline=${inlineValue}` +
       `&signature=${signature}`
   };
+};
+
+const orderFileSignaturePayload = (
+  upload: Pick<Upload, "shop" | "uploadId" | "storageKey">
+) => `${upload.shop}:${upload.uploadId}:${upload.storageKey}`;
+
+const signOrderFileUrl = (upload: Pick<Upload, "shop" | "uploadId" | "storageKey">) =>
+  crypto
+    .createHmac("sha256", requireServerEnv("SHOPIFY_API_SECRET"))
+    .update(orderFileSignaturePayload(upload))
+    .digest("hex");
+
+export const createOrderFileUrl = (
+  upload: Pick<Upload, "shop" | "uploadId" | "storageKey">
+) => {
+  const appUrl = requireServerEnv("SHOPIFY_APP_URL").replace(/\/+$/, "");
+  const token = signOrderFileUrl(upload);
+
+  return (
+    `${appUrl}/uploads/${encodeURIComponent(upload.uploadId)}/file` +
+    `?token=${encodeURIComponent(token)}`
+  );
+};
+
+export const getStoredUploadResponseForOrderLink = async ({
+  uploadId,
+  token
+}: {
+  uploadId: string;
+  token: string | null;
+}) => {
+  if (!uploadId || !token || !/^[a-f0-9]{64}$/i.test(token)) {
+    return null;
+  }
+
+  const upload = await prisma.upload.findUnique({
+    where: { uploadId }
+  });
+
+  if (!upload || upload.removedAt || upload.status === "expired" || !upload.uploadedAt) {
+    return null;
+  }
+
+  const expected = signOrderFileUrl(upload);
+  const expectedBuffer = Buffer.from(expected, "hex");
+  const actualBuffer = Buffer.from(token, "hex");
+
+  if (
+    expectedBuffer.length !== actualBuffer.length ||
+    !crypto.timingSafeEqual(expectedBuffer, actualBuffer)
+  ) {
+    return null;
+  }
+
+  const file = await fetchStoredFile(upload.storageKey);
+  return { upload, file };
 };
 
 const adminFileSignaturePayload = ({

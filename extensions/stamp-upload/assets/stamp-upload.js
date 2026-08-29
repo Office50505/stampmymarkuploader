@@ -625,7 +625,7 @@
       }
 
       setStatus(root, "");
-      setButton(trigger, "uploading", "0% Uploading... Please wait.");
+      setButton(trigger, "uploading", "Uploading...");
 
       try {
         const initResult = await postJson("init", {
@@ -646,8 +646,8 @@
           customerId: root.dataset.customerId || null
         });
 
-        await uploadFile(initResult.uploadId, file, sessionId, (percent) => {
-          setButton(trigger, "uploading", `${percent}% Uploading... Please wait.`);
+        await uploadFile(initResult.uploadId, file, sessionId, () => {
+          setButton(trigger, "uploading", "Uploading...");
         });
 
         state.uploadId = initResult.uploadId;

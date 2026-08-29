@@ -413,13 +413,17 @@
 
 .uploadTable {
   border-collapse: collapse;
-  min-width: 1040px;
+  min-width: 1080px;
   table-layout: fixed;
   width: 100%;
 }
 
+.colIndex {
+  width: 4%;
+}
+
 .colFile {
-  width: 30%;
+  width: 28%;
 }
 
 .colProduct {
@@ -487,11 +491,20 @@
 .uploadTable .colQty,
 .uploadTable .colLocation,
 .uploadTable .colStatus,
+.uploadTable .colOrder,
 .uploadTable .colActions,
-.uploadTable td:nth-child(4),
+.uploadTable td:nth-child(1),
+.uploadTable td:nth-child(5),
 .uploadTable td:nth-child(6),
-.uploadTable td:nth-child(8) {
+.uploadTable td:nth-child(7),
+.uploadTable td:nth-child(8),
+.uploadTable td:nth-child(9) {
   white-space: nowrap;
+}
+
+.indexCell {
+  color: #6b7280;
+  font-weight: 600;
 }
 
 .thumb {

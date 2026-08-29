@@ -540,6 +540,7 @@ export default function UploadsPage() {
             <table className="uploadTable">
               <thead>
                 <tr>
+                  <th className="colIndex">#</th>
                   <th className="colFile">File</th>
                   <th className="colProduct">Product</th>
                   <th className="colVariant">Variant / Size</th>
@@ -551,8 +552,11 @@ export default function UploadsPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row) => {
+                {rows.map((row, rowIndex) => {
                   const fileHref = row.fileUrl ?? "";
+                  const displayIndex =
+                    (pagination.page - 1) * pagination.pageSize + rowIndex + 1;
+
                   return (
                     <tr
                       className={
@@ -568,6 +572,7 @@ export default function UploadsPage() {
                       role={fileHref ? "link" : undefined}
                       tabIndex={fileHref ? 0 : undefined}
                     >
+                      <td className="indexCell">{displayIndex}</td>
                       <td>
                         <div className="uploadFile">
                           <div className="thumb">
@@ -655,7 +660,7 @@ export default function UploadsPage() {
                 })}
                 {rows.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="tableEmpty">No uploads match these filters.</div>
                     </td>
                   </tr>

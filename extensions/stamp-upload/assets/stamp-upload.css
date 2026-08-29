@@ -50,8 +50,11 @@
   font-size: 13px;
   line-height: 18px;
   margin-top: 8px;
-  min-height: 18px;
   text-align: left;
+}
+
+.smm-upload__status:empty {
+  display: none;
 }
 
 .smm-upload__status.is-error {

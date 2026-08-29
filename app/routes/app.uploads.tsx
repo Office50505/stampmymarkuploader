@@ -45,6 +45,21 @@ const parseDateFilter = (value: string | null, endOfDay = false) => {
 
 const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
 
+const parseExplicitIndexQuery = (query: string) => {
+  const match = query.match(/^(?:#|index:)\s*(\d+)$/i);
+  if (!match) return null;
+
+  const index = Number(match[1]);
+  return Number.isSafeInteger(index) && index > 0 ? index : null;
+};
+
+const parsePlainIndexCandidate = (query: string) => {
+  if (!/^\d+$/.test(query)) return null;
+
+  const index = Number(query);
+  return Number.isSafeInteger(index) && index > 0 ? index : null;
+};
+
 const getQuickRanges = () => {
   const today = new Date();
   const last7 = new Date(today);
@@ -111,31 +126,60 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const selectedUploadId = url.searchParams.get("selected") ?? "";
   const requestedPage = Number(url.searchParams.get("page") ?? "1");
   const status = filter === "all" ? undefined : filter;
-  const totalUploads = await countUploads({
-    shop: session.shop,
-    status,
-    query,
-    dateFrom,
-    dateTo
-  });
-  const totalPages = Math.max(1, Math.ceil(totalUploads / pageSize));
-  const page = Math.min(
-    totalPages,
-    Math.max(1, Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1)
-  );
+  const explicitIndexSearch = parseExplicitIndexQuery(query);
+  const plainIndexCandidate = parsePlainIndexCandidate(query);
+  const textMatchCount =
+    !explicitIndexSearch && plainIndexCandidate
+      ? await countUploads({
+          shop: session.shop,
+          status,
+          query,
+          dateFrom,
+          dateTo
+        })
+      : null;
+  const indexSearch =
+    explicitIndexSearch ?? (plainIndexCandidate && textMatchCount === 0 ? plainIndexCandidate : null);
+  const effectiveQuery = indexSearch ? "" : query;
+  const totalUploads = indexSearch
+    ? await countUploads({
+        shop: session.shop,
+        status,
+        query: "",
+        dateFrom,
+        dateTo
+      })
+    : (textMatchCount ??
+      await countUploads({
+        shop: session.shop,
+        status,
+        query: effectiveQuery,
+        dateFrom,
+        dateTo
+      }));
+  const totalPages = indexSearch ? 1 : Math.max(1, Math.ceil(totalUploads / pageSize));
+  const page = indexSearch
+    ? 1
+    : Math.min(
+        totalPages,
+        Math.max(1, Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1)
+      );
 
-  const uploads = await listUploads({
-    shop: session.shop,
-    status,
-    query,
-    dateFrom,
-    dateTo,
-    page,
-    pageSize
-  });
+  const uploads =
+    indexSearch && indexSearch > totalUploads
+      ? []
+      : await listUploads({
+          shop: session.shop,
+          status,
+          query: effectiveQuery,
+          dateFrom,
+          dateTo,
+          page: indexSearch ?? page,
+          pageSize: indexSearch ? 1 : pageSize
+        });
 
   const rows = await Promise.all(
-    uploads.map(async (upload) => {
+    uploads.map(async (upload, uploadIndex) => {
       const file =
         upload.status !== "expired"
           ? await createAdminFileUrl({
@@ -148,6 +192,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
       return {
         uploadId: upload.uploadId,
+        displayIndex: indexSearch ?? (page - 1) * pageSize + uploadIndex + 1,
         originalFilename: upload.originalFilename,
         contentType: upload.contentType,
         fileSize: Number(upload.fileSize),
@@ -415,7 +460,7 @@ export default function UploadsPage() {
               className="uploadSearchInput"
               type="search"
               name="q"
-              placeholder="Filename, upload ID, product, or order"
+              placeholder="Filename, upload ID, product, order, or #12"
               defaultValue={query}
             />
           </div>
@@ -552,10 +597,8 @@ export default function UploadsPage() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, rowIndex) => {
+                {rows.map((row) => {
                   const fileHref = row.fileUrl ?? "";
-                  const displayIndex =
-                    (pagination.page - 1) * pagination.pageSize + rowIndex + 1;
 
                   return (
                     <tr
@@ -572,7 +615,7 @@ export default function UploadsPage() {
                       role={fileHref ? "link" : undefined}
                       tabIndex={fileHref ? 0 : undefined}
                     >
-                      <td className="indexCell">{displayIndex}</td>
+                      <td className="indexCell">{row.displayIndex}</td>
                       <td>
                         <div className="uploadFile">
                           <div className="thumb">

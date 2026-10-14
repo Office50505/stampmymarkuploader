@@ -23,7 +23,7 @@ Never copy the original folder's `.env` into this folder. Start from `.env.examp
 2. Create the new Shopify app in the Dev Dashboard.
 3. Run `npm run config:link` and select the new US app.
 4. Create the US Railway service and database.
-5. Replace every `replace-with-us-app-url.example.com` value in `.env` and `shopify.app.us-store.toml` with the Railway HTTPS domain.
+5. Confirm `SHOPIFY_APP_URL` and the Shopify configuration use `https://stampmymarkuploader-us-production.up.railway.app`.
 6. Create a separate Bunny.net Storage Zone and add its credentials to Railway.
 7. Run `npm run deploy -- --config us-store`.
 8. In the Shopify Dev Dashboard, select custom distribution, enter `9zgiqv-ug.myshopify.com`, and generate the installation link.

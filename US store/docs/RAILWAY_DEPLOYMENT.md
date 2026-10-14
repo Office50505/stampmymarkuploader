@@ -48,7 +48,7 @@ DATABASE_URL=${{Postgres.DATABASE_URL}}
 
 SHOPIFY_API_KEY=your_shopify_client_id
 SHOPIFY_API_SECRET=your_shopify_client_secret
-SHOPIFY_APP_URL=https://replace-with-us-app-url.example.com
+SHOPIFY_APP_URL=https://stampmymarkuploader-us-production.up.railway.app
 SCOPES=read_products,read_orders
 SHOP_CUSTOM_DOMAIN=printmivo.com
 
@@ -76,7 +76,7 @@ In the Railway app service:
 Example:
 
 ```text
-https://your-us-app.up.railway.app
+https://stampmymarkuploader-us-production.up.railway.app
 ```
 
 Set `SHOPIFY_APP_URL` to that exact URL.
@@ -86,17 +86,17 @@ Set `SHOPIFY_APP_URL` to that exact URL.
 Update `shopify.app.us-store.toml`:
 
 ```toml
-application_url = "https://your-app.up.railway.app"
+application_url = "https://stampmymarkuploader-us-production.up.railway.app"
 
 [auth]
 redirect_urls = [
-  "https://your-app.up.railway.app/auth/callback",
-  "https://your-app.up.railway.app/auth/shopify/callback",
-  "https://your-app.up.railway.app/api/auth/callback"
+  "https://stampmymarkuploader-us-production.up.railway.app/auth/callback",
+  "https://stampmymarkuploader-us-production.up.railway.app/auth/shopify/callback",
+  "https://stampmymarkuploader-us-production.up.railway.app/api/auth/callback"
 ]
 
 [app_proxy]
-url = "https://your-app.up.railway.app/apps/stamp-upload"
+url = "https://stampmymarkuploader-us-production.up.railway.app/apps/stamp-upload"
 ```
 
 Then deploy the Shopify app config and extension:

@@ -18,7 +18,7 @@
   data-size-option-name="{{ block.settings.size_option_name | escape }}"
   data-required="{{ block.settings.required }}"
   data-max-bytes="{{ max_bytes }}"
-  data-app-url="{{ block.settings.app_url | default: 'https://replace-with-us-app-url.example.com' | escape }}"
+  data-app-url="{{ block.settings.app_url | default: 'https://stampmymarkuploader-us-production.up.railway.app' | escape }}"
   data-customer-id="{% if customer %}{{ customer.id }}{% endif %}"
   data-show-text-fields-after-upload="{{ block.settings.show_text_fields_after_upload }}"
 >
@@ -212,7 +212,7 @@
       "type": "text",
       "id": "app_url",
       "label": "App dashboard URL",
-      "default": "https://replace-with-us-app-url.example.com"
+      "default": "https://stampmymarkuploader-us-production.up.railway.app"
     }
   ]
 }

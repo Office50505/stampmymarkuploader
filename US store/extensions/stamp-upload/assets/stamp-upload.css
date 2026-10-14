@@ -1,0 +1,209 @@
+.smm-upload {
+  display: block;
+  margin: 16px 0 18px;
+  width: 100%;
+}
+
+.smm-upload__required {
+  color: #111;
+  font-size: 14px;
+  line-height: 18px;
+  margin-bottom: 8px;
+}
+
+.smm-upload__button {
+  align-items: center;
+  appearance: none;
+  background: #1298e8;
+  border: 0;
+  border-radius: 3px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  justify-content: center;
+  line-height: 20px;
+  min-height: 42px;
+  padding: 10px 16px;
+  text-align: center;
+  transition: background-color 140ms ease;
+  width: 100%;
+}
+
+.smm-upload__button:hover {
+  background: #0d8bd8;
+}
+
+.smm-upload__button:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+.smm-upload__button[disabled] {
+  cursor: progress;
+}
+
+.smm-upload__status {
+  color: #4a4a4a;
+  font-size: 13px;
+  line-height: 18px;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.smm-upload__status:empty {
+  display: none;
+}
+
+.smm-upload__status.is-error {
+  color: #b42318;
+}
+
+.smm-upload__status.is-success {
+  color: #067647;
+}
+
+.smm-upload__text-fields {
+  display: block;
+  margin-top: 18px;
+}
+
+.smm-upload__text-fields[hidden] {
+  display: none;
+}
+
+.smm-upload__field {
+  margin: 0 0 14px;
+}
+
+.smm-upload__label {
+  color: #222;
+  display: block;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 18px;
+  margin: 0 0 8px;
+}
+
+.smm-upload__textarea {
+  appearance: none;
+  background: #fff;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  box-shadow: none;
+  color: #222;
+  display: block;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  min-height: 70px;
+  padding: 12px 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.smm-upload__textarea::placeholder {
+  color: #d1d5db;
+}
+
+.smm-upload__textarea:focus {
+  border-color: #9ca3af;
+  outline: 2px solid rgba(18, 152, 232, 0.18);
+  outline-offset: 0;
+}
+
+.smm-upload__preview {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  margin: 8px auto 14px;
+  max-width: min(360px, 100%);
+  min-height: 0;
+  position: relative;
+}
+
+.smm-upload__preview img {
+  display: block;
+  height: auto;
+  max-height: 330px;
+  max-width: 100%;
+  object-fit: contain;
+  width: auto;
+}
+
+.smm-upload__preview-shell {
+  display: inline-block;
+  max-width: 100%;
+  position: relative;
+}
+
+.smm-upload__preview-file {
+  align-items: center;
+  background: #f7f7f7;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  color: #344054;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 180px;
+  padding: 18px;
+  text-align: center;
+  width: min(300px, 100%);
+}
+
+.smm-upload__preview-name {
+  color: #1d2939;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+}
+
+.smm-upload__preview-meta {
+  color: #667085;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.smm-upload__remove {
+  appearance: none;
+  align-items: center;
+  background: #000;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  height: 18px;
+  justify-content: center;
+  line-height: 18px;
+  padding: 0;
+  position: absolute;
+  right: -9px;
+  top: -9px;
+  width: 18px;
+}
+
+.smm-upload__remove:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 2px;
+}
+
+@media (max-width: 749px) {
+  .smm-upload__preview {
+    max-width: min(280px, 100%);
+  }
+
+  .smm-upload__preview img {
+    max-height: 260px;
+  }
+}

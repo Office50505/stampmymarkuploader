@@ -36,7 +36,7 @@ api_version = "unstable"
 handle = "product-created-noop"
 topic = "Product"
 actions = ["create"]
-triggers = ["product"]
+triggers = ["product.*"]
 uri = "/events/product"
 query = """
 query product_created_noop($productId: ID!) {

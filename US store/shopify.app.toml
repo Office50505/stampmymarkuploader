@@ -1,5 +1,5 @@
 name = "StampMyMark Uploader US"
-client_id = "replace-with-shopify-api-key"
+client_id = "32410a7f44ff207fdd39da15ae446ea1"
 application_url = "https://stampmymarkuploader-us-production.up.railway.app"
 embedded = true
 

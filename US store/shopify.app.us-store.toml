@@ -1,6 +1,6 @@
 # US store production configuration.
 # Link this file to the separate Shopify app before deploying.
-client_id = "32410a7f44ff207fdd39da15ae446ea1"
+client_id = "27b565ffed3ccd8321ed373a184680d8"
 name = "stampmymark-uploader-us"
 application_url = "https://stampmymarkuploader-us-production.up.railway.app"
 embedded = true

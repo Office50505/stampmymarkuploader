@@ -104,7 +104,9 @@
 
   function getSelectedSize(root) {
     const optionName = root.dataset.sizeOptionName || "Size";
-    const namedOption = Array.from(document.querySelectorAll("[name^='options']")).find(
+    const form = getProductForm(root);
+    const scope = form || document;
+    const namedOption = Array.from(scope.querySelectorAll("[name^='options']")).find(
       (input) => input.name === `options[${optionName}]`
     );
 
@@ -112,7 +114,7 @@
       return namedOption.value;
     }
 
-    const firstOption = document.querySelector("select[name^='options']");
+    const firstOption = scope.querySelector("select[name^='options']");
     return firstOption ? firstOption.value : root.dataset.variantTitle || null;
   }
 
@@ -420,6 +422,22 @@
       } else if (!button.disabled) {
         button.disabled = true;
         button.dataset.smmDisabled = "true";
+      }
+    });
+
+    if (!form) return;
+
+    Array.from(
+      form.querySelectorAll(".m-product-dynamic-checkout, .shopify-payment-button")
+    ).forEach((checkout) => {
+      if (enabled) {
+        if (checkout.dataset.smmHidden === "true") {
+          checkout.hidden = false;
+          delete checkout.dataset.smmHidden;
+        }
+      } else if (!checkout.hidden) {
+        checkout.hidden = true;
+        checkout.dataset.smmHidden = "true";
       }
     });
   }
@@ -740,5 +758,121 @@
     }
   }
 
-  document.querySelectorAll("[data-stamp-upload]").forEach(enhanceUploader);
+  function initializeUploaders(scope) {
+    const target = scope && scope.querySelectorAll ? scope : document;
+    target.querySelectorAll("[data-stamp-upload]").forEach(enhanceUploader);
+  }
+
+  function getQuickViewProductUrl(container) {
+    const link = container.querySelector(".m-product-title a[href*='/products/']");
+    return link ? link.href : null;
+  }
+
+  function updateQuickViewUploadData(root, form, container) {
+    const productId = form.dataset.productId || "";
+    const handle = form.dataset.productHandle || "";
+    const title = container.querySelector(".m-product-title")?.textContent?.trim() || "";
+    const variantInput = form.querySelector("[name='id']");
+    const selectedVariant = container.querySelector(
+      "script[type='application/json'][data-selected-variant]"
+    );
+    let variant = null;
+
+    if (selectedVariant && selectedVariant.textContent) {
+      try {
+        variant = JSON.parse(selectedVariant.textContent);
+      } catch (_error) {
+        variant = null;
+      }
+    }
+
+    const variantId = (variantInput && variantInput.value) || (variant && variant.id) || "";
+    root.dataset.productId = productId || root.dataset.productId || "";
+    root.dataset.productGid = productId ? `gid://shopify/Product/${productId}` : root.dataset.productGid;
+    root.dataset.productHandle = handle || root.dataset.productHandle || "";
+    root.dataset.productTitle = title || root.dataset.productTitle || "";
+    root.dataset.variantId = String(variantId || root.dataset.variantId || "");
+    root.dataset.variantGid = variantId
+      ? `gid://shopify/ProductVariant/${variantId}`
+      : root.dataset.variantGid;
+    root.dataset.variantTitle = (variant && variant.title) || root.dataset.variantTitle || "";
+  }
+
+  async function hydrateQuickView(container) {
+    const form = container.querySelector("form.product-form-product-quickview");
+    const productUrl = getQuickViewProductUrl(container);
+
+    if (!form || !productUrl) return;
+
+    const productKey = form.dataset.productHandle || productUrl;
+    if (container.dataset.smmQuickViewProduct === productKey) return;
+
+    container.dataset.smmQuickViewProduct = productKey;
+    container.querySelectorAll("[data-smm-quick-view-upload]").forEach((node) => node.remove());
+
+    try {
+      const response = await fetch(productUrl, {
+        headers: { Accept: "text/html" },
+        credentials: "same-origin"
+      });
+
+      if (!response.ok || container.dataset.smmQuickViewProduct !== productKey) return;
+
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      const source = page.querySelector("[data-stamp-upload]");
+
+      // Only products whose normal product template contains the app block get
+      // an uploader in Quick View. Ordinary products are left untouched.
+      if (!source) return;
+
+      const root = source.cloneNode(true);
+      root.removeAttribute("id");
+      root.removeAttribute("data-smm-ready");
+      root.dataset.smmQuickViewUpload = "true";
+      updateQuickViewUploadData(root, form, container);
+
+      const wrapper = form.querySelector(".m-product-form--wrapper");
+      if (wrapper) {
+        form.insertBefore(root, wrapper);
+      } else {
+        form.prepend(root);
+      }
+
+      enhanceUploader(root);
+    } catch (_error) {
+      delete container.dataset.smmQuickViewProduct;
+    }
+  }
+
+  function scanQuickViews(scope) {
+    if (!document.querySelector("[data-smm-quick-view-loader]")) return;
+
+    const target = scope && scope.querySelectorAll ? scope : document;
+    const containers = [];
+
+    if (target.matches && target.matches(".m-product-quickview--info")) {
+      containers.push(target);
+    }
+
+    containers.push(...target.querySelectorAll(".m-product-quickview--info"));
+    containers.forEach(hydrateQuickView);
+  }
+
+  initializeUploaders(document);
+  scanQuickViews(document);
+
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (!(node instanceof Element)) return;
+        initializeUploaders(node);
+        scanQuickViews(node);
+      });
+    });
+
+    // Minimog may reuse the same modal shell while replacing its contents.
+    scanQuickViews(document);
+  });
+
+  observer.observe(document.documentElement, { childList: true, subtree: true });
 })();

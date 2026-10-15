@@ -92,6 +92,7 @@
   background: #fff;
   border: 1px solid #cccccc;
   border-radius: 5px;
+  box-sizing: border-box;
   box-shadow: none;
   color: #222;
   display: block;
@@ -206,6 +207,12 @@
 @media (max-width: 749px) {
   .smm-upload__preview {
     max-width: 100%;
+  }
+
+  .smm-upload__textarea {
+    font-size: 16px;
+    line-height: 22px;
+    min-height: 72px;
   }
 
 }

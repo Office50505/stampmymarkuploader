@@ -194,9 +194,10 @@
   line-height: 18px;
   padding: 0;
   position: absolute;
-  right: -9px;
-  top: -9px;
+  right: 10px;
+  top: 10px;
   width: 18px;
+  z-index: 2;
 }
 
 .smm-upload__remove:focus-visible {

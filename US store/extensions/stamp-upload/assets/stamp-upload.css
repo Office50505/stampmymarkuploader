@@ -116,18 +116,21 @@
 
 .smm-upload__preview {
   align-items: center;
+  aspect-ratio: 1 / 1;
+  background: #f2f2f2;
   display: flex;
   justify-content: center;
   margin: 0 0 16px;
   max-width: 100%;
   min-height: 0;
+  overflow: hidden;
   position: relative;
   width: 100%;
 }
 
 .smm-upload__preview img {
   display: block;
-  height: auto;
+  height: 100%;
   max-width: 100%;
   object-fit: contain;
   width: 100%;
@@ -135,6 +138,7 @@
 
 .smm-upload__preview-shell {
   display: inline-block;
+  height: 100%;
   max-width: 100%;
   position: relative;
   width: 100%;
@@ -204,7 +208,4 @@
     max-width: 100%;
   }
 
-  .smm-upload__preview img {
-    max-height: none;
-  }
 }

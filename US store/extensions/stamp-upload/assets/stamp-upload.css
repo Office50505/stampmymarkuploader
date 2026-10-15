@@ -67,7 +67,7 @@
 
 .smm-upload__text-fields {
   display: block;
-  margin-top: 18px;
+  margin-top: 12px;
 }
 
 .smm-upload__text-fields[hidden] {
@@ -75,31 +75,31 @@
 }
 
 .smm-upload__field {
-  margin: 0 0 14px;
+  margin: 0 0 10px;
 }
 
 .smm-upload__label {
   color: #222;
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 400;
-  line-height: 18px;
-  margin: 0 0 8px;
+  line-height: 17px;
+  margin: 0 0 5px;
 }
 
 .smm-upload__textarea {
   appearance: none;
   background: #fff;
-  border: 1px solid #cfcfcf;
-  border-radius: 8px;
+  border: 1px solid #cccccc;
+  border-radius: 5px;
   box-shadow: none;
   color: #222;
   display: block;
   font-family: inherit;
-  font-size: 16px;
-  line-height: 22px;
-  min-height: 70px;
-  padding: 12px 14px;
+  font-size: 105%;
+  line-height: 18px;
+  min-height: 44px;
+  padding: 13px 9px;
   resize: vertical;
   width: 100%;
 }
@@ -118,25 +118,26 @@
   align-items: center;
   display: flex;
   justify-content: center;
-  margin: 8px auto 14px;
-  max-width: min(360px, 100%);
+  margin: 0 0 16px;
+  max-width: 100%;
   min-height: 0;
   position: relative;
+  width: 100%;
 }
 
 .smm-upload__preview img {
   display: block;
   height: auto;
-  max-height: 330px;
   max-width: 100%;
   object-fit: contain;
-  width: auto;
+  width: 100%;
 }
 
 .smm-upload__preview-shell {
   display: inline-block;
   max-width: 100%;
   position: relative;
+  width: 100%;
 }
 
 .smm-upload__preview-file {
@@ -200,10 +201,10 @@
 
 @media (max-width: 749px) {
   .smm-upload__preview {
-    max-width: min(280px, 100%);
+    max-width: 100%;
   }
 
   .smm-upload__preview img {
-    max-height: 260px;
+    max-height: none;
   }
 }

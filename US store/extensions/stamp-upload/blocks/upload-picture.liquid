@@ -22,10 +22,6 @@
   data-customer-id="{% if customer %}{{ customer.id }}{% endif %}"
   data-show-text-fields-after-upload="{{ block.settings.show_text_fields_after_upload }}"
 >
-  {% if block.settings.show_required_marker %}
-    <div class="smm-upload__required" style="color:#111;font-size:14px;line-height:18px;margin-bottom:8px;" aria-hidden="true">*</div>
-  {% endif %}
-
   <div class="smm-upload__preview" data-upload-preview hidden></div>
 
   <button
@@ -124,12 +120,6 @@
       "type": "checkbox",
       "id": "required",
       "label": "Require upload before add to cart",
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "show_required_marker",
-      "label": "Show required marker",
       "default": true
     },
     {

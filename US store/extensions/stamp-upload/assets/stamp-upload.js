@@ -51,6 +51,59 @@
     button.textContent = label;
     button.dataset.uploadState = state;
     button.disabled = state === "uploading";
+
+    if (state === "uploading") {
+      button.setAttribute("aria-busy", "true");
+    } else {
+      button.removeAttribute("aria-busy");
+    }
+  }
+
+  function startSimulatedUploadProgress(button) {
+    let progress = 0;
+    let intervalId = null;
+
+    function render() {
+      setButton(button, "uploading", `Uploading ${progress}%`);
+    }
+
+    function advance() {
+      const increment = progress < 30 ? 6 : progress < 60 ? 4 : progress < 80 ? 2 : 1;
+      progress = Math.min(95, progress + increment);
+      render();
+
+      if (progress === 95 && intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    }
+
+    render();
+    intervalId = window.setInterval(advance, 250);
+
+    return {
+      async complete() {
+        if (intervalId !== null) {
+          window.clearInterval(intervalId);
+          intervalId = null;
+        }
+
+        const startingProgress = progress;
+        const steps = 4;
+
+        for (let step = 1; step <= steps; step += 1) {
+          progress = Math.round(startingProgress + ((100 - startingProgress) * step) / steps);
+          render();
+          await new Promise((resolve) => window.setTimeout(resolve, 70));
+        }
+      },
+      stop() {
+        if (intervalId !== null) {
+          window.clearInterval(intervalId);
+          intervalId = null;
+        }
+      }
+    };
   }
 
   function getProductForm(root) {
@@ -457,7 +510,7 @@
     return body;
   }
 
-  function uploadFile(uploadId, file, sessionId, onProgress) {
+  function uploadFile(uploadId, file, sessionId) {
     const formData = new FormData();
     formData.append("uploadId", uploadId);
     formData.append("sessionId", sessionId);
@@ -466,11 +519,6 @@
     return new Promise((resolve, reject) => {
       const request = new XMLHttpRequest();
       request.open("POST", appProxyBase + "file");
-      request.upload.addEventListener("progress", (event) => {
-        if (event.lengthComputable) {
-          onProgress(Math.max(1, Math.round((event.loaded / event.total) * 100)));
-        }
-      });
       request.addEventListener("load", () => {
         let body = {};
 
@@ -643,7 +691,7 @@
       }
 
       setStatus(root, "");
-      setButton(trigger, "uploading", "Uploading...");
+      const uploadProgress = startSimulatedUploadProgress(trigger);
 
       try {
         const initResult = await postJson("init", {
@@ -664,9 +712,8 @@
           customerId: root.dataset.customerId || null
         });
 
-        await uploadFile(initResult.uploadId, file, sessionId, () => {
-          setButton(trigger, "uploading", "Uploading...");
-        });
+        await uploadFile(initResult.uploadId, file, sessionId);
+        await uploadProgress.complete();
 
         state.uploadId = initResult.uploadId;
         state.filename = file.name;
@@ -682,6 +729,7 @@
           setAddToCartEnabled(form, true);
         }
       } catch (error) {
+        uploadProgress.stop();
         state.uploading = false;
         state.uploadId = null;
         state.filename = null;

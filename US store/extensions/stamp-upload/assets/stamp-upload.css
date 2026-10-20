@@ -25,6 +25,14 @@
   width: 100%;
 }
 
+.smm-upload__button-icon {
+  display: block;
+  flex: 0 0 auto;
+  height: 22px;
+  margin-right: 10px;
+  width: 22px;
+}
+
 .smm-upload__button:hover {
   background: #0d8bd8;
 }

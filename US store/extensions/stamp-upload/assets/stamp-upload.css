@@ -60,7 +60,7 @@
 
 .smm-upload__text-fields {
   display: block;
-  margin-top: 12px;
+  margin-top: 18px;
 }
 
 .smm-upload__text-fields[hidden] {
@@ -68,44 +68,92 @@
 }
 
 .smm-upload__field {
-  margin: 0 0 10px;
+  margin: 0 0 24px;
 }
 
 .smm-upload__label {
   color: #222;
   display: block;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 17px;
-  margin: 0 0 5px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 0 0 10px;
 }
 
+.smm-upload__optional {
+  color: #8d8980;
+  font-weight: 400;
+}
+
+.smm-upload__input-text,
 .smm-upload__textarea {
   appearance: none;
   background: #fff;
-  border: 1px solid #cccccc;
-  border-radius: 5px;
+  border: 2px solid #cac6bd;
+  border-radius: 14px;
   box-sizing: border-box;
   box-shadow: none;
   color: #222;
   display: block;
   font-family: inherit;
-  font-size: 105%;
-  line-height: 18px;
-  min-height: 44px;
-  padding: 13px 9px;
+  font-size: 18px;
+  line-height: 1.45;
+  min-height: 60px;
+  padding: 14px 18px;
   resize: vertical;
   width: 100%;
 }
 
+.smm-upload__input-text::placeholder,
 .smm-upload__textarea::placeholder {
-  color: #d1d5db;
+  color: #969188;
+  opacity: 1;
 }
 
+.smm-upload__input-text:focus,
 .smm-upload__textarea:focus {
-  border-color: #9ca3af;
-  outline: 2px solid rgba(18, 152, 232, 0.18);
+  border-color: #7e5e35;
+  outline: 3px solid rgba(126, 94, 53, 0.16);
   outline-offset: 0;
+}
+
+.smm-upload__textarea {
+  min-height: 148px;
+}
+
+.smm-upload__field-meta {
+  color: #8d8980;
+  display: flex;
+  font-size: 14px;
+  justify-content: space-between;
+  line-height: 1.4;
+  margin-top: 8px;
+}
+
+.smm-upload__print-note {
+  align-items: flex-start;
+  background: #fff3db;
+  border-radius: 14px;
+  color: #78500f;
+  display: flex;
+  font-size: 16px;
+  gap: 12px;
+  line-height: 1.45;
+  margin: 0 0 28px;
+  padding: 18px;
+}
+
+.smm-upload__print-note-icon {
+  align-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  display: inline-flex;
+  flex: 0 0 25px;
+  font-size: 16px;
+  font-weight: 700;
+  height: 25px;
+  justify-content: center;
+  line-height: 1;
 }
 
 .smm-upload__preview {
@@ -206,7 +254,16 @@
   .smm-upload__textarea {
     font-size: 16px;
     line-height: 22px;
-    min-height: 72px;
+    min-height: 132px;
+  }
+
+  .smm-upload__input-text {
+    font-size: 16px;
+    min-height: 58px;
+  }
+
+  .smm-upload__label {
+    font-size: 17px;
   }
 
 }

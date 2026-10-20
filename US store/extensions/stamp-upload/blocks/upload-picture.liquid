@@ -55,48 +55,67 @@
       {% if block.settings.show_text_above_field %}
         <div class="smm-upload__field">
           <label class="smm-upload__label" for="smm-upload-text-above-{{ block.id }}">
-            {{ block.settings.text_above_label }}
+            {{ block.settings.text_above_label }} <span class="smm-upload__optional">({{ 'Optional' }})</span>
           </label>
-          <textarea
+          <input
+            type="text"
             id="smm-upload-text-above-{{ block.id }}"
-            class="smm-upload__textarea"
-            rows="1"
-            placeholder="{{ block.settings.text_above_placeholder | escape }}"
+            class="smm-upload__input-text"
+            placeholder="{% if block.settings.text_above_placeholder == 'You can leave this blank if you do not want any text here.' %}e.g. ACME BAKERY{% else %}{{ block.settings.text_above_placeholder | escape }}{% endif %}"
+            maxlength="30"
             data-upload-text-field
             data-upload-text-above
-          ></textarea>
+          >
+          <div class="smm-upload__field-meta">
+            <span>One line, up to 30 characters</span>
+            <span data-upload-character-count>0/30</span>
+          </div>
         </div>
       {% endif %}
 
       {% if block.settings.show_text_below_field %}
         <div class="smm-upload__field">
           <label class="smm-upload__label" for="smm-upload-text-below-{{ block.id }}">
-            {{ block.settings.text_below_label }}
+            {{ block.settings.text_below_label }} <span class="smm-upload__optional">({{ 'Optional' }})</span>
           </label>
-          <textarea
+          <input
+            type="text"
             id="smm-upload-text-below-{{ block.id }}"
-            class="smm-upload__textarea"
-            rows="1"
-            placeholder="{{ block.settings.text_below_placeholder | escape }}"
+            class="smm-upload__input-text"
+            placeholder="{% if block.settings.text_below_placeholder == 'You can leave this blank if you do not want any text here.' %}e.g. Est. 2015 · Austin, TX{% else %}{{ block.settings.text_below_placeholder | escape }}{% endif %}"
+            maxlength="30"
             data-upload-text-field
             data-upload-text-below
-          ></textarea>
+          >
+          <div class="smm-upload__field-meta">
+            <span>One line, up to 30 characters</span>
+            <span data-upload-character-count>0/30</span>
+          </div>
         </div>
       {% endif %}
 
       {% if block.settings.show_designer_notes_field %}
+        <div class="smm-upload__print-note" role="note">
+          <span class="smm-upload__print-note-icon" aria-hidden="true">!</span>
+          <span>We print exactly what you type. Please double-check spelling, capitals and punctuation.</span>
+        </div>
         <div class="smm-upload__field">
           <label class="smm-upload__label" for="smm-upload-designer-notes-{{ block.id }}">
-            {{ block.settings.designer_notes_label }}
+            {{ block.settings.designer_notes_label }} <span class="smm-upload__optional">({{ 'Optional' }})</span>
           </label>
           <textarea
             id="smm-upload-designer-notes-{{ block.id }}"
             class="smm-upload__textarea"
-            rows="1"
-            placeholder="{{ block.settings.designer_notes_placeholder | escape }}"
+            rows="4"
+            maxlength="300"
+            placeholder="{% if block.settings.designer_notes_placeholder == 'You can leave this blank if you do not want any text here.' %}e.g. Make the logo bigger, use a bold font, add a round border{% else %}{{ block.settings.designer_notes_placeholder | escape }}{% endif %}"
             data-upload-text-field
             data-upload-designer-notes
           ></textarea>
+          <div class="smm-upload__field-meta">
+            <span>Style, size, font or layout requests</span>
+            <span data-upload-character-count>0/300</span>
+          </div>
         </div>
       {% endif %}
     </div>

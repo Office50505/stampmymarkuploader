@@ -136,6 +136,13 @@
     };
   }
 
+  function updateCharacterCount(field) {
+    const count = field.closest(".smm-upload__field")?.querySelector("[data-upload-character-count]");
+    if (!count) return;
+    const limit = Number(field.maxLength);
+    count.textContent = `${field.value.length}/${Number.isFinite(limit) && limit > 0 ? limit : 0}`;
+  }
+
   function setTextFieldsVisible(root, visible, clearValues) {
     const fields = find(root, "[data-upload-text-fields]");
 
@@ -152,6 +159,8 @@
       if (clearValues) {
         field.value = "";
       }
+
+      updateCharacterCount(field);
     });
   }
 
@@ -643,6 +652,11 @@
       if (!state.uploading) {
         fileInput.click();
       }
+    });
+
+    Array.from(root.querySelectorAll("[data-upload-text-field]")).forEach((field) => {
+      updateCharacterCount(field);
+      field.addEventListener("input", () => updateCharacterCount(field));
     });
 
     fileInput.addEventListener("change", async () => {

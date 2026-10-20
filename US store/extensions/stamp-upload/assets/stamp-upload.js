@@ -48,7 +48,13 @@
   }
 
   function setButton(button, state, label) {
-    button.textContent = label;
+    const labelElement = button.querySelector("[data-upload-button-label]");
+
+    if (labelElement) {
+      labelElement.textContent = label;
+    } else {
+      button.textContent = label;
+    }
     button.dataset.uploadState = state;
     button.disabled = state === "uploading";
 

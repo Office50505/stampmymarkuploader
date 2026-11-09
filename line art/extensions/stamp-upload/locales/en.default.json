@@ -1,0 +1,10 @@
+{
+  "line_art": {
+    "upload_help": "Upload your logo to create a stamp-ready line-art preview in your selected ink color.",
+    "preparing": "Preparing your artwork…",
+    "generating": "Creating stamp-ready line art…",
+    "ready": "Your line-art preview is ready.",
+    "failed": "We could not create the line art. Please try another image.",
+    "timeout": "Line-art generation is taking longer than expected. Please try again."
+  }
+}

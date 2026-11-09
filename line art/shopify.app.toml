@@ -1,0 +1,33 @@
+name = "lineartuploader"
+client_id = "b71915e6b681df10bc9202521b485a04"
+application_url = "https://printmivo-lineart-uploader.up.railway.app"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[access_scopes]
+scopes = "read_products,read_orders"
+
+[auth]
+redirect_urls = [
+  "https://printmivo-lineart-uploader.up.railway.app/auth/callback",
+  "https://printmivo-lineart-uploader.up.railway.app/auth/shopify/callback",
+  "https://printmivo-lineart-uploader.up.railway.app/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-10"
+
+[[webhooks.subscriptions]]
+topics = ["orders/create"]
+uri = "/webhooks/orders/create"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "/webhooks/app/uninstalled"
+
+[app_proxy]
+url = "https://printmivo-lineart-uploader.up.railway.app/apps/stamp-upload"
+subpath = "stamp-upload"
+prefix = "apps"

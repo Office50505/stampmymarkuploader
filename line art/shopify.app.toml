@@ -7,7 +7,7 @@ embedded = true
 automatically_update_urls_on_dev = true
 
 [access_scopes]
-scopes = "read_products,read_orders"
+scopes = "read_products,read_orders,write_app_proxy"
 
 [auth]
 redirect_urls = [

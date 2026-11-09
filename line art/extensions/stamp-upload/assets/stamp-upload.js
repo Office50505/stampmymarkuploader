@@ -7,8 +7,8 @@
     if (loading) return;
 
     const mount =
-      document.querySelector("[data-stamp-upload][data-smm-module-url]") ||
-      document.querySelector("[data-smm-quick-view-loader][data-smm-module-url]");
+      document.querySelector("[data-line-art-upload][data-smm-module-url]") ||
+      document.querySelector("[data-smm-line-art-quick-view-loader][data-smm-module-url]");
     const moduleUrl = mount && mount.dataset.smmModuleUrl;
 
     if (!moduleUrl) return;

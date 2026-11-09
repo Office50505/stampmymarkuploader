@@ -798,8 +798,8 @@
   }
 
   function enhanceUploader(root) {
-    if (root.dataset.smmReady === "true") return;
-    root.dataset.smmReady = "true";
+    if (root.dataset.smmLineArtReady === "true") return;
+    root.dataset.smmLineArtReady = "true";
 
     const trigger = find(root, "[data-upload-trigger]");
     const fileInput = find(root, "[data-upload-input]");
@@ -1158,7 +1158,7 @@
 
   function initializeUploaders(scope) {
     const target = scope && scope.querySelectorAll ? scope : document;
-    target.querySelectorAll("[data-stamp-upload]").forEach(enhanceUploader);
+    target.querySelectorAll("[data-line-art-upload]").forEach(enhanceUploader);
   }
 
   function getQuickViewProductUrl(container) {
@@ -1203,10 +1203,10 @@
     if (!form || !productUrl) return;
 
     const productKey = form.dataset.productHandle || productUrl;
-    if (container.dataset.smmQuickViewProduct === productKey) return;
+    if (container.dataset.smmLineArtQuickViewProduct === productKey) return;
 
-    container.dataset.smmQuickViewProduct = productKey;
-    container.querySelectorAll("[data-smm-quick-view-upload]").forEach((node) => node.remove());
+    container.dataset.smmLineArtQuickViewProduct = productKey;
+    container.querySelectorAll("[data-smm-line-art-quick-view-upload]").forEach((node) => node.remove());
 
     try {
       const response = await fetch(productUrl, {
@@ -1214,10 +1214,10 @@
         credentials: "same-origin"
       });
 
-      if (!response.ok || container.dataset.smmQuickViewProduct !== productKey) return;
+      if (!response.ok || container.dataset.smmLineArtQuickViewProduct !== productKey) return;
 
       const page = new DOMParser().parseFromString(await response.text(), "text/html");
-      const source = page.querySelector("[data-stamp-upload]");
+      const source = page.querySelector("[data-line-art-upload]");
 
       // Only products whose normal product template contains the app block get
       // an uploader in Quick View. Ordinary products are left untouched.
@@ -1225,8 +1225,8 @@
 
       const root = source.cloneNode(true);
       root.removeAttribute("id");
-      root.removeAttribute("data-smm-ready");
-      root.dataset.smmQuickViewUpload = "true";
+      root.removeAttribute("data-smm-line-art-ready");
+      root.dataset.smmLineArtQuickViewUpload = "true";
       updateQuickViewUploadData(root, form, container);
 
       const wrapper = form.querySelector(".m-product-form--wrapper");
@@ -1238,12 +1238,12 @@
 
       enhanceUploader(root);
     } catch (_error) {
-      delete container.dataset.smmQuickViewProduct;
+      delete container.dataset.smmLineArtQuickViewProduct;
     }
   }
 
   function scanQuickViews(scope) {
-    if (!document.querySelector("[data-smm-quick-view-loader]")) return;
+    if (!document.querySelector("[data-smm-line-art-quick-view-loader]")) return;
 
     const target = scope && scope.querySelectorAll ? scope : document;
     const containers = [];

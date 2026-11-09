@@ -5,6 +5,7 @@
 (function () {
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+  const stampPreviewKinds = ["box", "cup", "bag"];
   const appProxyBase = "/apps/line-art-upload/uploads/";
   const sessionKey = "smm_upload_session_id";
 
@@ -488,6 +489,13 @@
       return;
     }
 
+    if (state.uploadId && !state.previewReady) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      setStatus(root, "Please wait until your product previews are ready.", "error");
+      return;
+    }
+
     if (!state.uploadId) return;
 
     event.preventDefault();
@@ -687,6 +695,133 @@
     );
   }
 
+  function setStampPreviewSummary(root, state, message) {
+    const section = find(root, "[data-stamp-previews]");
+    const summary = find(root, "[data-stamp-previews-summary]");
+    const retry = find(root, "[data-stamp-previews-retry]");
+
+    if (!section) return;
+    section.hidden = false;
+    section.dataset.state = state;
+    if (summary) summary.textContent = message || "";
+    if (retry) retry.hidden = state !== "failed";
+  }
+
+  function setStampPreviewCard(root, kind, state, previewUrl) {
+    const card = find(root, `[data-stamp-preview-card="${kind}"]`);
+    if (!card) return;
+
+    const image = find(card, "[data-stamp-preview-image]");
+    const status = find(card, "[data-stamp-preview-state]");
+    const labels = {
+      waiting: "Waiting for line art",
+      generating: kind === "line_art" ? "Drawing line art…" : `Creating ${kind}…`,
+      failed: "Preview failed"
+    };
+
+    card.dataset.state = state;
+    if (status) status.textContent = labels[state] || "";
+
+    if (image) {
+      if (state === "ready" && previewUrl) {
+        image.hidden = false;
+        image.src = `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+      } else {
+        image.hidden = true;
+        image.removeAttribute("src");
+      }
+    }
+  }
+
+  function resetStampPreviews(root) {
+    const section = find(root, "[data-stamp-previews]");
+    if (section) {
+      section.hidden = true;
+      section.dataset.state = "waiting";
+    }
+
+    ["line_art", ...stampPreviewKinds].forEach((kind) => {
+      setStampPreviewCard(root, kind, "waiting");
+    });
+  }
+
+  function showLineArtGenerating(root) {
+    setStampPreviewSummary(
+      root,
+      "generating",
+      root.dataset.stampPreviewsGeneratingLineArt || "Drawing your stamp line art…"
+    );
+    setStampPreviewCard(root, "line_art", "generating");
+    stampPreviewKinds.forEach((kind) => setStampPreviewCard(root, kind, "waiting"));
+  }
+
+  function showMockupsGenerating(root, lineArtPreviewUrl) {
+    setStampPreviewSummary(
+      root,
+      "generating",
+      root.dataset.stampPreviewsGeneratingMockups ||
+        "Creating your box, cup and bag previews…"
+    );
+    setStampPreviewCard(root, "line_art", "ready", lineArtPreviewUrl);
+    stampPreviewKinds.forEach((kind) => setStampPreviewCard(root, kind, "generating"));
+  }
+
+  function renderStampPreviewResults(root, previews) {
+    previews.forEach((preview) => {
+      if (!stampPreviewKinds.includes(preview.kind)) return;
+
+      if (preview.status === "completed" && preview.previewUrl) {
+        setStampPreviewCard(root, preview.kind, "ready", preview.previewUrl);
+      } else if (preview.status === "failed") {
+        setStampPreviewCard(root, preview.kind, "failed");
+      } else {
+        setStampPreviewCard(root, preview.kind, "generating");
+      }
+    });
+  }
+
+  async function pollStampPreviews(root, uploadId, sessionId) {
+    const deadline = Date.now() + 4 * 60 * 1000;
+    const path =
+      `${encodeURIComponent(uploadId)}/stamp-previews-status` +
+      `?sessionId=${encodeURIComponent(sessionId)}`;
+
+    while (Date.now() < deadline) {
+      const result = await getJson(path);
+      const previews = Array.isArray(result.previews) ? result.previews : [];
+      renderStampPreviewResults(root, previews);
+
+      const failed = previews.find((preview) => preview.status === "failed");
+      if (failed) {
+        throw new Error(
+          failed.error ||
+            root.dataset.stampPreviewsFailed ||
+            "One or more product previews could not be created."
+        );
+      }
+
+      const completedCount = previews.filter(
+        (preview) => preview.status === "completed" && preview.previewUrl
+      ).length;
+      if (completedCount === stampPreviewKinds.length) return result;
+
+      if (completedCount > 0) {
+        setStampPreviewSummary(
+          root,
+          "generating",
+          `${completedCount} of ${stampPreviewKinds.length} product previews ready…`
+        );
+      }
+
+      await wait(2500);
+    }
+
+    throw new Error(
+      root.dataset.stampPreviewsTimeout ||
+        "The product previews are taking longer than expected. Please try again."
+    );
+  }
+
   function uploadFile(uploadId, file, sessionId) {
     const formData = new FormData();
     formData.append("uploadId", uploadId);
@@ -814,6 +949,7 @@
       lineArtUrl: null,
       lineArtPreviewUrl: null,
       inkColor: null,
+      previewReady: false,
       uploading: false,
       file: null
     };
@@ -834,9 +970,11 @@
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
       state.inkColor = null;
+      state.previewReady = false;
       state.file = null;
       fileInput.value = "";
       clearPreview(root);
+      resetStampPreviews(root);
       setTextFieldsVisible(root, false, true);
       setLineItemProperties(root, form, "", "", "", "");
       clearTextLineItemProperties(root, form);
@@ -856,12 +994,80 @@
       }
     }
 
+    async function generateStampPreviews() {
+      if (!state.uploadId || !state.lineArtPreviewUrl) return;
+
+      state.previewReady = false;
+      state.uploading = true;
+      showMockupsGenerating(root, state.lineArtPreviewUrl);
+      setButton(trigger, "uploading", "Creating 3 product previews…");
+      setStatus(
+        root,
+        root.dataset.stampPreviewsGeneratingMockups ||
+          "Creating your box, cup and bag previews…"
+      );
+
+      try {
+        await postJson("stamp-previews", {
+          uploadId: state.uploadId,
+          sessionId
+        });
+        await pollStampPreviews(root, state.uploadId, sessionId);
+
+        if (getSelectedInkColor(root) !== state.inkColor) {
+          await generateLineArt();
+          return;
+        }
+
+        state.previewReady = true;
+        state.uploading = false;
+        setStampPreviewSummary(
+          root,
+          "ready",
+          root.dataset.stampPreviewsReady || "Previews ready"
+        );
+        setButton(trigger, "uploaded", "Change File");
+        setStatus(root, "Your stamp previews are ready.", "success");
+
+        if (required) {
+          setAddToCartEnabled(form, true);
+        }
+      } catch (error) {
+        state.previewReady = false;
+        state.uploading = false;
+        stampPreviewKinds.forEach((kind) => {
+          const card = find(root, `[data-stamp-preview-card="${kind}"]`);
+          if (card && card.dataset.state !== "ready") {
+            setStampPreviewCard(root, kind, "failed");
+          }
+        });
+        setStampPreviewSummary(
+          root,
+          "failed",
+          error.message ||
+            root.dataset.stampPreviewsFailed ||
+            "One or more previews could not be created."
+        );
+        setButton(trigger, "uploaded", "Change File");
+        setStatus(
+          root,
+          error.message ||
+            root.dataset.stampPreviewsFailed ||
+            "One or more previews could not be created.",
+          "error"
+        );
+        if (required) setAddToCartEnabled(form, false);
+      }
+    }
+
     async function generateLineArt() {
       if (!state.uploadId) return;
 
       state.uploading = true;
+      state.previewReady = false;
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
+      showLineArtGenerating(root);
       setLineItemProperties(
         root,
         form,
@@ -913,13 +1119,7 @@
           state.artworkUrl,
           state.lineArtUrl
         );
-        setStatus(root, root.dataset.lineArtReady || "Your line-art preview is ready.", "success");
-        setButton(trigger, "uploaded", "Change File");
-        state.uploading = false;
-
-        if (required) {
-          setAddToCartEnabled(form, true);
-        }
+        await generateStampPreviews();
         return;
       }
     }
@@ -929,6 +1129,15 @@
         fileInput.click();
       }
     });
+
+    const previewRetry = find(root, "[data-stamp-previews-retry]");
+    if (previewRetry) {
+      previewRetry.addEventListener("click", () => {
+        if (!state.uploading && state.lineArtUrl) {
+          generateStampPreviews();
+        }
+      });
+    }
 
     Array.from(root.querySelectorAll("[data-upload-text-field]")).forEach((field) => {
       updateCharacterCount(field);
@@ -982,8 +1191,10 @@
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
       state.inkColor = null;
+      state.previewReady = false;
       state.file = file;
       clearPreview(root);
+      resetStampPreviews(root);
       setTextFieldsVisible(root, false, false);
       setLineItemProperties(root, form, "", "", "", "");
       clearTextLineItemProperties(root, form);
@@ -1033,9 +1244,11 @@
         state.lineArtUrl = null;
         state.lineArtPreviewUrl = null;
         state.inkColor = null;
+        state.previewReady = false;
         state.file = null;
         fileInput.value = "";
         clearPreview(root);
+        resetStampPreviews(root);
         setTextFieldsVisible(root, false, false);
         setLineItemProperties(root, form, "", "", "", "");
         clearTextLineItemProperties(root, form);
@@ -1102,6 +1315,7 @@
             state.uploading = false;
             state.lineArtUrl = null;
             state.lineArtPreviewUrl = null;
+            state.previewReady = false;
             setLineItemProperties(
               root,
               form,
@@ -1111,6 +1325,12 @@
               ""
             );
             showPreview(root, state.file, removeUpload);
+            setStampPreviewCard(root, "line_art", "failed");
+            setStampPreviewSummary(
+              root,
+              "failed",
+              error.message || root.dataset.lineArtFailed || "Line art generation failed."
+            );
             setButton(trigger, "uploaded", "Change File");
             setStatus(
               root,
@@ -1138,6 +1358,12 @@
         if (state.uploadId && !state.lineArtUrl) {
           event.preventDefault();
           setStatus(root, root.dataset.lineArtGenerating || "Creating stamp-ready line art…", "error");
+          return;
+        }
+
+        if (state.uploadId && !state.previewReady) {
+          event.preventDefault();
+          setStatus(root, "Please wait until your product previews are ready.", "error");
           return;
         }
 

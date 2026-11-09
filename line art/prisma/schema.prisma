@@ -22,6 +22,12 @@ enum LineArtStatus {
   failed
 }
 
+enum StampPreviewKind {
+  box
+  cup
+  bag
+}
+
 model Session {
   id                  String    @id
   shop                String
@@ -45,62 +51,63 @@ model Session {
 }
 
 model Upload {
-  id               String       @id @default(cuid())
-  uploadId         String       @unique
-  shop             String
-  storageBucket    String
-  storageKey       String       @unique
-  storageUrl       String?
-  originalFilename String
-  contentType      String
-  fileSize         BigInt
-  uploadedAt       DateTime?
-  productId        String?
-  productHandle    String?
-  productTitle     String?
-  variantId        String?
-  variantTitle     String?
-  selectedSize     String?
-  quantity         Int?
-  textAbove        String?
-  textBelow        String?
-  designerNotes    String?
-  lineArtStatus    LineArtStatus @default(not_started)
-  lineArtColor     String?
-  lineArtModel     String?
-  lineArtRequestId String?
-  lineArtStorageKey String?
-  lineArtStorageUrl String?
+  id                 String         @id @default(cuid())
+  uploadId           String         @unique
+  shop               String
+  storageBucket      String
+  storageKey         String         @unique
+  storageUrl         String?
+  originalFilename   String
+  contentType        String
+  fileSize           BigInt
+  uploadedAt         DateTime?
+  productId          String?
+  productHandle      String?
+  productTitle       String?
+  variantId          String?
+  variantTitle       String?
+  selectedSize       String?
+  quantity           Int?
+  textAbove          String?
+  textBelow          String?
+  designerNotes      String?
+  lineArtStatus      LineArtStatus  @default(not_started)
+  lineArtColor       String?
+  lineArtModel       String?
+  lineArtRequestId   String?
+  lineArtStorageKey  String?
+  lineArtStorageUrl  String?
   lineArtContentType String?
-  lineArtFileSize  BigInt?
+  lineArtFileSize    BigInt?
   lineArtGeneratedAt DateTime?
-  lineArtError     String?
-  sessionId        String?
-  cartToken        String?
-  customerId       String?
-  ipAddress        String?
-  ipCity           String?
-  ipRegion         String?
-  ipRegionCode     String?
-  ipPostalCode     String?
-  ipCountryCode    String?
-  ipCountry        String?
-  ipContinentCode  String?
-  ipContinent      String?
-  ipAsn            String?
-  ipAsName         String?
-  ipAsDomain       String?
-  ipGeolocatedAt   DateTime?
-  status           UploadStatus @default(uploaded)
-  orderId          String?
-  orderName        String?
-  orderLineItemId  String?
-  orderedAt        DateTime?
-  expiresAt        DateTime
-  removedAt        DateTime?
-  expiredAt        DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  lineArtError       String?
+  sessionId          String?
+  cartToken          String?
+  customerId         String?
+  ipAddress          String?
+  ipCity             String?
+  ipRegion           String?
+  ipRegionCode       String?
+  ipPostalCode       String?
+  ipCountryCode      String?
+  ipCountry          String?
+  ipContinentCode    String?
+  ipContinent        String?
+  ipAsn              String?
+  ipAsName           String?
+  ipAsDomain         String?
+  ipGeolocatedAt     DateTime?
+  status             UploadStatus   @default(uploaded)
+  orderId            String?
+  orderName          String?
+  orderLineItemId    String?
+  orderedAt          DateTime?
+  expiresAt          DateTime
+  removedAt          DateTime?
+  expiredAt          DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  stampPreviews      StampPreview[]
 
   @@index([shop, status, createdAt])
   @@index([shop, lineArtStatus, createdAt])
@@ -108,6 +115,28 @@ model Upload {
   @@index([shop, sessionId])
   @@index([shop, ipCountryCode])
   @@index([expiresAt])
+}
+
+model StampPreview {
+  id                       String           @id @default(cuid())
+  uploadId                 String
+  upload                   Upload           @relation(fields: [uploadId], references: [uploadId], onDelete: Cascade)
+  kind                     StampPreviewKind
+  status                   LineArtStatus    @default(not_started)
+  model                    String?
+  requestId                String?
+  storageKey               String?
+  storageUrl               String?
+  contentType              String?
+  fileSize                 BigInt?
+  sourceLineArtGeneratedAt DateTime?
+  generatedAt              DateTime?
+  error                    String?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+
+  @@unique([uploadId, kind])
+  @@index([uploadId, status])
 }
 
 model WebhookDelivery {
@@ -120,13 +149,13 @@ model WebhookDelivery {
 }
 
 model CleanupRun {
-  id             String   @id @default(cuid())
-  startedAt      DateTime @default(now())
-  finishedAt     DateTime?
-  expiredCount   Int      @default(0)
-  deletedCount   Int      @default(0)
-  errorCount     Int      @default(0)
-  retentionDays  Int
-  deleteObjects  Boolean
-  notes          String?
+  id            String    @id @default(cuid())
+  startedAt     DateTime  @default(now())
+  finishedAt    DateTime?
+  expiredCount  Int       @default(0)
+  deletedCount  Int       @default(0)
+  errorCount    Int       @default(0)
+  retentionDays Int
+  deleteObjects Boolean
+  notes         String?
 }

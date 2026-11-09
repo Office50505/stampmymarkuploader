@@ -30,6 +30,11 @@
   data-line-art-ready="{{ 'line_art.ready' | t | escape }}"
   data-line-art-failed="{{ 'line_art.failed' | t | escape }}"
   data-line-art-timeout="{{ 'line_art.timeout' | t | escape }}"
+  data-stamp-previews-generating-line-art="{{ 'stamp_previews.generating_line_art' | t | escape }}"
+  data-stamp-previews-generating-mockups="{{ 'stamp_previews.generating_mockups' | t | escape }}"
+  data-stamp-previews-ready="{{ 'stamp_previews.ready' | t | escape }}"
+  data-stamp-previews-failed="{{ 'stamp_previews.failed' | t | escape }}"
+  data-stamp-previews-timeout="{{ 'stamp_previews.timeout' | t | escape }}"
 >
   <div class="smm-upload__preview" data-upload-preview hidden></div>
 
@@ -65,6 +70,89 @@
   <input type="hidden" name="properties[Notes]" data-upload-designer-notes-property disabled>
 
   <div class="smm-upload__status" data-upload-status role="status" aria-live="polite"></div>
+
+  <section
+    class="smm-upload__stamp-previews"
+    data-stamp-previews
+    data-state="waiting"
+    aria-labelledby="smm-stamp-preview-title-{{ block.id }}"
+    hidden
+  >
+    <h3 class="smm-upload__stamp-previews-title" id="smm-stamp-preview-title-{{ block.id }}">
+      {{ 'stamp_previews.title' | t }}
+    </h3>
+
+    <div class="smm-upload__stamp-previews-summary" aria-live="polite">
+      <span class="smm-upload__stamp-previews-summary-icon" aria-hidden="true">
+        <svg class="smm-upload__stamp-previews-check" viewBox="0 0 24 24" fill="none">
+          <path d="m5 12.5 4.2 4.2L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="smm-upload__stamp-previews-spinner"></span>
+      </span>
+      <span data-stamp-previews-summary>{{ 'stamp_previews.generating_line_art' | t }}</span>
+      <button class="smm-upload__stamp-previews-retry" type="button" data-stamp-previews-retry hidden>
+        {{ 'stamp_previews.retry' | t }}
+      </button>
+    </div>
+
+    <div class="smm-upload__stamp-previews-grid">
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="line_art" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="Generated stamp line art" width="1024" height="1024" loading="eager" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.line_art' | t }}</figcaption>
+      </figure>
+
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="box" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="Stamp preview on a box" width="1024" height="1024" loading="lazy" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.box' | t }}</figcaption>
+      </figure>
+
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="cup" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="Stamp preview on a cup" width="1024" height="1024" loading="lazy" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.cup' | t }}</figcaption>
+      </figure>
+
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="bag" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="Stamp preview on a bag" width="1024" height="1024" loading="lazy" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.bag' | t }}</figcaption>
+      </figure>
+    </div>
+  </section>
 
   {% if block.settings.show_text_fields_after_upload %}
     <div class="smm-upload__text-fields" data-upload-text-fields hidden>

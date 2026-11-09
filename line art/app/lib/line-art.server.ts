@@ -65,7 +65,7 @@ const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });
 };
 
-const getOwnedUpload = async ({
+export const getOwnedUpload = async ({
   shop,
   uploadId,
   sessionId

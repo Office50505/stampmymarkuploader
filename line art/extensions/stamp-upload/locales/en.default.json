@@ -6,5 +6,19 @@
     "ready": "Your line-art preview is ready.",
     "failed": "We could not create the line art. Please try another image.",
     "timeout": "Line-art generation is taking longer than expected. Please try again."
+  },
+  "stamp_previews": {
+    "title": "Your stamp preview",
+    "generating_line_art": "Drawing your stamp line art…",
+    "generating_mockups": "Creating your box, cup and bag previews…",
+    "ready": "Previews ready",
+    "failed": "One or more previews could not be created.",
+    "timeout": "The product previews are taking longer than expected. Please try again.",
+    "retry": "Retry previews",
+    "waiting": "Waiting for line art",
+    "line_art": "Line art",
+    "box": "Box",
+    "cup": "Cup",
+    "bag": "Bag"
   }
 }

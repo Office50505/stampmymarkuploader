@@ -16,7 +16,8 @@ export const expireAbandonedUploads = async () => {
       orderedAt: null,
       expiresAt: { lte: new Date() }
     },
-    take: 250
+    take: 250,
+    include: { stampPreviews: true }
   });
 
   let deletedCount = 0;
@@ -28,6 +29,11 @@ export const expireAbandonedUploads = async () => {
         await deleteStoredObject(upload.storageKey);
         if (upload.lineArtStorageKey) {
           await deleteStoredObject(upload.lineArtStorageKey);
+        }
+        for (const preview of upload.stampPreviews) {
+          if (preview.storageKey) {
+            await deleteStoredObject(preview.storageKey);
+          }
         }
         deletedCount += 1;
       } catch (error) {

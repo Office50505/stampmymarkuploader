@@ -29,5 +29,5 @@ uri = "/webhooks/app/uninstalled"
 
 [app_proxy]
 url = "https://printmivo-lineart-uploader.up.railway.app/apps/stamp-upload"
-subpath = "stamp-upload"
+subpath = "line-art-upload"
 prefix = "apps"

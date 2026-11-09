@@ -5,7 +5,7 @@
 (function () {
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
-  const appProxyBase = "/apps/stamp-upload/uploads/";
+  const appProxyBase = "/apps/line-art-upload/uploads/";
   const sessionKey = "smm_upload_session_id";
 
   const find = (root, selector) => root.querySelector(selector);

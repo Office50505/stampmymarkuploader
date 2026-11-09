@@ -27,7 +27,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { upload } = result;
   const ready = upload.lineArtStatus === "completed" && Boolean(upload.lineArtStorageKey);
   const previewUrl = ready
-    ? `/apps/stamp-upload/uploads/${encodeURIComponent(upload.uploadId)}/line-art-file` +
+    ? `/apps/line-art-upload/uploads/${encodeURIComponent(upload.uploadId)}/line-art-file` +
       `?sessionId=${encodeURIComponent(sessionId || "")}`
     : null;
 

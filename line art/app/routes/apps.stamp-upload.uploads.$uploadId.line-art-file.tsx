@@ -25,7 +25,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   return new Response(result.file.body, {
     headers: {
       "Content-Type": "image/png",
-      "Cache-Control": "private, no-store",
+      "Cache-Control": "private, max-age=3600",
       "Content-Disposition": "inline; filename=\"stamp-line-art.png\"",
       "X-Content-Type-Options": "nosniff"
     }

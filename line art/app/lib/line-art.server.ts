@@ -4,6 +4,7 @@ import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
 import {
+  recolorLineArtAlphaMask,
   recolorMonochromeLineArt,
   tryCreateMonochromeLineArt
 } from "./line-art-fast-path.server";
@@ -17,6 +18,7 @@ import {
 const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const lineArtPipelineVersion = "line-art-v7-reference-fidelity";
 const deterministicLineArtModel = "deterministic-monochrome-v1";
+const whiteInkVariantVersion = "white-alpha-mask-v1";
 
 const inkColors = {
   black: { name: "black", hex: "#111111" },
@@ -165,6 +167,12 @@ export const buildLineArtCacheKey = ({
     )
     .digest("hex");
 
+const buildWhiteInkCacheKey = (masterCacheKey: string) =>
+  crypto
+    .createHash("sha256")
+    .update([masterCacheKey, whiteInkVariantVersion].join("\0"))
+    .digest("hex");
+
 const isPng = (body: Buffer) =>
   body.length >= 8 && body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
 
@@ -197,10 +205,22 @@ const persistCompletedLineArt = async ({
   const masterKey = lineArtMasterStorageKey(key);
   const thumbnailKey = lineArtThumbnailStorageKey(key);
   const displayKey = lineArtDisplayStorageKey(key);
-  const body = await recolorMonochromeLineArt({
-    source: masterBody,
-    inkHex: inkColors[color].hex
-  });
+  let body: Buffer;
+  if (color === "white") {
+    const blackArtwork = await recolorMonochromeLineArt({
+      source: masterBody,
+      inkHex: inkColors.black.hex
+    });
+    body = await recolorLineArtAlphaMask({
+      source: blackArtwork,
+      inkHex: inkColors.white.hex
+    });
+  } else {
+    body = await recolorMonochromeLineArt({
+      source: masterBody,
+      inkHex: inkColors[color].hex
+    });
+  }
   if (body.length === 0 || body.length > uploadConfig.maxBytes || !isPng(body)) {
     throw new Error("Recolored line art did not pass PNG validation.");
   }
@@ -286,7 +306,10 @@ export const startLineArtGeneration = async ({
       });
     }
 
-    const cacheKey = buildLineArtCacheKey({ sourceSha256 });
+    const masterCacheKey = buildLineArtCacheKey({ sourceSha256 });
+    const whiteInkCacheKey = buildWhiteInkCacheKey(masterCacheKey);
+    const cacheKey = color === "white" ? whiteInkCacheKey : masterCacheKey;
+    const compatibleCacheKeys = [masterCacheKey, whiteInkCacheKey];
     if (
       upload.lineArtStatus === "completed" &&
       upload.lineArtColor === color &&
@@ -298,15 +321,22 @@ export const startLineArtGeneration = async ({
 
     if (
       upload.lineArtStatus === "processing" &&
-      upload.lineArtCacheKey === cacheKey &&
+      Boolean(
+        upload.lineArtCacheKey &&
+          compatibleCacheKeys.includes(upload.lineArtCacheKey)
+      ) &&
       upload.lineArtRequestId
     ) {
       const processingUpload =
-        upload.lineArtColor === color
+        upload.lineArtColor === color && upload.lineArtCacheKey === cacheKey
           ? upload
           : await prisma.upload.update({
               where: { uploadId },
-              data: { lineArtColor: color, lineArtError: null }
+              data: {
+                lineArtColor: color,
+                lineArtCacheKey: cacheKey,
+                lineArtError: null
+              }
             });
       return {
         ok: true as const,
@@ -325,7 +355,7 @@ export const startLineArtGeneration = async ({
       generatedStorageKey(shop, uploadId, color)
     );
     const ownMaster =
-      upload.lineArtCacheKey === cacheKey
+      upload.lineArtCacheKey && compatibleCacheKeys.includes(upload.lineArtCacheKey)
         ? await fetchStoredFileIfExists(ownMasterKey)
         : null;
     if (ownMaster) {
@@ -345,7 +375,7 @@ export const startLineArtGeneration = async ({
       where: {
         shop,
         uploadId: { not: uploadId },
-        lineArtCacheKey: cacheKey,
+        lineArtCacheKey: { in: compatibleCacheKeys },
         lineArtStatus: "completed",
         lineArtStorageKey: { not: null },
         removedAt: null,
@@ -378,7 +408,7 @@ export const startLineArtGeneration = async ({
       where: {
         shop,
         uploadId: { not: uploadId },
-        lineArtCacheKey: cacheKey,
+        lineArtCacheKey: { in: compatibleCacheKeys },
         lineArtStatus: "processing",
         lineArtRequestId: { not: null },
         removedAt: null

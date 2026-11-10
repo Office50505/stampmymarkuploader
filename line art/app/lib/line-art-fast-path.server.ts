@@ -216,6 +216,35 @@ export const recolorMonochromeLineArt = async ({
     .toBuffer();
 };
 
+export const recolorLineArtAlphaMask = async ({
+  source,
+  inkHex
+}: {
+  source: Buffer;
+  inkHex: string;
+}) => {
+  const image = await decodeRgba(source);
+  const ink = parseHexColor(inkHex);
+  const recolored = Buffer.alloc(image.width * image.height * 4);
+
+  for (let index = 0; index < image.data.length; index += 4) {
+    recolored[index] = ink.red;
+    recolored[index + 1] = ink.green;
+    recolored[index + 2] = ink.blue;
+    recolored[index + 3] = image.data[index + 3];
+  }
+
+  return sharp(recolored, {
+    raw: {
+      width: image.width,
+      height: image.height,
+      channels: 4
+    }
+  })
+    .png({ compressionLevel: 6, adaptiveFiltering: true })
+    .toBuffer();
+};
+
 export const tryCreateMonochromeLineArt = async ({
   source,
   inkHex

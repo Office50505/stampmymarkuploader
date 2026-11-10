@@ -10,6 +10,7 @@
   const appProxyBase = "/apps/line-art-upload/uploads/";
   const sessionKey = "smm_upload_session_id";
   const stickySyncFrames = new WeakMap();
+  const fullPreviewPreloads = new Map();
 
   const find = (root, selector) => root.querySelector(selector);
 
@@ -411,6 +412,18 @@
     );
 
     if (!control || control.disabled) return false;
+
+    const scrollLeft = window.scrollX;
+    const scrollTop = window.scrollY;
+    const restoreViewport = () => {
+      if (
+        Math.abs(window.scrollX - scrollLeft) > 1 ||
+        Math.abs(window.scrollY - scrollTop) > 1
+      ) {
+        window.scrollTo(scrollLeft, scrollTop);
+      }
+    };
+
     if (control.tagName === "SELECT") {
       if (String(control.value).trim().toLowerCase() === normalizedColor) return false;
       control.value = Array.from(control.options).find(
@@ -418,11 +431,25 @@
       )?.value || control.value;
       control.dispatchEvent(new Event("input", { bubbles: true }));
       control.dispatchEvent(new Event("change", { bubbles: true }));
+      restoreViewport();
+      window.requestAnimationFrame(() => {
+        restoreViewport();
+        window.requestAnimationFrame(restoreViewport);
+      });
+      window.setTimeout(restoreViewport, 120);
       return true;
     }
 
     if (control.checked) return false;
-    control.click();
+    control.checked = true;
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+    control.dispatchEvent(new Event("change", { bubbles: true }));
+    restoreViewport();
+    window.requestAnimationFrame(() => {
+      restoreViewport();
+      window.requestAnimationFrame(restoreViewport);
+    });
+    window.setTimeout(restoreViewport, 120);
     return true;
   }
 
@@ -873,11 +900,11 @@
     const lightbox = document.querySelector("[data-stamp-preview-lightbox]");
     if (!lightbox || lightbox.hidden) return;
 
-    const image = find(lightbox, "[data-stamp-preview-lightbox-image]");
     lightbox.hidden = true;
     document.body.classList.remove("smm-preview-lightbox-open");
 
-    if (image) image.removeAttribute("src");
+    const image = find(lightbox, "[data-stamp-preview-lightbox-image]");
+    if (image) delete image.dataset.pendingFullPreviewUrl;
     if (activeStampPreviewTrigger) activeStampPreviewTrigger.focus();
     activeStampPreviewTrigger = null;
     activeStampPreviewCards = [];
@@ -916,11 +943,29 @@
       );
     }
 
-    image.src =
-      sourceImage.dataset.fullPreviewUrl || sourceImage.currentSrc || sourceImage.src;
+    const thumbnailUrl = sourceImage.currentSrc || sourceImage.src;
+    const fullPreviewUrl = sourceImage.dataset.fullPreviewUrl || thumbnailUrl;
+    image.dataset.pendingFullPreviewUrl = fullPreviewUrl;
+    image.src = thumbnailUrl;
     image.alt = sourceImage.alt || label;
     caption.textContent = label;
     counter.textContent = `${activeStampPreviewIndex + 1} / ${count}`;
+
+    if (fullPreviewUrl !== thumbnailUrl) {
+      preloadFullStampPreview(fullPreviewUrl)
+        .then(() => {
+          if (
+            lightbox.hidden ||
+            image.dataset.pendingFullPreviewUrl !== fullPreviewUrl
+          ) {
+            return;
+          }
+          image.src = fullPreviewUrl;
+        })
+        .catch(() => {
+          // Keep the already-visible thumbnail when the large preview is unavailable.
+        });
+    }
 
     lightbox
       .querySelectorAll("[data-stamp-preview-lightbox-navigation]")
@@ -1099,7 +1144,36 @@
     card.tabIndex = interactive ? 0 : -1;
   }
 
+  function preloadFullStampPreview(url) {
+    if (!url) return Promise.resolve(null);
+
+    const existing = fullPreviewPreloads.get(url);
+    if (existing) return existing;
+
+    const preload = new Promise((resolve, reject) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.fetchPriority = "low";
+      image.onload = async () => {
+        try {
+          await image.decode?.();
+        } catch (_error) {
+          // A completed load is still safe to display if decode() is unavailable.
+        }
+        resolve(image);
+      };
+      image.onerror = reject;
+      image.src = url;
+    });
+
+    fullPreviewPreloads.set(url, preload);
+    preload.catch(() => fullPreviewPreloads.delete(url));
+    return preload;
+  }
+
   function swapStampPreviewImage(card, image, previewUrl, fullPreviewUrl) {
+    preloadFullStampPreview(fullPreviewUrl);
+
     if (image.getAttribute("src") === previewUrl) {
       image.hidden = false;
       image.dataset.fullPreviewUrl = fullPreviewUrl;
@@ -1193,6 +1267,21 @@
     });
   }
 
+  function showInstantLineArtInk(root, color) {
+    const card = find(root, '[data-stamp-preview-card="line_art"]');
+    if (!card) return;
+
+    const image = find(card, "[data-stamp-preview-image]");
+    const status = find(card, "[data-stamp-preview-state]");
+    card.dataset.inkColor = color || getSelectedInkColor(root);
+
+    if (!image?.getAttribute("src")) return;
+
+    card.dataset.state = "ready";
+    setStampPreviewCardInteractive(card, true);
+    if (status) status.textContent = "";
+  }
+
   function showLineArtGenerating(root, preserveExisting = false) {
     setStampPreviewSummary(
       root,
@@ -1201,7 +1290,11 @@
         ? root.dataset.stampPreviewsUpdatingColor || "Updating previews for your selected ink…"
         : root.dataset.stampPreviewsGeneratingLineArt || "Drawing your stamp line art…"
     );
-    setStampPreviewCard(root, "line_art", preserveExisting ? "updating" : "generating");
+    if (preserveExisting) {
+      showInstantLineArtInk(root, getSelectedInkColor(root));
+    } else {
+      setStampPreviewCard(root, "line_art", "generating");
+    }
     stampPreviewKinds.forEach((kind) =>
       setStampPreviewCard(root, kind, preserveExisting ? "updating" : "waiting")
     );
@@ -1473,6 +1566,7 @@
 
         const changed = selectInkColor(root, color);
         syncPreviewInkControls(root, color);
+        showInstantLineArtInk(root, color);
         if (!changed && state.uploadId && color !== state.inkColor) {
           generateLineArt();
         }
@@ -1652,7 +1746,9 @@
       syncPreviewInkControls(root, requestedColor);
       state.uploading = true;
       state.previewReady = false;
-      state.lineArtUrl = null;
+      if (!preserveExisting) {
+        state.lineArtUrl = null;
+      }
       showLineArtGenerating(root, preserveExisting);
 
       if (shouldScrollToPreviews) {
@@ -1665,7 +1761,7 @@
         state.uploadId,
         state.filename,
         state.artworkUrl,
-        ""
+        preserveExisting ? state.lineArtUrl : ""
       );
 
       try {
@@ -1947,6 +2043,7 @@
         window.setTimeout(async () => {
           const selectedColor = getSelectedInkColor(root);
           syncPreviewInkControls(root, selectedColor);
+          showInstantLineArtInk(root, selectedColor);
           if (
             !state.uploadId ||
             selectedColor === state.inkColor

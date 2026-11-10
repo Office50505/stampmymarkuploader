@@ -541,27 +541,27 @@
   padding: 8%;
 }
 
-.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-state="updating"][data-ink-color="black"] .smm-upload__stamp-preview-media img {
+.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="black"] .smm-upload__stamp-preview-media img {
   filter: brightness(0) saturate(100%);
 }
 
-.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-state="updating"][data-ink-color="blue"] .smm-upload__stamp-preview-media img {
+.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="blue"] .smm-upload__stamp-preview-media img {
   filter: brightness(0) saturate(100%) invert(31%) sepia(93%) saturate(2168%) hue-rotate(211deg) brightness(84%) contrast(105%);
 }
 
-.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-state="updating"][data-ink-color="green"] .smm-upload__stamp-preview-media img {
+.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="green"] .smm-upload__stamp-preview-media img {
   filter: brightness(0) saturate(100%) invert(39%) sepia(56%) saturate(1024%) hue-rotate(99deg) brightness(89%) contrast(93%);
 }
 
-.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-state="updating"][data-ink-color="purple"] .smm-upload__stamp-preview-media img {
+.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="purple"] .smm-upload__stamp-preview-media img {
   filter: brightness(0) saturate(100%) invert(27%) sepia(36%) saturate(2939%) hue-rotate(250deg) brightness(85%) contrast(88%);
 }
 
-.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-state="updating"][data-ink-color="red"] .smm-upload__stamp-preview-media img {
+.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="red"] .smm-upload__stamp-preview-media img {
   filter: brightness(0) saturate(100%) invert(24%) sepia(85%) saturate(2810%) hue-rotate(342deg) brightness(90%) contrast(98%);
 }
 
-.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-state="updating"][data-ink-color="white"] .smm-upload__stamp-preview-media img {
+.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="white"] .smm-upload__stamp-preview-media img {
   filter: brightness(0) invert(1);
 }
 
@@ -735,6 +735,30 @@ body.smm-preview-lightbox-open {
 
 .smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="white"] .smm-preview-lightbox__image {
   background: #000;
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="black"] .smm-preview-lightbox__image {
+  filter: brightness(0) saturate(100%);
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="blue"] .smm-preview-lightbox__image {
+  filter: brightness(0) saturate(100%) invert(31%) sepia(93%) saturate(2168%) hue-rotate(211deg) brightness(84%) contrast(105%);
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="green"] .smm-preview-lightbox__image {
+  filter: brightness(0) saturate(100%) invert(39%) sepia(56%) saturate(1024%) hue-rotate(99deg) brightness(89%) contrast(93%);
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="purple"] .smm-preview-lightbox__image {
+  filter: brightness(0) saturate(100%) invert(27%) sepia(36%) saturate(2939%) hue-rotate(250deg) brightness(85%) contrast(88%);
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="red"] .smm-preview-lightbox__image {
+  filter: brightness(0) saturate(100%) invert(24%) sepia(85%) saturate(2810%) hue-rotate(342deg) brightness(90%) contrast(98%);
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="white"] .smm-preview-lightbox__image {
+  filter: brightness(0) invert(1);
 }
 
 .smm-preview-lightbox__image--next {

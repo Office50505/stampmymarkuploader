@@ -6,43 +6,65 @@ import type { StampPreviewKind } from "./stamp-previews.server";
 type Point = { x: number; y: number };
 type Quad = [Point, Point, Point, Point];
 
-const baseCanvasSize = 1024;
 const canvasSize = 1254;
 const artworkSize = 768;
 const artworkContentSize = 648;
 
-const scaleQuad = (quad: Quad): Quad =>
-  quad.map((point) => ({
-    x: (point.x * canvasSize) / baseCanvasSize,
-    y: (point.y * canvasSize) / baseCanvasSize
-  })) as Quad;
-
-const placementQuads: Record<StampPreviewKind, Quad> = {
-  box: scaleQuad([
-    { x: 217, y: 217 },
-    { x: 807, y: 217 },
-    { x: 807, y: 807 },
-    { x: 217, y: 807 }
-  ]),
-  cup: scaleQuad([
-    { x: 308, y: 346 },
-    { x: 716, y: 346 },
-    { x: 691, y: 736 },
-    { x: 333, y: 736 }
-  ]),
-  bag: scaleQuad([
-    { x: 297, y: 420 },
-    { x: 727, y: 420 },
-    { x: 727, y: 850 },
-    { x: 297, y: 850 }
-  ])
+const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>> = {
+  regular: {
+    box: [
+      { x: 397, y: 387 },
+      { x: 857, y: 387 },
+      { x: 857, y: 847 },
+      { x: 397, y: 847 }
+    ],
+    cup: [
+      { x: 452, y: 480 },
+      { x: 802, y: 480 },
+      { x: 786, y: 815 },
+      { x: 468, y: 815 }
+    ],
+    bag: [
+      { x: 407, y: 545 },
+      { x: 847, y: 545 },
+      { x: 847, y: 985 },
+      { x: 407, y: 985 }
+    ]
+  },
+  white: {
+    box: [
+      { x: 397, y: 397 },
+      { x: 857, y: 397 },
+      { x: 857, y: 857 },
+      { x: 397, y: 857 }
+    ],
+    cup: [
+      { x: 452, y: 480 },
+      { x: 802, y: 480 },
+      { x: 786, y: 815 },
+      { x: 468, y: 815 }
+    ],
+    bag: [
+      { x: 407, y: 430 },
+      { x: 847, y: 430 },
+      { x: 847, y: 870 },
+      { x: 407, y: 870 }
+    ]
+  }
 };
 
 const mockupPath = (kind: StampPreviewKind, color: InkColor) => {
-  const filename =
-    color === "white" ? `blank-${kind}-dark.png` : `blank-${kind}.png`;
+  const palette = color === "white" ? "white" : "regular";
+  const filename = `${palette}-${kind}.webp`;
 
-  return path.join(process.cwd(), "public", "stamp-mockups", filename);
+  return path.join(
+    process.cwd(),
+    "public",
+    "stamp-mockups",
+    "v3",
+    "optimized",
+    filename
+  );
 };
 
 const solveLinearSystem = (matrix: number[][], values: number[]) => {
@@ -286,8 +308,9 @@ export const renderStampPreview = async ({
   artwork: Buffer;
   color: InkColor;
 }) => {
+  const palette = color === "white" ? "white" : "regular";
   const preparedArtwork = await prepareArtwork(artwork, color);
-  const overlay = warpArtwork(preparedArtwork, placementQuads[kind], color);
+  const overlay = warpArtwork(preparedArtwork, placementQuads[palette][kind], color);
 
   return sharp(mockupPath(kind, color))
     .resize(canvasSize, canvasSize, { fit: "cover" })

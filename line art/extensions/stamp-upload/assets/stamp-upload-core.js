@@ -862,6 +862,9 @@
     const counter = find(lightbox, "[data-stamp-preview-lightbox-counter]");
     const label = find(card, "figcaption")?.textContent?.trim() || "Stamp preview";
 
+    lightbox.dataset.previewKind = card.dataset.stampPreviewCard || "";
+    lightbox.dataset.inkColor = card.dataset.inkColor || "";
+
     image.classList.remove(
       "smm-preview-lightbox__image--next",
       "smm-preview-lightbox__image--previous"
@@ -1065,6 +1068,7 @@
     };
 
     card.dataset.state = state;
+    card.dataset.inkColor = getSelectedInkColor(root);
     card.setAttribute("aria-disabled", state === "ready" ? "false" : "true");
     card.tabIndex = state === "ready" ? 0 : -1;
     if (status) status.textContent = labels[state] || "";

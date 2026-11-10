@@ -449,6 +449,12 @@
   background: #fff;
 }
 
+.smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="white"] .smm-upload__stamp-preview-media {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 52%),
+    #202327;
+}
+
 .smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"] .smm-upload__stamp-preview-media img {
   object-fit: contain;
   padding: 8%;
@@ -603,6 +609,12 @@ body.smm-preview-lightbox-open {
   touch-action: pan-y;
   user-select: none;
   width: auto;
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="white"] .smm-preview-lightbox__image {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 52%),
+    #202327;
 }
 
 .smm-preview-lightbox__image--next {

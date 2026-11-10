@@ -38,8 +38,12 @@ const placementQuads: Record<StampPreviewKind, Quad> = {
   ])
 };
 
-const mockupPath = (kind: StampPreviewKind) =>
-  path.join(process.cwd(), "public", "stamp-mockups", `blank-${kind}.png`);
+const mockupPath = (kind: StampPreviewKind, color: InkColor) => {
+  const filename =
+    color === "white" ? `blank-${kind}-dark.png` : `blank-${kind}.png`;
+
+  return path.join(process.cwd(), "public", "stamp-mockups", filename);
+};
 
 const solveLinearSystem = (matrix: number[][], values: number[]) => {
   const size = values.length;
@@ -285,7 +289,7 @@ export const renderStampPreview = async ({
   const preparedArtwork = await prepareArtwork(artwork, color);
   const overlay = warpArtwork(preparedArtwork, placementQuads[kind], color);
 
-  return sharp(mockupPath(kind))
+  return sharp(mockupPath(kind, color))
     .resize(canvasSize, canvasSize, { fit: "cover" })
     .composite([
       {

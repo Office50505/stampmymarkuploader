@@ -1290,7 +1290,7 @@
     });
   }
 
-  function showInstantLineArtInk(root, color) {
+  function showInstantLineArtInk(root, color, fullPreviewUrl, version) {
     const card = find(root, '[data-stamp-preview-card="line_art"]');
     if (!card) return;
 
@@ -1303,6 +1303,11 @@
     card.dataset.state = "ready";
     setStampPreviewCardInteractive(card, true);
     if (status) status.textContent = "";
+    if (fullPreviewUrl) {
+      const versionedFullPreviewUrl = withPreviewVersion(fullPreviewUrl, version);
+      image.dataset.fullPreviewUrl = versionedFullPreviewUrl;
+      preloadFullStampPreview(versionedFullPreviewUrl);
+    }
   }
 
   function showLineArtGenerating(root, preserveExisting = false) {
@@ -1351,14 +1356,23 @@
       root.dataset.stampPreviewsGeneratingMockups ||
         "Creating your clear cup, paper cup and container previews…"
     );
-    setStampPreviewCard(
-      root,
-      "line_art",
-      "ready",
-      lineArtPreviewUrl,
-      lineArtFullPreviewUrl,
-      lineArtPreviewVersion
-    );
+    if (preserveExisting) {
+      showInstantLineArtInk(
+        root,
+        getSelectedInkColor(root),
+        lineArtFullPreviewUrl,
+        lineArtPreviewVersion
+      );
+    } else {
+      setStampPreviewCard(
+        root,
+        "line_art",
+        "ready",
+        lineArtPreviewUrl,
+        lineArtFullPreviewUrl,
+        lineArtPreviewVersion
+      );
+    }
     stampPreviewKinds.forEach((kind) =>
       setStampPreviewCard(root, kind, preserveExisting ? "updating" : "generating")
     );
@@ -1541,9 +1555,11 @@
       generationProgressTimer = null;
     }
 
-    function startGenerationProgress(startAt, cap) {
+    function startGenerationProgress(startAt, cap, preserveCurrent = false) {
       stopGenerationProgress();
-      generationProgress = startAt;
+      generationProgress = preserveCurrent
+        ? Math.max(generationProgress, startAt)
+        : startAt;
       generationProgressTick = 0;
       setStampPreviewProgress(root, generationProgress);
 
@@ -1653,7 +1669,7 @@
         state.lineArtPreviewVersion,
         preserveExisting
       );
-      startGenerationProgress(preserveExisting ? 74 : 62, 94);
+      startGenerationProgress(preserveExisting ? 78 : 62, 94, preserveExisting);
       setButton(trigger, "uploading", "Creating 3 product previews…");
       setStatus(
         root,
@@ -1788,7 +1804,7 @@
       );
 
       try {
-        startGenerationProgress(preserveExisting ? 68 : 6, preserveExisting ? 82 : 58);
+        startGenerationProgress(preserveExisting ? 70 : 6, preserveExisting ? 78 : 58);
         setButton(
           trigger,
           "uploading",
@@ -1839,14 +1855,23 @@
           state.artworkUrl,
           state.lineArtUrl
         );
-        setStampPreviewCard(
-          root,
-          "line_art",
-          "ready",
-          state.lineArtPreviewUrl,
-          state.lineArtFullPreviewUrl,
-          state.lineArtPreviewVersion
-        );
+        if (preserveExisting) {
+          showInstantLineArtInk(
+            root,
+            result.color,
+            state.lineArtFullPreviewUrl,
+            state.lineArtPreviewVersion
+          );
+        } else {
+          setStampPreviewCard(
+            root,
+            "line_art",
+            "ready",
+            state.lineArtPreviewUrl,
+            state.lineArtFullPreviewUrl,
+            state.lineArtPreviewVersion
+          );
+        }
         if (preserveExisting) await wait(140);
         if (runId !== state.generationRunId) return;
         await queueStampPreviews(runId, preserveExisting);

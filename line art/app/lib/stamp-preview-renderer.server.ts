@@ -35,10 +35,10 @@ const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>
   },
   white: {
     box: [
-      { x: 363, y: 398 },
-      { x: 891, y: 398 },
-      { x: 891, y: 926 },
-      { x: 363, y: 926 }
+      { x: 363, y: 388 },
+      { x: 891, y: 388 },
+      { x: 891, y: 916 },
+      { x: 363, y: 916 }
     ],
     cup: [
       { x: 426, y: 456 },

@@ -145,8 +145,16 @@
         sourceButton?.querySelector(".m-add-to-cart--text")?.textContent?.trim() ||
         sourceButton?.textContent?.trim() ||
         "Add to cart";
+      const hasUploadedLogo = Boolean(
+        find(root, "[data-upload-id-property]")?.value
+      );
 
-      if (state === "uploading") {
+      if (hasUploadedLogo && (state === "uploading" || state === "failed")) {
+        stickyButton.disabled = Boolean(sourceButton?.disabled);
+        stickyButton.classList.remove("printmivo-sticky-product-atc__button--upload");
+        stickyButton.removeAttribute("aria-busy");
+        stickyLabel.textContent = addLabel;
+      } else if (state === "uploading") {
         stickyButton.disabled = true;
         stickyButton.classList.add("printmivo-sticky-product-atc__button--upload");
         stickyButton.setAttribute("aria-busy", "true");
@@ -577,7 +585,7 @@
   }
 
   async function handleAddToCart(root, form, sessionId, state, event, button) {
-    if (state.uploading) {
+    if (state.uploading && !state.uploadId) {
       event.preventDefault();
       event.stopImmediatePropagation();
       setStatus(root, "Please wait until the file finishes uploading.", "error");
@@ -588,20 +596,6 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       setStatus(root, "Please upload a picture before adding this product to cart.", "error");
-      return;
-    }
-
-    if (state.uploadId && !state.lineArtUrl) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      setStatus(root, root.dataset.lineArtGenerating || "Creating stamp-ready line art…", "error");
-      return;
-    }
-
-    if (state.uploadId && !state.previewReady) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      setStatus(root, "Please wait until your product previews are ready.", "error");
       return;
     }
 
@@ -1462,7 +1456,7 @@
             "One or more previews could not be created.",
           "error"
         );
-        if (required) setAddToCartEnabled(form, false);
+        if (required) setAddToCartEnabled(form, true);
       }
     }
 
@@ -1488,10 +1482,6 @@
         state.artworkUrl,
         ""
       );
-
-      if (required) {
-        setAddToCartEnabled(form, false);
-      }
 
       while (state.uploadId) {
         const requestedColor = getSelectedInkColor(root);
@@ -1650,7 +1640,38 @@
         setLineItemProperties(root, form, state.uploadId, state.filename, state.artworkUrl, "");
         showPreview(root, file, removeUpload);
         setTextFieldsVisible(root, true, false);
-        await generateLineArt(true);
+        if (required) setAddToCartEnabled(form, true);
+        try {
+          await generateLineArt(true);
+        } catch (error) {
+          stopGenerationProgress();
+          state.uploading = false;
+          state.lineArtUrl = null;
+          state.lineArtPreviewUrl = null;
+          state.lineArtFullPreviewUrl = null;
+          state.previewReady = false;
+          setLineItemProperties(
+            root,
+            form,
+            state.uploadId,
+            state.filename,
+            state.artworkUrl,
+            ""
+          );
+          setStampPreviewCard(root, "line_art", "failed");
+          setStampPreviewSummary(
+            root,
+            "failed",
+            error.message || root.dataset.lineArtFailed || "Line art generation failed."
+          );
+          setButton(trigger, "failed", "Change File");
+          setStatus(
+            root,
+            "Your logo is uploaded. The previews could not be created, but you can still add to cart.",
+            "error"
+          );
+          if (required) setAddToCartEnabled(form, true);
+        }
       } catch (error) {
         uploadProgress.stop();
         stopGenerationProgress();
@@ -1758,13 +1779,13 @@
               error.message || root.dataset.lineArtFailed || "Line art generation failed.",
               "error"
             );
-            if (required) setAddToCartEnabled(form, false);
+            if (required) setAddToCartEnabled(form, true);
           }
         }, 0);
       });
 
       form.addEventListener("submit", (event) => {
-        if (state.uploading) {
+        if (state.uploading && !state.uploadId) {
           event.preventDefault();
           setStatus(root, "Please wait until the file finishes uploading.", "error");
           return;
@@ -1773,18 +1794,6 @@
         if (required && !state.uploadId) {
           event.preventDefault();
           setStatus(root, "Please upload a picture before adding this product to cart.", "error");
-          return;
-        }
-
-        if (state.uploadId && !state.lineArtUrl) {
-          event.preventDefault();
-          setStatus(root, root.dataset.lineArtGenerating || "Creating stamp-ready line art…", "error");
-          return;
-        }
-
-        if (state.uploadId && !state.previewReady) {
-          event.preventDefault();
-          setStatus(root, "Please wait until your product previews are ready.", "error");
           return;
         }
 

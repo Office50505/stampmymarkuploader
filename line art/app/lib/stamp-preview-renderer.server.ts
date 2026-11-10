@@ -10,7 +10,7 @@ const canvasSize = 1254;
 const artworkSize = 768;
 const artworkContentSize = 752;
 const minimumArtworkContentSize = Math.round(artworkContentSize * 0.58);
-const targetInkArea = artworkContentSize * artworkContentSize * 0.29;
+const targetInkArea = artworkContentSize * artworkContentSize * 0.5;
 
 const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>> = {
   regular: {

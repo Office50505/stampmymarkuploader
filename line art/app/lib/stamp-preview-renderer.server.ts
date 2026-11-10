@@ -6,29 +6,36 @@ import type { StampPreviewKind } from "./stamp-previews.server";
 type Point = { x: number; y: number };
 type Quad = [Point, Point, Point, Point];
 
-const canvasSize = 1024;
-const artworkSize = 512;
-const artworkContentSize = 430;
+const baseCanvasSize = 1024;
+const canvasSize = 1254;
+const artworkSize = 768;
+const artworkContentSize = 648;
+
+const scaleQuad = (quad: Quad): Quad =>
+  quad.map((point) => ({
+    x: (point.x * canvasSize) / baseCanvasSize,
+    y: (point.y * canvasSize) / baseCanvasSize
+  })) as Quad;
 
 const placementQuads: Record<StampPreviewKind, Quad> = {
-  box: [
+  box: scaleQuad([
     { x: 217, y: 217 },
     { x: 807, y: 217 },
     { x: 807, y: 807 },
     { x: 217, y: 807 }
-  ],
-  cup: [
-    { x: 308, y: 390 },
-    { x: 716, y: 390 },
-    { x: 691, y: 780 },
-    { x: 333, y: 780 }
-  ],
-  bag: [
+  ]),
+  cup: scaleQuad([
+    { x: 308, y: 346 },
+    { x: 716, y: 346 },
+    { x: 691, y: 736 },
+    { x: 333, y: 736 }
+  ]),
+  bag: scaleQuad([
     { x: 297, y: 420 },
     { x: 727, y: 420 },
     { x: 727, y: 850 },
     { x: 297, y: 850 }
-  ]
+  ])
 };
 
 const mockupPath = (kind: StampPreviewKind) =>
@@ -287,6 +294,6 @@ export const renderStampPreview = async ({
         blend: color === "white" ? "over" : "multiply"
       }
     ])
-    .png({ compressionLevel: 9 })
+    .png({ compressionLevel: 6, adaptiveFiltering: true })
     .toBuffer();
 };

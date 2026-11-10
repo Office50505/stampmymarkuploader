@@ -4,7 +4,6 @@ import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
 import {
-  reduceDenseLineArtInk,
   recolorMonochromeLineArt,
   tryCreateMonochromeLineArt
 } from "./line-art-fast-path.server";
@@ -16,8 +15,8 @@ import {
 } from "./storage.server";
 
 const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const lineArtPipelineVersion = "line-art-v6-open-contours";
-const deterministicLineArtModel = "deterministic-monochrome-v2-coverage-gated";
+const lineArtPipelineVersion = "line-art-v7-reference-fidelity";
+const deterministicLineArtModel = "deterministic-monochrome-v1";
 
 const inkColors = {
   black: { name: "black", hex: "#111111" },
@@ -60,21 +59,11 @@ SOURCE FIDELITY
 LINE-ART CONVERSION
 - Convert the design into crisp, high-contrast, vector-like stamp artwork using one ink color only.
 - Use solid black ink (#111111) for every visible mark. Use no other color. This is a neutral production master that will be recolored exactly after generation.
-- Replace gradients, photographs, lighting, shading, texture, transparency effects, and soft shadows with clean contours and deliberately simplified line work.
+- Replace gradients, photographs, lighting, shading, texture, transparency effects, and soft shadows with clean outlines and simple solid shapes.
 - Keep important internal details, but simplify tiny noise and hairline details that would not reproduce reliably as a physical stamp.
 - Do not merge distinct logo parts or flood-fill enclosed regions that are empty in the source.
 - Use smooth continuous contours, balanced negative space, clean joins, and stamp-safe stroke thickness.
 - If the source contains a photograph, trace only the main subject and essential identifying contours as simplified line art without inventing details.
-
-INK-EFFICIENT OUTLINE POLICY — CRITICAL
-- Use an outline-first treatment and the minimum practical ink needed to preserve the artwork's identity.
-- Do not make strokes thicker, bolder, or heavier than necessary for a reliable stamp impression.
-- Convert broad dark, colored, shaded, or filled regions into their essential outer and inner contour lines with transparent negative-space interiors wherever the identity remains clear.
-- Never reproduce a large solid slab, blob, disk, background panel, or complete filled silhouette merely because that area is filled in the source.
-- Preserve intentional internal openings and introduce clean negative-space separation wherever a dense region would otherwise swallow recognizable detail.
-- Small essential marks, normal letter strokes, and genuinely solid brand elements may remain filled when outlining them would change the logo. Do not hollow ordinary text or make text illegible.
-- Aim for open, breathable line art with substantially more transparent negative space than ink. Avoid unnecessary ink coverage while keeping all important text and identifying contours readable.
-- Do not invert positive and negative space, and do not turn the transparent background into part of the artwork.
 
 OUTPUT
 - Return exactly one isolated artwork, centered with generous transparent padding.
@@ -204,23 +193,12 @@ const persistCompletedLineArt = async ({
     throw new Error("Generated image did not pass PNG validation.");
   }
 
-  const productionMasterBody = storeMaster
-    ? await reduceDenseLineArtInk(masterBody)
-    : masterBody;
-  if (
-    productionMasterBody.length === 0 ||
-    productionMasterBody.length > uploadConfig.maxBytes ||
-    !isPng(productionMasterBody)
-  ) {
-    throw new Error("Production line art did not pass PNG validation.");
-  }
-
   const key = generatedStorageKey(shop, uploadId, color);
   const masterKey = lineArtMasterStorageKey(key);
   const thumbnailKey = lineArtThumbnailStorageKey(key);
   const displayKey = lineArtDisplayStorageKey(key);
   const body = await recolorMonochromeLineArt({
-    source: productionMasterBody,
+    source: masterBody,
     inkHex: inkColors[color].hex
   });
   if (body.length === 0 || body.length > uploadConfig.maxBytes || !isPng(body)) {
@@ -236,13 +214,7 @@ const persistCompletedLineArt = async ({
     uploadStoredFile({ key: displayKey, contentType: "image/webp", body: displayPreview })
   ];
   if (storeMaster) {
-    writes.push(
-      uploadStoredFile({
-        key: masterKey,
-        contentType: "image/png",
-        body: productionMasterBody
-      })
-    );
+    writes.push(uploadStoredFile({ key: masterKey, contentType: "image/png", body: masterBody }));
   }
   await Promise.all(writes);
 

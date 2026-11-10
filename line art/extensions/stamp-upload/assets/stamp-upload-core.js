@@ -828,6 +828,8 @@
   }
 
   let activeStampPreviewTrigger = null;
+  let activeStampPreviewCards = [];
+  let activeStampPreviewIndex = -1;
 
   function closeStampPreviewLightbox() {
     const lightbox = document.querySelector("[data-stamp-preview-lightbox]");
@@ -840,6 +842,57 @@
     if (image) image.removeAttribute("src");
     if (activeStampPreviewTrigger) activeStampPreviewTrigger.focus();
     activeStampPreviewTrigger = null;
+    activeStampPreviewCards = [];
+    activeStampPreviewIndex = -1;
+  }
+
+  function showStampPreviewLightboxSlide(index, direction) {
+    const lightbox = document.querySelector("[data-stamp-preview-lightbox]");
+    if (!lightbox || activeStampPreviewCards.length === 0) return;
+
+    const count = activeStampPreviewCards.length;
+    activeStampPreviewIndex = ((index % count) + count) % count;
+
+    const card = activeStampPreviewCards[activeStampPreviewIndex];
+    const sourceImage = find(card, "[data-stamp-preview-image]");
+    if (!sourceImage || !sourceImage.src) return;
+
+    const image = find(lightbox, "[data-stamp-preview-lightbox-image]");
+    const caption = find(lightbox, "[data-stamp-preview-lightbox-caption]");
+    const counter = find(lightbox, "[data-stamp-preview-lightbox-counter]");
+    const label = find(card, "figcaption")?.textContent?.trim() || "Stamp preview";
+
+    image.classList.remove(
+      "smm-preview-lightbox__image--next",
+      "smm-preview-lightbox__image--previous"
+    );
+    void image.offsetWidth;
+    if (direction) {
+      image.classList.add(
+        direction === "previous"
+          ? "smm-preview-lightbox__image--previous"
+          : "smm-preview-lightbox__image--next"
+      );
+    }
+
+    image.src = sourceImage.currentSrc || sourceImage.src;
+    image.alt = sourceImage.alt || label;
+    caption.textContent = label;
+    counter.textContent = `${activeStampPreviewIndex + 1} / ${count}`;
+
+    lightbox
+      .querySelectorAll("[data-stamp-preview-lightbox-navigation]")
+      .forEach((button) => {
+        button.hidden = count < 2;
+      });
+  }
+
+  function moveStampPreviewLightbox(offset) {
+    if (activeStampPreviewCards.length < 2) return;
+    showStampPreviewLightboxSlide(
+      activeStampPreviewIndex + offset,
+      offset < 0 ? "previous" : "next"
+    );
   }
 
   function getStampPreviewLightbox() {
@@ -864,18 +917,72 @@
     closeButton.textContent = "×";
     closeButton.addEventListener("click", closeStampPreviewLightbox);
 
+    const previousButton = document.createElement("button");
+    previousButton.type = "button";
+    previousButton.className =
+      "smm-preview-lightbox__nav smm-preview-lightbox__nav--previous";
+    previousButton.dataset.stampPreviewLightboxNavigation = "true";
+    previousButton.setAttribute("aria-label", "Show previous stamp preview");
+    previousButton.textContent = "‹";
+    previousButton.addEventListener("click", () => moveStampPreviewLightbox(-1));
+
+    const nextButton = document.createElement("button");
+    nextButton.type = "button";
+    nextButton.className =
+      "smm-preview-lightbox__nav smm-preview-lightbox__nav--next";
+    nextButton.dataset.stampPreviewLightboxNavigation = "true";
+    nextButton.setAttribute("aria-label", "Show next stamp preview");
+    nextButton.textContent = "›";
+    nextButton.addEventListener("click", () => moveStampPreviewLightbox(1));
+
     const image = document.createElement("img");
     image.className = "smm-preview-lightbox__image";
     image.dataset.stampPreviewLightboxImage = "true";
+    image.draggable = false;
+
+    let swipeStartX = null;
+    let swipePointerId = null;
+    image.addEventListener("pointerdown", (event) => {
+      if (!event.isPrimary) return;
+      swipeStartX = event.clientX;
+      swipePointerId = event.pointerId;
+      image.setPointerCapture?.(event.pointerId);
+    });
+    image.addEventListener("pointerup", (event) => {
+      if (swipeStartX === null || event.pointerId !== swipePointerId) return;
+      const distance = event.clientX - swipeStartX;
+      swipeStartX = null;
+      swipePointerId = null;
+      if (Math.abs(distance) >= 50) {
+        moveStampPreviewLightbox(distance > 0 ? -1 : 1);
+      }
+    });
+    image.addEventListener("pointercancel", () => {
+      swipeStartX = null;
+      swipePointerId = null;
+    });
+    image.addEventListener("dragstart", (event) => event.preventDefault());
+
+    const footer = document.createElement("div");
+    footer.className = "smm-preview-lightbox__footer";
 
     const caption = document.createElement("p");
     caption.className = "smm-preview-lightbox__caption";
     caption.id = "smm-preview-lightbox-caption";
     caption.dataset.stampPreviewLightboxCaption = "true";
 
+    const counter = document.createElement("span");
+    counter.className = "smm-preview-lightbox__counter";
+    counter.dataset.stampPreviewLightboxCounter = "true";
+    counter.setAttribute("aria-live", "polite");
+
     dialog.appendChild(closeButton);
+    dialog.appendChild(previousButton);
+    dialog.appendChild(nextButton);
     dialog.appendChild(image);
-    dialog.appendChild(caption);
+    footer.appendChild(caption);
+    footer.appendChild(counter);
+    dialog.appendChild(footer);
     lightbox.appendChild(dialog);
     lightbox.addEventListener("click", (event) => {
       if (event.target === lightbox) closeStampPreviewLightbox();
@@ -883,6 +990,12 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !lightbox.hidden) {
         closeStampPreviewLightbox();
+      } else if (event.key === "ArrowLeft" && !lightbox.hidden) {
+        event.preventDefault();
+        moveStampPreviewLightbox(-1);
+      } else if (event.key === "ArrowRight" && !lightbox.hidden) {
+        event.preventDefault();
+        moveStampPreviewLightbox(1);
       }
     });
     document.body.appendChild(lightbox);
@@ -897,14 +1010,18 @@
     if (!sourceImage || !sourceImage.src) return;
 
     const lightbox = getStampPreviewLightbox();
-    const image = find(lightbox, "[data-stamp-preview-lightbox-image]");
-    const caption = find(lightbox, "[data-stamp-preview-lightbox-caption]");
-    const label = find(card, "figcaption")?.textContent?.trim() || "Stamp preview";
-
     activeStampPreviewTrigger = card;
-    image.src = sourceImage.currentSrc || sourceImage.src;
-    image.alt = sourceImage.alt || label;
-    caption.textContent = label;
+    const root = card.closest("[data-line-art-upload]");
+    activeStampPreviewCards = Array.from(
+      (root || document).querySelectorAll("[data-stamp-preview-card]")
+    ).filter((previewCard) => {
+      const previewImage = find(previewCard, "[data-stamp-preview-image]");
+      return previewCard.dataset.state === "ready" && Boolean(previewImage?.src);
+    });
+    activeStampPreviewIndex = activeStampPreviewCards.indexOf(card);
+    if (activeStampPreviewIndex < 0) return;
+
+    showStampPreviewLightboxSlide(activeStampPreviewIndex);
     lightbox.hidden = false;
     document.body.classList.add("smm-preview-lightbox-open");
     find(lightbox, ".smm-preview-lightbox__close")?.focus();

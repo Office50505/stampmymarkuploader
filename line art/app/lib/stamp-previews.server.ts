@@ -11,10 +11,10 @@ import {
   uploadStoredFile
 } from "./storage.server";
 
-export const stampPreviewKinds = ["box", "cup", "bag"] as const;
+export const stampPreviewKinds = ["bag", "cup", "box"] as const;
 export type StampPreviewKind = (typeof stampPreviewKinds)[number];
 
-const stampPreviewRenderer = "deterministic-v8-bag-placement";
+const stampPreviewRenderer = "deterministic-v9-product-surfaces";
 
 const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });

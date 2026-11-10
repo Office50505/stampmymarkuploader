@@ -5,7 +5,7 @@
 (function () {
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
-  const stampPreviewKinds = ["box", "cup", "bag"];
+  const stampPreviewKinds = ["bag", "cup", "box"];
   const supportedInkColors = ["black", "blue", "green", "purple", "red", "white"];
   const appProxyBase = "/apps/line-art-upload/uploads/";
   const sessionKey = "smm_upload_session_id";
@@ -1349,7 +1349,7 @@
       root,
       "generating",
       root.dataset.stampPreviewsGeneratingMockups ||
-        "Creating your box, cup and bag previews…"
+        "Creating your clear cup, paper cup and container previews…"
     );
     setStampPreviewCard(
       root,
@@ -1658,7 +1658,7 @@
       setStatus(
         root,
         root.dataset.stampPreviewsGeneratingMockups ||
-          "Creating your box, cup and bag previews…"
+          "Creating your clear cup, paper cup and container previews…"
       );
 
       try {

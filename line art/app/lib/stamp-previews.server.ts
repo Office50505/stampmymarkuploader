@@ -8,7 +8,7 @@ import { fetchStoredFile, storageBucket, uploadStoredFile } from "./storage.serv
 export const stampPreviewKinds = ["box", "cup", "bag"] as const;
 export type StampPreviewKind = (typeof stampPreviewKinds)[number];
 
-const stampPreviewRenderer = "deterministic-v2";
+const stampPreviewRenderer = "deterministic-v3";
 
 const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });

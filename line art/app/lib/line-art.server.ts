@@ -4,6 +4,7 @@ import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
 import {
+  reduceDenseLineArtInk,
   recolorMonochromeLineArt,
   tryCreateMonochromeLineArt
 } from "./line-art-fast-path.server";
@@ -15,7 +16,7 @@ import {
 } from "./storage.server";
 
 const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const lineArtPipelineVersion = "line-art-v5-ink-efficient";
+const lineArtPipelineVersion = "line-art-v6-open-contours";
 const deterministicLineArtModel = "deterministic-monochrome-v2-coverage-gated";
 
 const inkColors = {
@@ -203,12 +204,23 @@ const persistCompletedLineArt = async ({
     throw new Error("Generated image did not pass PNG validation.");
   }
 
+  const productionMasterBody = storeMaster
+    ? await reduceDenseLineArtInk(masterBody)
+    : masterBody;
+  if (
+    productionMasterBody.length === 0 ||
+    productionMasterBody.length > uploadConfig.maxBytes ||
+    !isPng(productionMasterBody)
+  ) {
+    throw new Error("Production line art did not pass PNG validation.");
+  }
+
   const key = generatedStorageKey(shop, uploadId, color);
   const masterKey = lineArtMasterStorageKey(key);
   const thumbnailKey = lineArtThumbnailStorageKey(key);
   const displayKey = lineArtDisplayStorageKey(key);
   const body = await recolorMonochromeLineArt({
-    source: masterBody,
+    source: productionMasterBody,
     inkHex: inkColors[color].hex
   });
   if (body.length === 0 || body.length > uploadConfig.maxBytes || !isPng(body)) {
@@ -224,7 +236,13 @@ const persistCompletedLineArt = async ({
     uploadStoredFile({ key: displayKey, contentType: "image/webp", body: displayPreview })
   ];
   if (storeMaster) {
-    writes.push(uploadStoredFile({ key: masterKey, contentType: "image/png", body: masterBody }));
+    writes.push(
+      uploadStoredFile({
+        key: masterKey,
+        contentType: "image/png",
+        body: productionMasterBody
+      })
+    );
   }
   await Promise.all(writes);
 

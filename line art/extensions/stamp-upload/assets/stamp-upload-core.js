@@ -256,9 +256,31 @@
   }
 
   function getProductForm(root) {
+    const isAddToCartForm = (form) =>
+      Boolean(
+        form?.querySelector(
+          "button[name='add'], input[name='add'], button[type='submit'][data-add-to-cart]"
+        )
+      );
+    const closestForm = root.closest("form[action*='/cart/add']");
+
+    if (isAddToCartForm(closestForm)) return closestForm;
+
+    const productInfo = root.closest(
+      ".m-product-info--wrapper, .product__info-container, [data-product-info]"
+    );
+    const nearbyForms = productInfo
+      ? Array.from(productInfo.querySelectorAll("form[action*='/cart/add']"))
+      : [];
+    const allForms = Array.from(document.querySelectorAll("form[action*='/cart/add']"));
+
     return (
-      root.closest("form[action*='/cart/add']") ||
-      document.querySelector("form[action*='/cart/add']")
+      nearbyForms.find(isAddToCartForm) ||
+      allForms.find(isAddToCartForm) ||
+      closestForm ||
+      nearbyForms[0] ||
+      allForms[0] ||
+      null
     );
   }
 
@@ -315,10 +337,25 @@
 
   function getSelectedOption(root, optionName) {
     const form = getProductForm(root);
-    const scope = form || document;
-    const namedOptions = Array.from(scope.querySelectorAll("[name^='options']")).filter(
-      (input) => input.name === `options[${optionName}]`
-    );
+    const normalizedOptionName = optionName
+      .toString()
+      .normalize("NFKC")
+      .trim()
+      .toLowerCase();
+    const namedOptions = Array.from(
+      document.querySelectorAll("input[name], select[name]")
+    ).filter((input) => {
+      if (form && input.form !== form && !form.contains(input)) return false;
+
+      const inputName = input.name.normalize("NFKC").trim().toLowerCase();
+      const bracketedName = inputName.match(/^options\[(.+)\]$/)?.[1]?.trim();
+
+      return (
+        bracketedName === normalizedOptionName ||
+        inputName === normalizedOptionName ||
+        inputName.startsWith(`${normalizedOptionName}-`)
+      );
+    });
     const selectedOption = namedOptions.find(
       (input) => input.tagName === "SELECT" || input.checked
     );

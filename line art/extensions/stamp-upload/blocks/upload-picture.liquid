@@ -32,6 +32,7 @@
   data-line-art-timeout="{{ 'line_art.timeout' | t | escape }}"
   data-stamp-previews-generating-line-art="{{ 'stamp_previews.generating_line_art' | t | escape }}"
   data-stamp-previews-generating-mockups="{{ 'stamp_previews.generating_mockups' | t | escape }}"
+  data-stamp-previews-updating-color="{{ 'stamp_previews.updating_color' | t | escape }}"
   data-stamp-previews-ready="{{ 'stamp_previews.ready' | t | escape }}"
   data-stamp-previews-failed="{{ 'stamp_previews.failed' | t | escape }}"
   data-stamp-previews-timeout="{{ 'stamp_previews.timeout' | t | escape }}"
@@ -78,6 +79,27 @@
     aria-labelledby="smm-stamp-preview-title-{{ block.id }}"
     hidden
   >
+    <fieldset class="smm-upload__preview-ink" data-preview-ink-selector>
+      <legend class="smm-upload__preview-ink-title">{{ 'stamp_previews.ink_color' | t }}</legend>
+      <div class="smm-upload__preview-ink-options">
+        {% assign preview_ink_colors = 'black,blue,green,purple,red,white' | split: ',' %}
+        {% for preview_ink_color in preview_ink_colors %}
+          {% capture preview_ink_label_key %}stamp_previews.colors.{{ preview_ink_color }}{% endcapture %}
+          {% assign preview_ink_label = preview_ink_label_key | t %}
+          <button
+            class="smm-upload__preview-ink-option smm-upload__preview-ink-option--{{ preview_ink_color }}"
+            type="button"
+            data-preview-ink-color="{{ preview_ink_color }}"
+            aria-pressed="false"
+            aria-label="{{ 'stamp_previews.select_color' | t: color: preview_ink_label | escape }}"
+          >
+            <span class="smm-upload__preview-ink-swatch" aria-hidden="true"></span>
+            <span>{{ preview_ink_label }}</span>
+          </button>
+        {% endfor %}
+      </div>
+    </fieldset>
+
     <h3 class="smm-upload__stamp-previews-title" id="smm-stamp-preview-title-{{ block.id }}">
       {{ 'stamp_previews.title' | t }}
     </h3>
@@ -117,7 +139,7 @@
             <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
             <span class="smm-upload__stamp-preview-sheen"></span>
           </div>
-          <img data-stamp-preview-image alt="Generated stamp line art" width="640" height="640" loading="eager" hidden>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.line_art_alt' | t | escape }}" width="640" height="640" loading="eager" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
         <figcaption>{{ 'stamp_previews.line_art' | t }}</figcaption>
@@ -131,7 +153,7 @@
             <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
             <span class="smm-upload__stamp-preview-sheen"></span>
           </div>
-          <img data-stamp-preview-image alt="Stamp preview on a box" width="640" height="640" loading="lazy" hidden>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.box_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
         <figcaption>{{ 'stamp_previews.box' | t }}</figcaption>
@@ -145,7 +167,7 @@
             <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
             <span class="smm-upload__stamp-preview-sheen"></span>
           </div>
-          <img data-stamp-preview-image alt="Stamp preview on a cup" width="640" height="640" loading="lazy" hidden>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.cup_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
         <figcaption>{{ 'stamp_previews.cup' | t }}</figcaption>
@@ -159,7 +181,7 @@
             <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
             <span class="smm-upload__stamp-preview-sheen"></span>
           </div>
-          <img data-stamp-preview-image alt="Stamp preview on a bag" width="640" height="640" loading="lazy" hidden>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.bag_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
         <figcaption>{{ 'stamp_previews.bag' | t }}</figcaption>

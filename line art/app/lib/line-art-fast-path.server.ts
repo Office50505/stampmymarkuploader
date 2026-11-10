@@ -160,6 +160,48 @@ const buildRecoloredArtwork = (
   return recolored;
 };
 
+export const recolorMonochromeLineArt = async ({
+  source,
+  inkHex
+}: {
+  source: Buffer;
+  inkHex: string;
+}) => {
+  const image = await decodeRgba(source);
+  const pixelCount = image.width * image.height;
+  let transparentPixels = 0;
+  const foregroundLuminance: number[] = [];
+
+  for (let index = 0; index < image.data.length; index += 4) {
+    if (image.data[index + 3] < 250) transparentPixels += 1;
+
+    const luminance =
+      0.2126 * image.data[index] +
+      0.7152 * image.data[index + 1] +
+      0.0722 * image.data[index + 2];
+    if (luminance < 245) foregroundLuminance.push(luminance);
+  }
+
+  const analysis: MonochromeAnalysis =
+    transparentPixels / pixelCount >= 0.001
+      ? { mode: "transparent" }
+      : {
+          mode: "white-background",
+          darkestLuminance: Math.max(0, percentile(foregroundLuminance, 0.02))
+        };
+  const recolored = buildRecoloredArtwork(image, analysis, inkHex);
+
+  return sharp(recolored, {
+    raw: {
+      width: image.width,
+      height: image.height,
+      channels: 4
+    }
+  })
+    .png({ compressionLevel: 6, adaptiveFiltering: true })
+    .toBuffer();
+};
+
 export const tryCreateMonochromeLineArt = async ({
   source,
   inkHex

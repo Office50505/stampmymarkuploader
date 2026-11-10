@@ -9,6 +9,9 @@
   },
   "stamp_previews": {
     "title": "Your stamp preview",
+    "ink_color": "Preview ink color",
+    "select_color": "Show previews in {{ color }} ink",
+    "updating_color": "Updating previews for your selected ink…",
     "generating_line_art": "Drawing your stamp line art…",
     "generating_mockups": "Creating your box, cup and bag previews…",
     "ready": "Previews ready",
@@ -17,9 +20,21 @@
     "retry": "Retry previews",
     "progress": "Preview generation progress",
     "waiting": "Waiting for line art",
+    "line_art_alt": "Generated stamp line art",
+    "box_alt": "Stamp preview on a box",
+    "cup_alt": "Stamp preview on a cup",
+    "bag_alt": "Stamp preview on a bag",
     "line_art": "Line art",
     "box": "Box",
     "cup": "Cup",
-    "bag": "Bag"
+    "bag": "Bag",
+    "colors": {
+      "black": "Black",
+      "blue": "Blue",
+      "green": "Green",
+      "purple": "Purple",
+      "red": "Red",
+      "white": "White"
+    }
   }
 }

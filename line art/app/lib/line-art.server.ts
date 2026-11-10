@@ -3,7 +3,10 @@ import crypto from "node:crypto";
 import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
-import { tryCreateMonochromeLineArt } from "./line-art-fast-path.server";
+import {
+  recolorMonochromeLineArt,
+  tryCreateMonochromeLineArt
+} from "./line-art-fast-path.server";
 import {
   fetchStoredFile,
   fetchStoredFileIfExists,
@@ -12,7 +15,7 @@ import {
 } from "./storage.server";
 
 const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const lineArtPipelineVersion = "line-art-v2-cache-fastpath";
+const lineArtPipelineVersion = "line-art-v3-neutral-master";
 const deterministicLineArtModel = "deterministic-monochrome-v1";
 
 const inkColors = {
@@ -41,10 +44,7 @@ export const resolveInkColor = (value: string | null | undefined): InkColor => {
   return normalized in inkColors ? (normalized as InkColor) : "black";
 };
 
-export const buildLineArtPrompt = (color: InkColor) => {
-  const selected = inkColors[color];
-
-  return `
+export const buildLineArtPrompt = () => `
 TASK
 Convert the uploaded customer artwork into production-ready, single-color stamp line art.
 
@@ -56,7 +56,7 @@ SOURCE FIDELITY
 
 LINE-ART CONVERSION
 - Convert the design into crisp, high-contrast, vector-like stamp artwork using one ink color only.
-- Use solid ${selected.name} ink (${selected.hex}) for every visible mark. Use no other color.
+- Use solid black ink (#111111) for every visible mark. Use no other color. This is a neutral production master that will be recolored exactly after generation.
 - Replace gradients, photographs, lighting, shading, texture, transparency effects, and soft shadows with clean outlines and simple solid shapes.
 - Keep important internal details, but simplify tiny noise and hairline details that would not reproduce reliably as a physical stamp.
 - Use smooth continuous contours, balanced negative space, clean joins, and stamp-safe stroke thickness.
@@ -69,7 +69,6 @@ OUTPUT
 - No mockup, paper, cup, bag, box, stamp device, hand, scenery, checkerboard, caption, watermark, or extra text.
 - The result must look like a clean one-color production file ready to manufacture as a logo stamp.
 `.trim();
-};
 
 const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });
@@ -103,9 +102,20 @@ export const getOwnedUpload = async ({
   return { ok: true as const, upload };
 };
 
-const generatedStorageKey = (shop: string, uploadId: string) => {
+const generatedStorageKey = (shop: string, uploadId: string, color: InkColor) => {
   const shopSlug = shop.replace(/[^a-z0-9.-]/gi, "-").toLowerCase();
-  return `shops/${shopSlug}/uploads/${uploadId}/line-art.png`;
+  return `shops/${shopSlug}/uploads/${uploadId}/line-art-${color}.png`;
+};
+
+export const lineArtMasterStorageKey = (storageKey: string) =>
+  storageKey.replace(/line-art(?:-[a-z]+)?\.png$/i, "line-art-master.png");
+
+export const lineArtVariantStorageKeys = (storageKey: string) => {
+  const baseKey = storageKey.replace(/line-art(?:-[a-z]+)?\.png$/i, "line-art");
+  return [
+    `${baseKey}.png`,
+    ...Object.keys(inkColors).map((color) => `${baseKey}-${color}.png`)
+  ];
 };
 
 export const lineArtThumbnailStorageKey = (storageKey: string) =>
@@ -135,11 +145,9 @@ const createLineArtDisplayPreview = (body: Buffer) =>
     .toBuffer();
 
 export const buildLineArtCacheKey = ({
-  sourceSha256,
-  color
+  sourceSha256
 }: {
   sourceSha256: string;
-  color: InkColor;
 }) =>
   crypto
     .createHash("sha256")
@@ -147,7 +155,6 @@ export const buildLineArtCacheKey = ({
       [
         lineArtPipelineVersion,
         sourceSha256,
-        color,
         lineArtConfig.model,
         lineArtConfig.quality,
         lineArtConfig.reasoningEffort
@@ -164,31 +171,57 @@ const persistCompletedLineArt = async ({
   color,
   cacheKey,
   model,
-  body
+  masterBody,
+  storeMaster = true
 }: {
   shop: string;
   uploadId: string;
   color: InkColor;
   cacheKey: string;
   model: string;
-  body: Buffer;
+  masterBody: Buffer;
+  storeMaster?: boolean;
 }) => {
-  if (body.length === 0 || body.length > uploadConfig.maxBytes || !isPng(body)) {
+  if (
+    masterBody.length === 0 ||
+    masterBody.length > uploadConfig.maxBytes ||
+    !isPng(masterBody)
+  ) {
     throw new Error("Generated image did not pass PNG validation.");
   }
 
-  const key = generatedStorageKey(shop, uploadId);
+  const key = generatedStorageKey(shop, uploadId, color);
+  const masterKey = lineArtMasterStorageKey(key);
   const thumbnailKey = lineArtThumbnailStorageKey(key);
   const displayKey = lineArtDisplayStorageKey(key);
+  const body = await recolorMonochromeLineArt({
+    source: masterBody,
+    inkHex: inkColors[color].hex
+  });
+  if (body.length === 0 || body.length > uploadConfig.maxBytes || !isPng(body)) {
+    throw new Error("Recolored line art did not pass PNG validation.");
+  }
   const [thumbnail, displayPreview] = await Promise.all([
     createLineArtThumbnail(body),
     createLineArtDisplayPreview(body)
   ]);
-  await Promise.all([
+  const writes = [
     uploadStoredFile({ key, contentType: "image/png", body }),
     uploadStoredFile({ key: thumbnailKey, contentType: "image/webp", body: thumbnail }),
     uploadStoredFile({ key: displayKey, contentType: "image/webp", body: displayPreview })
-  ]);
+  ];
+  if (storeMaster) {
+    writes.push(uploadStoredFile({ key: masterKey, contentType: "image/png", body: masterBody }));
+  }
+  await Promise.all(writes);
+
+  const latest = await prisma.upload.findUnique({ where: { uploadId } });
+  if (
+    latest &&
+    (latest.lineArtColor !== color || latest.lineArtCacheKey !== cacheKey)
+  ) {
+    return latest;
+  }
 
   return prisma.upload.update({
     where: { uploadId },
@@ -258,14 +291,47 @@ export const startLineArtGeneration = async ({
       });
     }
 
-    const cacheKey = buildLineArtCacheKey({ sourceSha256, color });
+    const cacheKey = buildLineArtCacheKey({ sourceSha256 });
     if (
       upload.lineArtStatus === "processing" &&
-      upload.lineArtColor === color &&
       upload.lineArtCacheKey === cacheKey &&
       upload.lineArtRequestId
     ) {
-      return { ok: true as const, status: "processing" as const, upload, color };
+      const processingUpload =
+        upload.lineArtColor === color
+          ? upload
+          : await prisma.upload.update({
+              where: { uploadId },
+              data: { lineArtColor: color, lineArtError: null }
+            });
+      return {
+        ok: true as const,
+        status: "processing" as const,
+        upload: processingUpload,
+        color
+      };
+    }
+
+    await prisma.upload.update({
+      where: { uploadId },
+      data: { lineArtColor: color, lineArtCacheKey: cacheKey, lineArtError: null }
+    });
+
+    const ownMasterKey = lineArtMasterStorageKey(
+      generatedStorageKey(shop, uploadId, color)
+    );
+    const ownMaster = await fetchStoredFileIfExists(ownMasterKey);
+    if (ownMaster) {
+      const completed = await persistCompletedLineArt({
+        shop,
+        uploadId,
+        color,
+        cacheKey,
+        model: upload.lineArtModel || lineArtConfig.model,
+        masterBody: Buffer.from(await ownMaster.arrayBuffer()),
+        storeMaster: false
+      });
+      return { ok: true as const, status: "completed" as const, upload: completed, color };
     }
 
     const cached = await prisma.upload.findFirst({
@@ -283,7 +349,9 @@ export const startLineArtGeneration = async ({
 
     if (cached?.lineArtStorageKey) {
       try {
-        const cachedFile = await fetchStoredFile(cached.lineArtStorageKey);
+        const cachedFile = await fetchStoredFile(
+          lineArtMasterStorageKey(cached.lineArtStorageKey)
+        );
         const cachedBody = Buffer.from(await cachedFile.arrayBuffer());
         const completed = await persistCompletedLineArt({
           shop,
@@ -291,7 +359,7 @@ export const startLineArtGeneration = async ({
           color,
           cacheKey,
           model: cached.lineArtModel || lineArtConfig.model,
-          body: cachedBody
+          masterBody: cachedBody
         });
         return { ok: true as const, status: "completed" as const, upload: completed, color };
       } catch (error) {
@@ -336,7 +404,7 @@ export const startLineArtGeneration = async ({
     try {
       fastPathBody = await tryCreateMonochromeLineArt({
         source: sourceBody,
-        inkHex: inkColors[color].hex
+        inkHex: inkColors.black.hex
       });
     } catch (error) {
       console.warn("Monochrome fast-path analysis failed; falling back to AI.", error);
@@ -349,7 +417,7 @@ export const startLineArtGeneration = async ({
         color,
         cacheKey,
         model: deterministicLineArtModel,
-        body: fastPathBody
+        masterBody: fastPathBody
       });
       return { ok: true as const, status: "completed" as const, upload: completed, color };
     }
@@ -363,7 +431,7 @@ export const startLineArtGeneration = async ({
     });
     const queued = await fal.queue.submit(lineArtConfig.model, {
       input: {
-        prompt: buildLineArtPrompt(color),
+        prompt: buildLineArtPrompt(),
         image_urls: [sourceUrl],
         image_size: "auto",
         background: "transparent",
@@ -467,7 +535,7 @@ export const refreshLineArtGeneration = async ({
       color: resolveInkColor(upload.lineArtColor),
       cacheKey,
       model: upload.lineArtModel || lineArtConfig.model,
-      body: generatedBody
+      masterBody: generatedBody
     });
 
     return { ok: true as const, upload: completed };

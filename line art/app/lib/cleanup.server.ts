@@ -1,6 +1,10 @@
 import prisma from "~/db.server";
 import { uploadConfig } from "./env.server";
-import { lineArtDisplayStorageKey } from "./line-art.server";
+import {
+  lineArtDisplayStorageKey,
+  lineArtMasterStorageKey,
+  lineArtVariantStorageKeys
+} from "./line-art.server";
 import { deleteStoredObject } from "./storage.server";
 
 const thumbnailStorageKey = (storageKey: string) =>
@@ -32,9 +36,12 @@ export const expireAbandonedUploads = async () => {
       try {
         await deleteStoredObject(upload.storageKey);
         if (upload.lineArtStorageKey) {
-          await deleteStoredObject(upload.lineArtStorageKey);
-          await deleteStoredObject(thumbnailStorageKey(upload.lineArtStorageKey));
-          await deleteStoredObject(lineArtDisplayStorageKey(upload.lineArtStorageKey));
+          await deleteStoredObject(lineArtMasterStorageKey(upload.lineArtStorageKey));
+          for (const variantKey of lineArtVariantStorageKeys(upload.lineArtStorageKey)) {
+            await deleteStoredObject(variantKey);
+            await deleteStoredObject(thumbnailStorageKey(variantKey));
+            await deleteStoredObject(lineArtDisplayStorageKey(variantKey));
+          }
         }
         for (const preview of upload.stampPreviews) {
           if (preview.storageKey) {

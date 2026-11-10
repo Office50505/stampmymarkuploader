@@ -6,6 +6,7 @@
   const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
   const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
   const stampPreviewKinds = ["box", "cup", "bag"];
+  const supportedInkColors = ["black", "blue", "green", "purple", "red", "white"];
   const appProxyBase = "/apps/line-art-upload/uploads/";
   const sessionKey = "smm_upload_session_id";
   const stickySyncFrames = new WeakMap();
@@ -342,14 +343,14 @@
     });
   }
 
-  function getSelectedOption(root, optionName) {
+  function getOptionControls(root, optionName) {
     const form = getProductForm(root);
     const normalizedOptionName = optionName
       .toString()
       .normalize("NFKC")
       .trim()
       .toLowerCase();
-    const namedOptions = Array.from(
+    return Array.from(
       document.querySelectorAll("input[name], select[name]")
     ).filter((input) => {
       if (form && input.form !== form && !form.contains(input)) return false;
@@ -363,6 +364,10 @@
         inputName.startsWith(`${normalizedOptionName}-`)
       );
     });
+  }
+
+  function getSelectedOption(root, optionName) {
+    const namedOptions = getOptionControls(root, optionName);
     const selectedOption = namedOptions.find(
       (input) => input.tagName === "SELECT" || input.checked
     );
@@ -381,6 +386,44 @@
   function getSelectedInkColor(root) {
     const value = getSelectedOption(root, root.dataset.colorOptionName || "Ink color");
     return (value || "black").toString().trim().toLowerCase();
+  }
+
+  function syncPreviewInkControls(root, color) {
+    const selectedColor = (color || getSelectedInkColor(root)).toLowerCase();
+    const availableColors = new Set(
+      getOptionControls(root, root.dataset.colorOptionName || "Ink color").map((control) =>
+        String(control.value || "").trim().toLowerCase()
+      )
+    );
+
+    root.querySelectorAll("[data-preview-ink-color]").forEach((button) => {
+      const buttonColor = button.dataset.previewInkColor || "";
+      button.setAttribute("aria-pressed", buttonColor === selectedColor ? "true" : "false");
+      button.disabled = availableColors.size > 0 && !availableColors.has(buttonColor);
+    });
+  }
+
+  function selectInkColor(root, color) {
+    const controls = getOptionControls(root, root.dataset.colorOptionName || "Ink color");
+    const normalizedColor = String(color || "").trim().toLowerCase();
+    const control = controls.find(
+      (candidate) => String(candidate.value || "").trim().toLowerCase() === normalizedColor
+    );
+
+    if (!control || control.disabled) return false;
+    if (control.tagName === "SELECT") {
+      if (String(control.value).trim().toLowerCase() === normalizedColor) return false;
+      control.value = Array.from(control.options).find(
+        (option) => String(option.value).trim().toLowerCase() === normalizedColor
+      )?.value || control.value;
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    }
+
+    if (control.checked) return false;
+    control.click();
+    return true;
   }
 
   function getQuantity(form) {
@@ -772,14 +815,16 @@
   const wait = (milliseconds) =>
     new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
-  async function pollLineArt(root, uploadId, sessionId) {
+  async function pollLineArt(root, uploadId, sessionId, isCurrent = () => true) {
     const deadline = Date.now() + 3 * 60 * 1000;
     const path =
       `${encodeURIComponent(uploadId)}/line-art-status` +
       `?sessionId=${encodeURIComponent(sessionId)}`;
 
     while (Date.now() < deadline) {
+      if (!isCurrent()) return null;
       const result = await getJson(path);
+      if (!isCurrent()) return null;
 
       if (result.status === "completed" && result.previewUrl && result.lineArtUrl) {
         return result;
@@ -1049,6 +1094,51 @@
     return `${url}${url.includes("?") ? "&" : "?"}v=${version}`;
   }
 
+  function setStampPreviewCardInteractive(card, interactive) {
+    card.setAttribute("aria-disabled", interactive ? "false" : "true");
+    card.tabIndex = interactive ? 0 : -1;
+  }
+
+  function swapStampPreviewImage(card, image, previewUrl, fullPreviewUrl) {
+    if (image.getAttribute("src") === previewUrl) {
+      image.hidden = false;
+      image.dataset.fullPreviewUrl = fullPreviewUrl;
+      card.dataset.state = "ready";
+      setStampPreviewCardInteractive(card, true);
+      return;
+    }
+
+    image.dataset.pendingPreviewUrl = previewUrl;
+    const loader = new Image();
+    loader.decoding = "async";
+    loader.onload = () => {
+      if (image.dataset.pendingPreviewUrl !== previewUrl) return;
+
+      image.src = previewUrl;
+      image.dataset.fullPreviewUrl = fullPreviewUrl;
+      image.hidden = false;
+      delete image.dataset.pendingPreviewUrl;
+      card.dataset.state = "ready";
+      setStampPreviewCardInteractive(card, true);
+      image.classList.remove("smm-upload__stamp-preview-image--reveal");
+      void image.offsetWidth;
+      image.classList.add("smm-upload__stamp-preview-image--reveal");
+      window.setTimeout(
+        () => image.classList.remove("smm-upload__stamp-preview-image--reveal"),
+        300
+      );
+    };
+    loader.onerror = () => {
+      if (image.dataset.pendingPreviewUrl !== previewUrl) return;
+      delete image.dataset.pendingPreviewUrl;
+      if (!image.getAttribute("src")) {
+        card.dataset.state = "failed";
+        setStampPreviewCardInteractive(card, false);
+      }
+    };
+    loader.src = previewUrl;
+  }
+
   function setStampPreviewCard(root, kind, state, previewUrl, fullPreviewUrl, version) {
     const card = find(root, `[data-stamp-preview-card="${kind}"]`);
     if (!card) return;
@@ -1058,13 +1148,17 @@
     const labels = {
       waiting: "Waiting for line art",
       generating: kind === "line_art" ? "Drawing line art…" : `Creating ${kind}…`,
+      updating: kind === "line_art" ? "Applying ink color…" : `Updating ${kind}…`,
       failed: "Preview failed"
     };
 
     card.dataset.state = state;
     card.dataset.inkColor = getSelectedInkColor(root);
-    card.setAttribute("aria-disabled", state === "ready" ? "false" : "true");
-    card.tabIndex = state === "ready" ? 0 : -1;
+    const hasExistingPreview = Boolean(image && image.getAttribute("src"));
+    setStampPreviewCardInteractive(
+      card,
+      state === "ready" || (state === "updating" && hasExistingPreview)
+    );
     if (status) status.textContent = labels[state] || "";
 
     if (image) {
@@ -1074,16 +1168,14 @@
           fullPreviewUrl || previewUrl,
           version
         );
-        image.hidden = false;
         image.decoding = "async";
-        if (image.getAttribute("src") !== cardPreviewUrl) {
-          image.src = cardPreviewUrl;
-        }
-        image.dataset.fullPreviewUrl = cardFullPreviewUrl;
-      } else {
+        card.dataset.state = hasExistingPreview ? "updating" : "generating";
+        swapStampPreviewImage(card, image, cardPreviewUrl, cardFullPreviewUrl);
+      } else if (state !== "updating" || !hasExistingPreview) {
         image.hidden = true;
         image.removeAttribute("src");
         delete image.dataset.fullPreviewUrl;
+        delete image.dataset.pendingPreviewUrl;
       }
     }
   }
@@ -1101,14 +1193,18 @@
     });
   }
 
-  function showLineArtGenerating(root) {
+  function showLineArtGenerating(root, preserveExisting = false) {
     setStampPreviewSummary(
       root,
       "generating",
-      root.dataset.stampPreviewsGeneratingLineArt || "Drawing your stamp line art…"
+      preserveExisting
+        ? root.dataset.stampPreviewsUpdatingColor || "Updating previews for your selected ink…"
+        : root.dataset.stampPreviewsGeneratingLineArt || "Drawing your stamp line art…"
     );
-    setStampPreviewCard(root, "line_art", "generating");
-    stampPreviewKinds.forEach((kind) => setStampPreviewCard(root, kind, "waiting"));
+    setStampPreviewCard(root, "line_art", preserveExisting ? "updating" : "generating");
+    stampPreviewKinds.forEach((kind) =>
+      setStampPreviewCard(root, kind, preserveExisting ? "updating" : "waiting")
+    );
   }
 
   function scrollToStampPreviews(root) {
@@ -1130,7 +1226,8 @@
     root,
     lineArtPreviewUrl,
     lineArtFullPreviewUrl,
-    lineArtPreviewVersion
+    lineArtPreviewVersion,
+    preserveExisting = false
   ) {
     setStampPreviewSummary(
       root,
@@ -1146,7 +1243,9 @@
       lineArtFullPreviewUrl,
       lineArtPreviewVersion
     );
-    stampPreviewKinds.forEach((kind) => setStampPreviewCard(root, kind, "generating"));
+    stampPreviewKinds.forEach((kind) =>
+      setStampPreviewCard(root, kind, preserveExisting ? "updating" : "generating")
+    );
   }
 
   function renderStampPreviewResults(root, previews) {
@@ -1170,14 +1269,16 @@
     });
   }
 
-  async function pollStampPreviews(root, uploadId, sessionId) {
+  async function pollStampPreviews(root, uploadId, sessionId, isCurrent = () => true) {
     const deadline = Date.now() + 4 * 60 * 1000;
     const path =
       `${encodeURIComponent(uploadId)}/stamp-previews-status` +
       `?sessionId=${encodeURIComponent(sessionId)}`;
 
     while (Date.now() < deadline) {
+      if (!isCurrent()) return null;
       const result = await getJson(path);
+      if (!isCurrent()) return null;
       const previews = Array.isArray(result.previews) ? result.previews : [];
       renderStampPreviewResults(root, previews);
 
@@ -1309,11 +1410,13 @@
       inkColor: null,
       previewReady: false,
       uploading: false,
+      generationRunId: 0,
       file: null
     };
     let generationProgress = 0;
     let generationProgressTimer = null;
     let generationProgressTick = 0;
+    let stampPreviewQueue = Promise.resolve();
 
     function stopGenerationProgress() {
       if (generationProgressTimer === null) return;
@@ -1361,11 +1464,26 @@
     enableStampPreviewLightbox(root);
     setTextFieldsVisible(root, false, false);
     setButton(trigger, "idle", idleLabel);
+    syncPreviewInkControls(root);
+
+    root.querySelectorAll("[data-preview-ink-color]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const color = button.dataset.previewInkColor || "";
+        if (!supportedInkColors.includes(color)) return;
+
+        const changed = selectInkColor(root, color);
+        syncPreviewInkControls(root, color);
+        if (!changed && state.uploadId && color !== state.inkColor) {
+          generateLineArt();
+        }
+      });
+    });
 
     async function removeUpload() {
       if (state.uploading) return;
 
       const previousUploadId = state.uploadId;
+      state.generationRunId += 1;
       stopGenerationProgress();
       generationProgress = 0;
       state.uploadId = null;
@@ -1400,8 +1518,14 @@
       }
     }
 
-    async function generateStampPreviews() {
-      if (!state.uploadId || !state.lineArtPreviewUrl) return;
+    async function generateStampPreviews(runId, preserveExisting = false) {
+      if (
+        runId !== state.generationRunId ||
+        !state.uploadId ||
+        !state.lineArtPreviewUrl
+      ) {
+        return;
+      }
 
       state.previewReady = false;
       state.uploading = true;
@@ -1409,9 +1533,10 @@
         root,
         state.lineArtPreviewUrl,
         state.lineArtFullPreviewUrl,
-        state.lineArtPreviewVersion
+        state.lineArtPreviewVersion,
+        preserveExisting
       );
-      startGenerationProgress(62, 94);
+      startGenerationProgress(preserveExisting ? 74 : 62, 94);
       setButton(trigger, "uploading", "Creating 3 product previews…");
       setStatus(
         root,
@@ -1424,6 +1549,7 @@
           uploadId: state.uploadId,
           sessionId
         });
+        if (runId !== state.generationRunId) return;
         const startedPreviews = Array.isArray(startResult.previews)
           ? startResult.previews
           : [];
@@ -1449,11 +1575,17 @@
           )
         );
         if (!allPreviewsReady) {
-          await pollStampPreviews(root, state.uploadId, sessionId);
+          const pollResult = await pollStampPreviews(
+            root,
+            state.uploadId,
+            sessionId,
+            () => runId === state.generationRunId
+          );
+          if (!pollResult || runId !== state.generationRunId) return;
         }
 
         if (getSelectedInkColor(root) !== state.inkColor) {
-          await generateLineArt();
+          generateLineArt();
           return;
         }
 
@@ -1472,6 +1604,7 @@
           setAddToCartEnabled(form, true);
         }
       } catch (error) {
+        if (runId !== state.generationRunId) return;
         stopGenerationProgress();
         state.previewReady = false;
         state.uploading = false;
@@ -1500,16 +1633,27 @@
       }
     }
 
+    function queueStampPreviews(runId, preserveExisting) {
+      const queued = stampPreviewQueue
+        .catch(() => undefined)
+        .then(() => generateStampPreviews(runId, preserveExisting));
+      stampPreviewQueue = queued.catch(() => undefined);
+      return queued;
+    }
+
     async function generateLineArt(shouldScrollToPreviews = false) {
       if (!state.uploadId) return;
 
+      const runId = state.generationRunId + 1;
+      state.generationRunId = runId;
+      const requestedColor = getSelectedInkColor(root);
+      const preserveExisting = Boolean(state.lineArtPreviewUrl);
+      state.inkColor = requestedColor;
+      syncPreviewInkControls(root, requestedColor);
       state.uploading = true;
       state.previewReady = false;
       state.lineArtUrl = null;
-      state.lineArtPreviewUrl = null;
-      state.lineArtFullPreviewUrl = null;
-      state.lineArtPreviewVersion = null;
-      showLineArtGenerating(root);
+      showLineArtGenerating(root, preserveExisting);
 
       if (shouldScrollToPreviews) {
         scrollToStampPreviews(root);
@@ -1524,10 +1668,8 @@
         ""
       );
 
-      while (state.uploadId) {
-        const requestedColor = getSelectedInkColor(root);
-        state.inkColor = requestedColor;
-        startGenerationProgress(6, 58);
+      try {
+        startGenerationProgress(preserveExisting ? 68 : 6, preserveExisting ? 82 : 58);
         setButton(
           trigger,
           "uploading",
@@ -1538,17 +1680,30 @@
           root.dataset.lineArtGenerating || "Creating stamp-ready line art…"
         );
 
-        await postJson("line-art", {
+        const startResult = await postJson("line-art", {
           uploadId: state.uploadId,
           sessionId,
           inkColor: requestedColor
         });
+        if (runId !== state.generationRunId) return;
 
-        const result = await pollLineArt(root, state.uploadId, sessionId);
+        const result =
+          startResult.status === "completed" &&
+          startResult.previewUrl &&
+          startResult.lineArtUrl
+            ? startResult
+            : await pollLineArt(
+                root,
+                state.uploadId,
+                sessionId,
+                () => runId === state.generationRunId
+              );
+        if (!result || runId !== state.generationRunId) return;
         const currentColor = getSelectedInkColor(root);
 
         if (currentColor !== result.color) {
-          continue;
+          generateLineArt();
+          return;
         }
 
         state.lineArtUrl = result.lineArtUrl;
@@ -1556,6 +1711,7 @@
         state.lineArtFullPreviewUrl = result.fullPreviewUrl || result.previewUrl;
         state.lineArtPreviewVersion = result.version || null;
         state.inkColor = result.color;
+        syncPreviewInkControls(root, result.color);
         setLineItemProperties(
           root,
           form,
@@ -1564,8 +1720,42 @@
           state.artworkUrl,
           state.lineArtUrl
         );
-        await generateStampPreviews();
-        return;
+        setStampPreviewCard(
+          root,
+          "line_art",
+          "ready",
+          state.lineArtPreviewUrl,
+          state.lineArtFullPreviewUrl,
+          state.lineArtPreviewVersion
+        );
+        if (preserveExisting) await wait(140);
+        if (runId !== state.generationRunId) return;
+        await queueStampPreviews(runId, preserveExisting);
+      } catch (error) {
+        if (runId !== state.generationRunId) return;
+
+        stopGenerationProgress();
+        state.uploading = false;
+        state.previewReady = false;
+        if (!preserveExisting) {
+          state.lineArtUrl = null;
+          state.lineArtPreviewUrl = null;
+          state.lineArtFullPreviewUrl = null;
+          state.lineArtPreviewVersion = null;
+          setStampPreviewCard(root, "line_art", "failed");
+        }
+        setStampPreviewSummary(
+          root,
+          "failed",
+          error.message || root.dataset.lineArtFailed || "Line art generation failed."
+        );
+        setButton(trigger, "failed", "Change File");
+        setStatus(
+          root,
+          "Your logo is uploaded. The previews could not be updated, but you can still add to cart.",
+          "error"
+        );
+        if (required) setAddToCartEnabled(form, true);
       }
     }
 
@@ -1579,7 +1769,7 @@
     if (previewRetry) {
       previewRetry.addEventListener("click", () => {
         if (!state.uploading && state.lineArtUrl) {
-          generateStampPreviews();
+          queueStampPreviews(state.generationRunId, true);
         }
       });
     }
@@ -1630,6 +1820,7 @@
         }
       }
 
+      state.generationRunId += 1;
       state.uploadId = null;
       state.filename = null;
       state.artworkUrl = null;
@@ -1684,38 +1875,7 @@
         showPreview(root, file, removeUpload);
         setTextFieldsVisible(root, true, false);
         if (required) setAddToCartEnabled(form, true);
-        try {
-          await generateLineArt(true);
-        } catch (error) {
-          stopGenerationProgress();
-          state.uploading = false;
-          state.lineArtUrl = null;
-          state.lineArtPreviewUrl = null;
-          state.lineArtFullPreviewUrl = null;
-          state.lineArtPreviewVersion = null;
-          state.previewReady = false;
-          setLineItemProperties(
-            root,
-            form,
-            state.uploadId,
-            state.filename,
-            state.artworkUrl,
-            ""
-          );
-          setStampPreviewCard(root, "line_art", "failed");
-          setStampPreviewSummary(
-            root,
-            "failed",
-            error.message || root.dataset.lineArtFailed || "Line art generation failed."
-          );
-          setButton(trigger, "failed", "Change File");
-          setStatus(
-            root,
-            "Your logo is uploaded. The previews could not be created, but you can still add to cart.",
-            "error"
-          );
-          if (required) setAddToCartEnabled(form, true);
-        }
+        await generateLineArt(true);
       } catch (error) {
         uploadProgress.stop();
         stopGenerationProgress();
@@ -1785,48 +1945,16 @@
 
       form.addEventListener("change", () => {
         window.setTimeout(async () => {
+          const selectedColor = getSelectedInkColor(root);
+          syncPreviewInkControls(root, selectedColor);
           if (
             !state.uploadId ||
-            !state.lineArtUrl ||
-            state.uploading ||
-            getSelectedInkColor(root) === state.inkColor
+            selectedColor === state.inkColor
           ) {
             return;
           }
 
-          try {
-            await generateLineArt();
-          } catch (error) {
-            stopGenerationProgress();
-            state.uploading = false;
-            state.lineArtUrl = null;
-            state.lineArtPreviewUrl = null;
-            state.lineArtFullPreviewUrl = null;
-            state.lineArtPreviewVersion = null;
-            state.previewReady = false;
-            setLineItemProperties(
-              root,
-              form,
-              state.uploadId,
-              state.filename,
-              state.artworkUrl,
-              ""
-            );
-            showPreview(root, state.file, removeUpload);
-            setStampPreviewCard(root, "line_art", "failed");
-            setStampPreviewSummary(
-              root,
-              "failed",
-              error.message || root.dataset.lineArtFailed || "Line art generation failed."
-            );
-            setButton(trigger, "failed", "Change File");
-            setStatus(
-              root,
-              error.message || root.dataset.lineArtFailed || "Line art generation failed.",
-              "error"
-            );
-            if (required) setAddToCartEnabled(form, true);
-          }
+          await generateLineArt();
         }, 0);
       });
 

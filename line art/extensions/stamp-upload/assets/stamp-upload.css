@@ -733,7 +733,11 @@ body.smm-preview-lightbox-open {
   width: auto;
 }
 
-.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="white"] .smm-preview-lightbox__image {
+.smm-preview-lightbox[data-preview-kind="line_art"] .smm-preview-lightbox__image {
+  background: transparent;
+}
+
+.smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="white"] .smm-preview-lightbox__dialog {
   background: #000;
 }
 

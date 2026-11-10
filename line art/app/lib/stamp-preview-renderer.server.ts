@@ -25,10 +25,10 @@ const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>
       { x: 468, y: 815 }
     ],
     bag: [
-      { x: 407, y: 545 },
-      { x: 847, y: 545 },
-      { x: 847, y: 985 },
-      { x: 407, y: 985 }
+      { x: 407, y: 480 },
+      { x: 847, y: 480 },
+      { x: 847, y: 920 },
+      { x: 407, y: 920 }
     ]
   },
   white: {

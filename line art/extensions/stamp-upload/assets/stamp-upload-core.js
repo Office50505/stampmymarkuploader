@@ -404,7 +404,51 @@
     });
   }
 
-  function selectInkColor(root, color) {
+  function keepViewportAnchored(anchor, controls) {
+    if (!anchor || !anchor.isConnected) return;
+
+    const anchorTop = anchor.getBoundingClientRect().top;
+    const startedAt = window.performance?.now?.() || Date.now();
+    let cancelled = false;
+    let animationFrame = null;
+
+    const cancel = () => {
+      cancelled = true;
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("wheel", cancel);
+      window.removeEventListener("touchmove", cancel);
+    };
+
+    const restore = () => {
+      if (cancelled || !anchor.isConnected) {
+        cancel();
+        return;
+      }
+
+      const elapsed = (window.performance?.now?.() || Date.now()) - startedAt;
+      if (elapsed > 1800) {
+        cancel();
+        return;
+      }
+
+      const offset = anchor.getBoundingClientRect().top - anchorTop;
+      if (Math.abs(offset) > 1) {
+        window.scrollBy(0, offset);
+      }
+
+      if (controls.includes(document.activeElement) && document.activeElement !== anchor) {
+        anchor.focus({ preventScroll: true });
+      }
+
+      animationFrame = window.requestAnimationFrame(restore);
+    };
+
+    window.addEventListener("wheel", cancel, { passive: true });
+    window.addEventListener("touchmove", cancel, { passive: true });
+    animationFrame = window.requestAnimationFrame(restore);
+  }
+
+  function selectInkColor(root, color, anchor) {
     const controls = getOptionControls(root, root.dataset.colorOptionName || "Ink color");
     const normalizedColor = String(color || "").trim().toLowerCase();
     const control = controls.find(
@@ -413,16 +457,7 @@
 
     if (!control || control.disabled) return false;
 
-    const scrollLeft = window.scrollX;
-    const scrollTop = window.scrollY;
-    const restoreViewport = () => {
-      if (
-        Math.abs(window.scrollX - scrollLeft) > 1 ||
-        Math.abs(window.scrollY - scrollTop) > 1
-      ) {
-        window.scrollTo(scrollLeft, scrollTop);
-      }
-    };
+    keepViewportAnchored(anchor, controls);
 
     if (control.tagName === "SELECT") {
       if (String(control.value).trim().toLowerCase() === normalizedColor) return false;
@@ -431,12 +466,6 @@
       )?.value || control.value;
       control.dispatchEvent(new Event("input", { bubbles: true }));
       control.dispatchEvent(new Event("change", { bubbles: true }));
-      restoreViewport();
-      window.requestAnimationFrame(() => {
-        restoreViewport();
-        window.requestAnimationFrame(restoreViewport);
-      });
-      window.setTimeout(restoreViewport, 120);
       return true;
     }
 
@@ -444,12 +473,6 @@
     control.checked = true;
     control.dispatchEvent(new Event("input", { bubbles: true }));
     control.dispatchEvent(new Event("change", { bubbles: true }));
-    restoreViewport();
-    window.requestAnimationFrame(() => {
-      restoreViewport();
-      window.requestAnimationFrame(restoreViewport);
-    });
-    window.setTimeout(restoreViewport, 120);
     return true;
   }
 
@@ -1564,7 +1587,7 @@
         const color = button.dataset.previewInkColor || "";
         if (!supportedInkColors.includes(color)) return;
 
-        const changed = selectInkColor(root, color);
+        const changed = selectInkColor(root, color, button);
         syncPreviewInkControls(root, color);
         showInstantLineArtInk(root, color);
         if (!changed && state.uploadId && color !== state.inkColor) {

@@ -2,27 +2,13 @@ import { fal } from "@fal-ai/client";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
 import { getOwnedUpload, type InkColor } from "./line-art.server";
+import { renderStampPreview } from "./stamp-preview-renderer.server";
 import { fetchStoredFile, storageBucket, uploadStoredFile } from "./storage.server";
 
 export const stampPreviewKinds = ["box", "cup", "bag"] as const;
 export type StampPreviewKind = (typeof stampPreviewKinds)[number];
 
-const kindLabels: Record<StampPreviewKind, string> = {
-  box: "kraft shipping box",
-  cup: "white takeaway paper cup",
-  bag: "kraft paper shopping bag"
-};
-
-const kindPlacementAreas: Record<StampPreviewKind, string> = {
-  box: "the center of the blank top lid",
-  cup: "the center of the blank front face of the cup",
-  bag: "the center of the blank front panel"
-};
-
-const getMockupUrl = (kind: StampPreviewKind) => {
-  const appUrl = requireServerEnv("SHOPIFY_APP_URL").replace(/\/+$/, "");
-  return `${appUrl}/stamp-mockups/blank-${kind}.png`;
-};
+const stampPreviewRenderer = "deterministic-v1";
 
 const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });
@@ -49,34 +35,10 @@ export const resolveStampPreviewKind = (
     ? (value as StampPreviewKind)
     : null;
 
-export const buildStampPreviewPrompt = (kind: StampPreviewKind, color: InkColor) => `
-INPUT IMAGES
-- Image 1 is the finished blank ${kindLabels[kind]} product photograph. It is the edit target.
-- Image 2 is the finished customer stamp line-art PNG. It is a locked artwork asset, not inspiration.
-
-TASK — EDIT IMAGE 1 ONLY
-Preserve Image 1's product, camera angle, crop, background, lighting, materials, shadows, and composition. Apply Image 2 once as a realistic single-color ${color} ink impression at ${kindPlacementAreas[kind]}.
-
-ARTWORK FIDELITY — HIGHEST PRIORITY
-- Copy the complete artwork from Image 2 exactly. Preserve every letter, word, number, icon, border, line, spacing relationship, proportion, orientation, and layout.
-- Do not redraw, reinterpret, restyle, simplify, improve, translate, correct, replace, add, or remove anything in Image 2.
-- Never substitute a generic logo, badge, seal, monogram, coffee mark, shipping mark, or invented text.
-- If exact reproduction is difficult, prioritize copying Image 2 over adding realism.
-- Keep the artwork crisp, legible, flat to the product surface, and naturally integrated with subtle ink absorption. No embossing, engraving, label, sticker, foil, or raised print effect.
-
-PRODUCT LOCK
-- Do not replace, regenerate, resize, rotate, move, crop, or redesign the product from Image 1.
-- Do not alter any part of Image 1 except the local blank surface where the stamp impression is applied.
-- Do not add hands, people, props, extra products, captions, frames, watermarks, or any other logos or text.
-
-OUTPUT
-- Return exactly one 1024 by 1024 photorealistic product image.
-- Opaque background, PNG format.
-`.trim();
-
 const hasCurrentResult = (
   preview: {
     status: string;
+    model: string | null;
     storageKey: string | null;
     requestId: string | null;
     sourceLineArtGeneratedAt: Date | null;
@@ -88,6 +50,7 @@ const hasCurrentResult = (
 
   return (
     isCurrent &&
+    preview.model === stampPreviewRenderer &&
     ((preview.status === "completed" && Boolean(preview.storageKey)) ||
       (preview.status === "processing" && Boolean(preview.requestId)))
   );
@@ -132,53 +95,52 @@ export const startStampPreviewGeneration = async ({
   }
 
   try {
-    configureFal();
     const stored = await fetchStoredFile(upload.lineArtStorageKey);
     const sourceBody = Buffer.from(await stored.arrayBuffer());
-    const sourceBlob = new Blob([new Uint8Array(sourceBody)], { type: "image/png" });
-    const sourceUrl = await fal.storage.upload(sourceBlob, {
-      lifecycle: { expiresIn: "1d" }
-    });
     const color = (upload.lineArtColor || "black") as InkColor;
 
     await Promise.all(
       pendingKinds.map(async (kind) => {
         try {
-          const mockupUrl = getMockupUrl(kind);
-          const queued = await fal.queue.submit(lineArtConfig.model, {
-            input: {
-              prompt: buildStampPreviewPrompt(kind, color),
-              image_urls: [mockupUrl, sourceUrl],
-              image_size: "square_hd",
-              background: "opaque",
-              quality: lineArtConfig.quality,
-              reasoning_effort: lineArtConfig.reasoningEffort,
-              num_images: 1,
-              output_format: "png"
-            },
-            storageSettings: { expiresIn: "1d" }
+          const generatedBody = await renderStampPreview({
+            kind,
+            artwork: sourceBody,
+            color
           });
+          if (
+            generatedBody.length === 0 ||
+            generatedBody.length > uploadConfig.maxBytes ||
+            !isPng(generatedBody)
+          ) {
+            throw new Error("Rendered preview did not pass PNG validation.");
+          }
+          const key = generatedStorageKey(shop, uploadId, kind);
+          await uploadStoredFile({ key, contentType: "image/png", body: generatedBody });
 
           await prisma.stampPreview.upsert({
             where: { uploadId_kind: { uploadId, kind } },
             create: {
               uploadId,
               kind,
-              status: "processing",
-              model: lineArtConfig.model,
-              requestId: queued.request_id,
-              sourceLineArtGeneratedAt: upload.lineArtGeneratedAt
+              status: "completed",
+              model: stampPreviewRenderer,
+              storageKey: key,
+              storageUrl: `bunny://${storageBucket()}/${key}`,
+              contentType: "image/png",
+              fileSize: generatedBody.length,
+              sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
+              generatedAt: new Date()
             },
             update: {
-              status: "processing",
-              model: lineArtConfig.model,
-              requestId: queued.request_id,
-              storageKey: null,
-              storageUrl: null,
-              contentType: null,
-              fileSize: null,
+              status: "completed",
+              model: stampPreviewRenderer,
+              requestId: null,
+              storageKey: key,
+              storageUrl: `bunny://${storageBucket()}/${key}`,
+              contentType: "image/png",
+              fileSize: generatedBody.length,
               sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
-              generatedAt: null,
+              generatedAt: new Date(),
               error: null
             }
           });
@@ -190,13 +152,13 @@ export const startStampPreviewGeneration = async ({
               uploadId,
               kind,
               status: "failed",
-              model: lineArtConfig.model,
+              model: stampPreviewRenderer,
               sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
               error: message
             },
             update: {
               status: "failed",
-              model: lineArtConfig.model,
+              model: stampPreviewRenderer,
               requestId: null,
               sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
               generatedAt: null,
@@ -224,12 +186,13 @@ export const startStampPreviewGeneration = async ({
             uploadId,
             kind,
             status: "failed",
-            model: lineArtConfig.model,
+            model: stampPreviewRenderer,
             sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
             error: message
           },
           update: {
             status: "failed",
+            model: stampPreviewRenderer,
             requestId: null,
             sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
             error: message

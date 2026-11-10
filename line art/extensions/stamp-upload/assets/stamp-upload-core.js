@@ -8,6 +8,7 @@
   const stampPreviewKinds = ["box", "cup", "bag"];
   const appProxyBase = "/apps/line-art-upload/uploads/";
   const sessionKey = "smm_upload_session_id";
+  const stickySyncFrames = new WeakMap();
 
   const find = (root, selector) => root.querySelector(selector);
 
@@ -118,6 +119,59 @@
     status.classList.toggle("is-success", state === "success");
   }
 
+  function schedulePermanentStickyBarSync(root, state, label) {
+    if (!root.hasAttribute("data-stamp-upload")) return;
+
+    const pendingFrame = stickySyncFrames.get(root);
+    if (pendingFrame) window.cancelAnimationFrame(pendingFrame);
+
+    const frame = window.requestAnimationFrame(() => {
+      stickySyncFrames.delete(root);
+
+      const stickyBar = document.querySelector("[data-printmivo-sticky-product-atc]");
+      const stickyButton = stickyBar?.querySelector("[data-printmivo-sticky-product-trigger]");
+      const stickyLabel = stickyBar?.querySelector(
+        "[data-printmivo-sticky-product-button-label]"
+      );
+      const sourceButton = document.querySelector(
+        '.m-product-form--main button[type="submit"][name="add"]'
+      );
+
+      if (!stickyButton || !stickyLabel) return;
+
+      const uploadLabel =
+        stickyButton.dataset.printmivoStickyProductUploadLabel || "Upload your logo";
+      const addLabel =
+        sourceButton?.querySelector(".m-add-to-cart--text")?.textContent?.trim() ||
+        sourceButton?.textContent?.trim() ||
+        "Add to cart";
+
+      if (state === "uploading") {
+        stickyButton.disabled = true;
+        stickyButton.classList.add("printmivo-sticky-product-atc__button--upload");
+        stickyButton.setAttribute("aria-busy", "true");
+        stickyLabel.textContent = label;
+      } else if (state === "failed") {
+        stickyButton.disabled = true;
+        stickyButton.classList.add("printmivo-sticky-product-atc__button--upload");
+        stickyButton.removeAttribute("aria-busy");
+        stickyLabel.textContent = "Preview failed — change file";
+      } else if (state === "uploaded") {
+        stickyButton.disabled = Boolean(sourceButton?.disabled);
+        stickyButton.classList.remove("printmivo-sticky-product-atc__button--upload");
+        stickyButton.removeAttribute("aria-busy");
+        stickyLabel.textContent = addLabel;
+      } else {
+        stickyButton.disabled = false;
+        stickyButton.classList.add("printmivo-sticky-product-atc__button--upload");
+        stickyButton.removeAttribute("aria-busy");
+        stickyLabel.textContent = uploadLabel;
+      }
+    });
+
+    stickySyncFrames.set(root, frame);
+  }
+
   function setButton(button, state, label) {
     const labelElement = button.querySelector("[data-upload-button-label]");
 
@@ -133,6 +187,24 @@
       button.setAttribute("aria-busy", "true");
     } else {
       button.removeAttribute("aria-busy");
+    }
+
+    const root = button.closest("[data-line-art-upload]");
+
+    if (root && root.dataset.uploadState !== state) {
+      root.dataset.uploadState = state;
+      const uploadId = find(root, "[data-upload-id-property]")?.value || "";
+
+      root.dispatchEvent(
+        new CustomEvent("stampmymark:upload-state", {
+          bubbles: true,
+          detail: { state, uploadId }
+        })
+      );
+    }
+
+    if (root) {
+      schedulePermanentStickyBarSync(root, state, label);
     }
   }
 
@@ -859,6 +931,21 @@
     stampPreviewKinds.forEach((kind) => setStampPreviewCard(root, kind, "waiting"));
   }
 
+  function scrollToStampPreviews(root) {
+    const section = find(root, "[data-stamp-previews]");
+    if (!section) return;
+
+    const reduceMotion =
+      window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    window.requestAnimationFrame(() => {
+      section.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "start"
+      });
+    });
+  }
+
   function showMockupsGenerating(root, lineArtPreviewUrl) {
     setStampPreviewSummary(
       root,
@@ -961,7 +1048,6 @@
 
     preview.hidden = true;
     preview.innerHTML = "";
-    preview.classList.remove("smm-upload__preview--line-art");
   }
 
   function showPreview(root, file, onRemove) {
@@ -970,7 +1056,6 @@
 
     preview.innerHTML = "";
     preview.hidden = false;
-    preview.classList.remove("smm-upload__preview--line-art");
 
     const shell = document.createElement("div");
     shell.className = "smm-upload__preview-shell";
@@ -1004,38 +1089,6 @@
     preview.appendChild(shell);
   }
 
-  function showLineArtPreview(root, previewUrl, color, onRemove) {
-    const preview = find(root, "[data-upload-preview]");
-    if (!preview) return;
-
-    preview.innerHTML = "";
-    preview.hidden = false;
-    preview.classList.add("smm-upload__preview--line-art");
-
-    const shell = document.createElement("div");
-    shell.className = "smm-upload__preview-shell";
-
-    const image = document.createElement("img");
-    image.alt = `Generated ${color || "selected"} stamp line art`;
-    image.src = previewUrl;
-    shell.appendChild(image);
-
-    const badge = document.createElement("span");
-    badge.className = "smm-upload__line-art-badge";
-    badge.textContent = `${color || "selected"} line art`;
-    shell.appendChild(badge);
-
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.className = "smm-upload__remove";
-    removeButton.setAttribute("aria-label", "Remove uploaded file");
-    removeButton.textContent = "x";
-    removeButton.addEventListener("click", onRemove);
-    shell.appendChild(removeButton);
-
-    preview.appendChild(shell);
-  }
-
   function enhanceUploader(root) {
     if (root.dataset.smmLineArtReady === "true") return;
     root.dataset.smmLineArtReady = "true";
@@ -1057,6 +1110,13 @@
       uploading: false,
       file: null
     };
+
+    // The Permanent Stamp theme's sticky bar predates this Line Art app and
+    // discovers required uploaders through this marker. Add it only after the
+    // Line Art module owns the block so the legacy uploader cannot initialize it.
+    if (document.querySelector("[data-printmivo-sticky-product-atc]")) {
+      root.setAttribute("data-stamp-upload", "");
+    }
 
     if (required) {
       setAddToCartEnabled(form, false);
@@ -1153,7 +1213,7 @@
             root.dataset.stampPreviewsFailed ||
             "One or more previews could not be created."
         );
-        setButton(trigger, "uploaded", "Change File");
+        setButton(trigger, "failed", "Change File");
         setStatus(
           root,
           error.message ||
@@ -1165,7 +1225,7 @@
       }
     }
 
-    async function generateLineArt() {
+    async function generateLineArt(shouldScrollToPreviews = false) {
       if (!state.uploadId) return;
 
       state.uploading = true;
@@ -1173,6 +1233,11 @@
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
       showLineArtGenerating(root);
+
+      if (shouldScrollToPreviews) {
+        scrollToStampPreviews(root);
+      }
+
       setLineItemProperties(
         root,
         form,
@@ -1215,7 +1280,6 @@
         state.lineArtUrl = result.lineArtUrl;
         state.lineArtPreviewUrl = result.previewUrl;
         state.inkColor = result.color;
-        showLineArtPreview(root, result.previewUrl, result.color, removeUpload);
         setLineItemProperties(
           root,
           form,
@@ -1339,7 +1403,7 @@
         setLineItemProperties(root, form, state.uploadId, state.filename, state.artworkUrl, "");
         showPreview(root, file, removeUpload);
         setTextFieldsVisible(root, true, false);
-        await generateLineArt();
+        await generateLineArt(true);
       } catch (error) {
         uploadProgress.stop();
         state.uploading = false;
@@ -1436,7 +1500,7 @@
               "failed",
               error.message || root.dataset.lineArtFailed || "Line art generation failed."
             );
-            setButton(trigger, "uploaded", "Change File");
+            setButton(trigger, "failed", "Change File");
             setStatus(
               root,
               error.message || root.dataset.lineArtFailed || "Line art generation failed.",

@@ -62,6 +62,22 @@ export const fetchStoredFile = async (key: string) => {
   return response;
 };
 
+export const fetchStoredFileIfExists = async (key: string) => {
+  const response = await fetch(bunnyUrlForKey(key), {
+    method: "GET",
+    headers: {
+      AccessKey: accessKey()
+    }
+  });
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Bunny download failed with ${response.status}`);
+  }
+
+  return response;
+};
+
 export const deleteStoredObject = async (key: string) => {
   const response = await fetch(bunnyUrlForKey(key), {
     method: "DELETE",

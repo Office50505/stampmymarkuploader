@@ -12,10 +12,12 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 
   const url = new URL(request.url);
+  const thumbnail = url.searchParams.get("thumbnail") === "1";
   const result = await getStoredLineArtForStorefront({
     shop,
     uploadId: params.uploadId || "",
-    sessionId: url.searchParams.get("sessionId")
+    sessionId: url.searchParams.get("sessionId"),
+    thumbnail
   });
 
   if (!result.ok) {
@@ -24,9 +26,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   return new Response(result.file.body, {
     headers: {
-      "Content-Type": "image/png",
+      "Content-Type": result.contentType,
       "Cache-Control": "private, max-age=3600",
-      "Content-Disposition": "inline; filename=\"stamp-line-art.png\"",
+      "Content-Disposition": `inline; filename="stamp-line-art.${thumbnail ? "webp" : "png"}"`,
       "X-Content-Type-Options": "nosniff"
     }
   });

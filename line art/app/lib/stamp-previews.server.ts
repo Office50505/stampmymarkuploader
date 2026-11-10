@@ -1,9 +1,15 @@
 import { fal } from "@fal-ai/client";
+import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
 import { getOwnedUpload, type InkColor } from "./line-art.server";
 import { renderStampPreview } from "./stamp-preview-renderer.server";
-import { fetchStoredFile, storageBucket, uploadStoredFile } from "./storage.server";
+import {
+  fetchStoredFile,
+  fetchStoredFileIfExists,
+  storageBucket,
+  uploadStoredFile
+} from "./storage.server";
 
 export const stampPreviewKinds = ["box", "cup", "bag"] as const;
 export type StampPreviewKind = (typeof stampPreviewKinds)[number];
@@ -26,6 +32,28 @@ const isPng = (body: Buffer) =>
 const generatedStorageKey = (shop: string, uploadId: string, kind: StampPreviewKind) => {
   const shopSlug = shop.replace(/[^a-z0-9.-]/gi, "-").toLowerCase();
   return `shops/${shopSlug}/uploads/${uploadId}/stamp-preview-${kind}.png`;
+};
+
+export const stampPreviewThumbnailStorageKey = (storageKey: string) =>
+  storageKey.replace(/\.png$/i, "-thumb.webp");
+
+const createStampPreviewThumbnail = (body: Buffer) =>
+  sharp(body)
+    .resize(640, 640, { fit: "cover", withoutEnlargement: true })
+    .webp({ quality: 84, effort: 4, smartSubsample: true })
+    .toBuffer();
+
+const storeStampPreviewThumbnail = async (key: string, body: Buffer) => {
+  try {
+    const thumbnail = await createStampPreviewThumbnail(body);
+    await uploadStoredFile({
+      key: stampPreviewThumbnailStorageKey(key),
+      contentType: "image/webp",
+      body: thumbnail
+    });
+  } catch (error) {
+    console.warn("Stamp preview thumbnail could not be stored; it will be created lazily.", error);
+  }
 };
 
 export const resolveStampPreviewKind = (
@@ -116,6 +144,7 @@ export const startStampPreviewGeneration = async ({
           }
           const key = generatedStorageKey(shop, uploadId, kind);
           await uploadStoredFile({ key, contentType: "image/png", body: generatedBody });
+          await storeStampPreviewThumbnail(key, generatedBody);
 
           await prisma.stampPreview.upsert({
             where: { uploadId_kind: { uploadId, kind } },
@@ -258,6 +287,7 @@ const refreshOnePreview = async (
 
     const key = generatedStorageKey(shop, preview.uploadId, preview.kind);
     await uploadStoredFile({ key, contentType: "image/png", body: generatedBody });
+    await storeStampPreviewThumbnail(key, generatedBody);
 
     await prisma.stampPreview.update({
       where: { id: preview.id },
@@ -316,12 +346,14 @@ export const getStoredStampPreviewForStorefront = async ({
   shop,
   uploadId,
   sessionId,
-  kind
+  kind,
+  thumbnail = false
 }: {
   shop: string;
   uploadId: string;
   sessionId?: string | null;
   kind: StampPreviewKind;
+  thumbnail?: boolean;
 }) => {
   const owned = await getOwnedUpload({ shop, uploadId, sessionId });
   if (!owned.ok) return owned;
@@ -333,6 +365,36 @@ export const getStoredStampPreviewForStorefront = async ({
     return { ok: false as const, status: 404, errors: ["Stamp preview is not ready."] };
   }
 
-  const file = await fetchStoredFile(preview.storageKey);
-  return { ok: true as const, preview, file };
+  if (!thumbnail) {
+    const file = await fetchStoredFile(preview.storageKey);
+    return { ok: true as const, preview, file, contentType: "image/png" as const };
+  }
+
+  const thumbnailKey = stampPreviewThumbnailStorageKey(preview.storageKey);
+  const storedThumbnail = await fetchStoredFileIfExists(thumbnailKey);
+  if (storedThumbnail) {
+    return {
+      ok: true as const,
+      preview,
+      file: storedThumbnail,
+      contentType: "image/webp" as const
+    };
+  }
+
+  const fullFile = await fetchStoredFile(preview.storageKey);
+  const thumbnailBody = await createStampPreviewThumbnail(
+    Buffer.from(await fullFile.arrayBuffer())
+  );
+  await uploadStoredFile({
+    key: thumbnailKey,
+    contentType: "image/webp",
+    body: thumbnailBody
+  });
+
+  return {
+    ok: true as const,
+    preview,
+    file: new Response(thumbnailBody),
+    contentType: "image/webp" as const
+  };
 };

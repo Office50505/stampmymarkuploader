@@ -28,6 +28,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const ready = upload.lineArtStatus === "completed" && Boolean(upload.lineArtStorageKey);
   const previewUrl = ready
     ? `/apps/line-art-upload/uploads/${encodeURIComponent(upload.uploadId)}/line-art-file` +
+      `?sessionId=${encodeURIComponent(sessionId || "")}&thumbnail=1`
+    : null;
+  const fullPreviewUrl = ready
+    ? `/apps/line-art-upload/uploads/${encodeURIComponent(upload.uploadId)}/line-art-file` +
       `?sessionId=${encodeURIComponent(sessionId || "")}`
     : null;
 
@@ -37,6 +41,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     status: upload.lineArtStatus,
     color: upload.lineArtColor,
     previewUrl,
+    fullPreviewUrl,
     lineArtUrl: ready ? createLineArtOrderFileUrl(upload) : null,
     error: upload.lineArtStatus === "failed" ? upload.lineArtError : null
   });

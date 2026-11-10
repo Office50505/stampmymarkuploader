@@ -1,9 +1,19 @@
 import { fal } from "@fal-ai/client";
+import crypto from "node:crypto";
+import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
-import { fetchStoredFile, storageBucket, uploadStoredFile } from "./storage.server";
+import { tryCreateMonochromeLineArt } from "./line-art-fast-path.server";
+import {
+  fetchStoredFile,
+  fetchStoredFileIfExists,
+  storageBucket,
+  uploadStoredFile
+} from "./storage.server";
 
 const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const lineArtPipelineVersion = "line-art-v2-cache-fastpath";
+const deterministicLineArtModel = "deterministic-monochrome-v1";
 
 const inkColors = {
   black: { name: "black", hex: "#111111" },
@@ -98,8 +108,87 @@ const generatedStorageKey = (shop: string, uploadId: string) => {
   return `shops/${shopSlug}/uploads/${uploadId}/line-art.png`;
 };
 
+export const lineArtThumbnailStorageKey = (storageKey: string) =>
+  storageKey.replace(/\.png$/i, "-thumb.webp");
+
+const createLineArtThumbnail = (body: Buffer) =>
+  sharp(body)
+    .resize(640, 640, {
+      fit: "contain",
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
+      withoutEnlargement: true
+    })
+    .webp({ quality: 84, effort: 4, smartSubsample: true })
+    .toBuffer();
+
+export const buildLineArtCacheKey = ({
+  sourceSha256,
+  color
+}: {
+  sourceSha256: string;
+  color: InkColor;
+}) =>
+  crypto
+    .createHash("sha256")
+    .update(
+      [
+        lineArtPipelineVersion,
+        sourceSha256,
+        color,
+        lineArtConfig.model,
+        lineArtConfig.quality,
+        lineArtConfig.reasoningEffort
+      ].join("\0")
+    )
+    .digest("hex");
+
 const isPng = (body: Buffer) =>
   body.length >= 8 && body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+
+const persistCompletedLineArt = async ({
+  shop,
+  uploadId,
+  color,
+  cacheKey,
+  model,
+  body
+}: {
+  shop: string;
+  uploadId: string;
+  color: InkColor;
+  cacheKey: string;
+  model: string;
+  body: Buffer;
+}) => {
+  if (body.length === 0 || body.length > uploadConfig.maxBytes || !isPng(body)) {
+    throw new Error("Generated image did not pass PNG validation.");
+  }
+
+  const key = generatedStorageKey(shop, uploadId);
+  const thumbnailKey = lineArtThumbnailStorageKey(key);
+  const thumbnail = await createLineArtThumbnail(body);
+  await Promise.all([
+    uploadStoredFile({ key, contentType: "image/png", body }),
+    uploadStoredFile({ key: thumbnailKey, contentType: "image/webp", body: thumbnail })
+  ]);
+
+  return prisma.upload.update({
+    where: { uploadId },
+    data: {
+      lineArtStatus: "completed",
+      lineArtColor: color,
+      lineArtModel: model,
+      lineArtCacheKey: cacheKey,
+      lineArtRequestId: null,
+      lineArtStorageKey: key,
+      lineArtStorageUrl: `bunny://${storageBucket()}/${key}`,
+      lineArtContentType: "image/png",
+      lineArtFileSize: body.length,
+      lineArtGeneratedAt: new Date(),
+      lineArtError: null
+    }
+  });
+};
 
 export const startLineArtGeneration = async ({
   shop,
@@ -138,14 +227,116 @@ export const startLineArtGeneration = async ({
     return { ok: true as const, status: "completed" as const, upload, color };
   }
 
-  if (upload.lineArtStatus === "processing" && upload.lineArtRequestId) {
-    return { ok: true as const, status: "processing" as const, upload, color };
-  }
-
   try {
+    let sourceBody: Buffer | null = null;
+    let sourceSha256 = upload.sourceSha256;
+    if (!sourceSha256 || !/^[a-f0-9]{64}$/i.test(sourceSha256)) {
+      const stored = await fetchStoredFile(upload.storageKey);
+      sourceBody = Buffer.from(await stored.arrayBuffer());
+      sourceSha256 = crypto.createHash("sha256").update(sourceBody).digest("hex");
+      await prisma.upload.update({
+        where: { uploadId },
+        data: { sourceSha256 }
+      });
+    }
+
+    const cacheKey = buildLineArtCacheKey({ sourceSha256, color });
+    if (
+      upload.lineArtStatus === "processing" &&
+      upload.lineArtColor === color &&
+      upload.lineArtCacheKey === cacheKey &&
+      upload.lineArtRequestId
+    ) {
+      return { ok: true as const, status: "processing" as const, upload, color };
+    }
+
+    const cached = await prisma.upload.findFirst({
+      where: {
+        shop,
+        uploadId: { not: uploadId },
+        lineArtCacheKey: cacheKey,
+        lineArtStatus: "completed",
+        lineArtStorageKey: { not: null },
+        removedAt: null,
+        OR: [{ expiresAt: { gt: new Date() } }, { status: "ordered" }]
+      },
+      orderBy: { lineArtGeneratedAt: "desc" }
+    });
+
+    if (cached?.lineArtStorageKey) {
+      try {
+        const cachedFile = await fetchStoredFile(cached.lineArtStorageKey);
+        const cachedBody = Buffer.from(await cachedFile.arrayBuffer());
+        const completed = await persistCompletedLineArt({
+          shop,
+          uploadId,
+          color,
+          cacheKey,
+          model: cached.lineArtModel || lineArtConfig.model,
+          body: cachedBody
+        });
+        return { ok: true as const, status: "completed" as const, upload: completed, color };
+      } catch (error) {
+        console.warn("Cached line art could not be reused; generating a fresh result.", error);
+      }
+    }
+
+    const inFlight = await prisma.upload.findFirst({
+      where: {
+        shop,
+        uploadId: { not: uploadId },
+        lineArtCacheKey: cacheKey,
+        lineArtStatus: "processing",
+        lineArtRequestId: { not: null },
+        removedAt: null
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    if (inFlight?.lineArtRequestId) {
+      const shared = await prisma.upload.update({
+        where: { uploadId },
+        data: {
+          lineArtStatus: "processing",
+          lineArtColor: color,
+          lineArtModel: inFlight.lineArtModel || lineArtConfig.model,
+          lineArtCacheKey: cacheKey,
+          lineArtRequestId: inFlight.lineArtRequestId,
+          lineArtError: null,
+          lineArtGeneratedAt: null
+        }
+      });
+      return { ok: true as const, status: "processing" as const, upload: shared, color };
+    }
+
+    if (!sourceBody) {
+      const stored = await fetchStoredFile(upload.storageKey);
+      sourceBody = Buffer.from(await stored.arrayBuffer());
+    }
+
+    let fastPathBody: Buffer | null = null;
+    try {
+      fastPathBody = await tryCreateMonochromeLineArt({
+        source: sourceBody,
+        inkHex: inkColors[color].hex
+      });
+    } catch (error) {
+      console.warn("Monochrome fast-path analysis failed; falling back to AI.", error);
+    }
+
+    if (fastPathBody) {
+      const completed = await persistCompletedLineArt({
+        shop,
+        uploadId,
+        color,
+        cacheKey,
+        model: deterministicLineArtModel,
+        body: fastPathBody
+      });
+      return { ok: true as const, status: "completed" as const, upload: completed, color };
+    }
+
     configureFal();
-    const stored = await fetchStoredFile(upload.storageKey);
-    const sourceBody = Buffer.from(await stored.arrayBuffer());
     const sourceBlob = new Blob([new Uint8Array(sourceBody)], {
       type: upload.contentType
     });
@@ -172,6 +363,7 @@ export const startLineArtGeneration = async ({
         lineArtStatus: "processing",
         lineArtColor: color,
         lineArtModel: lineArtConfig.model,
+        lineArtCacheKey: cacheKey,
         lineArtRequestId: queued.request_id,
         lineArtError: null,
         lineArtGeneratedAt: null
@@ -245,24 +437,19 @@ export const refreshLineArtGeneration = async ({
     }
 
     const generatedBody = Buffer.from(await generatedResponse.arrayBuffer());
-    if (generatedBody.length === 0 || generatedBody.length > uploadConfig.maxBytes || !isPng(generatedBody)) {
-      throw new Error("Generated image did not pass PNG validation.");
-    }
-
-    const key = generatedStorageKey(shop, uploadId);
-    await uploadStoredFile({ key, contentType: "image/png", body: generatedBody });
-
-    const completed = await prisma.upload.update({
-      where: { uploadId },
-      data: {
-        lineArtStatus: "completed",
-        lineArtStorageKey: key,
-        lineArtStorageUrl: `bunny://${storageBucket()}/${key}`,
-        lineArtContentType: "image/png",
-        lineArtFileSize: generatedBody.length,
-        lineArtGeneratedAt: new Date(),
-        lineArtError: null
-      }
+    const cacheKey =
+      upload.lineArtCacheKey ||
+      crypto
+        .createHash("sha256")
+        .update(`legacy\0${upload.lineArtRequestId}\0${upload.lineArtColor || "black"}`)
+        .digest("hex");
+    const completed = await persistCompletedLineArt({
+      shop,
+      uploadId,
+      color: resolveInkColor(upload.lineArtColor),
+      cacheKey,
+      model: upload.lineArtModel || lineArtConfig.model,
+      body: generatedBody
     });
 
     return { ok: true as const, upload: completed };
@@ -279,11 +466,13 @@ export const refreshLineArtGeneration = async ({
 export const getStoredLineArtForStorefront = async ({
   shop,
   uploadId,
-  sessionId
+  sessionId,
+  thumbnail = false
 }: {
   shop: string;
   uploadId: string;
   sessionId?: string | null;
+  thumbnail?: boolean;
 }) => {
   const owned = await getOwnedUpload({ shop, uploadId, sessionId });
   if (!owned.ok) return owned;
@@ -293,6 +482,36 @@ export const getStoredLineArtForStorefront = async ({
     return { ok: false as const, status: 404, errors: ["Line art is not ready."] };
   }
 
-  const file = await fetchStoredFile(upload.lineArtStorageKey);
-  return { ok: true as const, upload, file };
+  if (!thumbnail) {
+    const file = await fetchStoredFile(upload.lineArtStorageKey);
+    return { ok: true as const, upload, file, contentType: "image/png" as const };
+  }
+
+  const thumbnailKey = lineArtThumbnailStorageKey(upload.lineArtStorageKey);
+  const storedThumbnail = await fetchStoredFileIfExists(thumbnailKey);
+  if (storedThumbnail) {
+    return {
+      ok: true as const,
+      upload,
+      file: storedThumbnail,
+      contentType: "image/webp" as const
+    };
+  }
+
+  const fullFile = await fetchStoredFile(upload.lineArtStorageKey);
+  const thumbnailBody = await createLineArtThumbnail(
+    Buffer.from(await fullFile.arrayBuffer())
+  );
+  await uploadStoredFile({
+    key: thumbnailKey,
+    contentType: "image/webp",
+    body: thumbnailBody
+  });
+
+  return {
+    ok: true as const,
+    upload,
+    file: new Response(thumbnailBody),
+    contentType: "image/webp" as const
+  };
 };

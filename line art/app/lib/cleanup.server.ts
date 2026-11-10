@@ -2,6 +2,9 @@ import prisma from "~/db.server";
 import { uploadConfig } from "./env.server";
 import { deleteStoredObject } from "./storage.server";
 
+const thumbnailStorageKey = (storageKey: string) =>
+  storageKey.replace(/\.png$/i, "-thumb.webp");
+
 export const expireAbandonedUploads = async () => {
   const run = await prisma.cleanupRun.create({
     data: {
@@ -29,10 +32,12 @@ export const expireAbandonedUploads = async () => {
         await deleteStoredObject(upload.storageKey);
         if (upload.lineArtStorageKey) {
           await deleteStoredObject(upload.lineArtStorageKey);
+          await deleteStoredObject(thumbnailStorageKey(upload.lineArtStorageKey));
         }
         for (const preview of upload.stampPreviews) {
           if (preview.storageKey) {
             await deleteStoredObject(preview.storageKey);
+            await deleteStoredObject(thumbnailStorageKey(preview.storageKey));
           }
         }
         deletedCount += 1;

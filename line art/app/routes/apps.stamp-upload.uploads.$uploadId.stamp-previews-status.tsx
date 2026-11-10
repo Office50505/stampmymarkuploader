@@ -35,6 +35,10 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       const ready = preview?.status === "completed" && Boolean(preview.storageKey);
       const previewUrl = ready
         ? `/apps/line-art-upload/uploads/${encodeURIComponent(result.upload.uploadId)}/stamp-preview-file` +
+          `?kind=${encodeURIComponent(kind)}&sessionId=${encodeURIComponent(sessionId || "")}&thumbnail=1`
+        : null;
+      const fullPreviewUrl = ready
+        ? `/apps/line-art-upload/uploads/${encodeURIComponent(result.upload.uploadId)}/stamp-preview-file` +
           `?kind=${encodeURIComponent(kind)}&sessionId=${encodeURIComponent(sessionId || "")}`
         : null;
 
@@ -42,6 +46,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         kind,
         status: preview?.status || "not_started",
         previewUrl,
+        fullPreviewUrl,
         error: preview?.status === "failed" ? preview.error : null
       };
     })

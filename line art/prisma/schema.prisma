@@ -60,6 +60,7 @@ model Upload {
   originalFilename   String
   contentType        String
   fileSize           BigInt
+  sourceSha256       String?
   uploadedAt         DateTime?
   productId          String?
   productHandle      String?
@@ -81,6 +82,7 @@ model Upload {
   lineArtFileSize    BigInt?
   lineArtGeneratedAt DateTime?
   lineArtError       String?
+  lineArtCacheKey    String?
   sessionId          String?
   cartToken          String?
   customerId         String?
@@ -111,6 +113,7 @@ model Upload {
 
   @@index([shop, status, createdAt])
   @@index([shop, lineArtStatus, createdAt])
+  @@index([shop, lineArtCacheKey, lineArtStatus, createdAt])
   @@index([shop, orderId])
   @@index([shop, sessionId])
   @@index([shop, ipCountryCode])

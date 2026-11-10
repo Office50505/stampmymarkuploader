@@ -15,6 +15,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 
   const url = new URL(request.url);
+  const thumbnail = url.searchParams.get("thumbnail") === "1";
   const kind = resolveStampPreviewKind(url.searchParams.get("kind"));
   if (!kind) {
     throw new Response("Preview type is invalid.", { status: 400 });
@@ -24,7 +25,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     shop,
     uploadId: params.uploadId || "",
     sessionId: url.searchParams.get("sessionId"),
-    kind
+    kind,
+    thumbnail
   });
 
   if (!result.ok) {
@@ -33,9 +35,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   return new Response(result.file.body, {
     headers: {
-      "Content-Type": "image/png",
+      "Content-Type": result.contentType,
       "Cache-Control": "private, max-age=3600",
-      "Content-Disposition": `inline; filename="stamp-preview-${kind}.png"`,
+      "Content-Disposition": `inline; filename="stamp-preview-${kind}.${thumbnail ? "webp" : "png"}"`,
       "X-Content-Type-Options": "nosniff"
     }
   });

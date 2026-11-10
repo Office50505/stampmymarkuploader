@@ -201,6 +201,7 @@ export const storeUploadFile = async ({
   }
 
   const body = Buffer.from(await file.arrayBuffer());
+  const sourceSha256 = crypto.createHash("sha256").update(body).digest("hex");
   const detectedContentType = detectContentTypeFromBytes(body);
   if (!detectedContentType || detectedContentType !== upload.contentType) {
     return {
@@ -221,6 +222,7 @@ export const storeUploadFile = async ({
     where: { uploadId },
     data: {
       uploadedAt,
+      sourceSha256,
       status: "uploaded"
     }
   });

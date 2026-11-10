@@ -875,7 +875,8 @@
       );
     }
 
-    image.src = sourceImage.currentSrc || sourceImage.src;
+    image.src =
+      sourceImage.dataset.fullPreviewUrl || sourceImage.currentSrc || sourceImage.src;
     image.alt = sourceImage.alt || label;
     caption.textContent = label;
     counter.textContent = `${activeStampPreviewIndex + 1} / ${count}`;
@@ -1046,7 +1047,12 @@
     });
   }
 
-  function setStampPreviewCard(root, kind, state, previewUrl) {
+  function withPreviewVersion(url, version) {
+    if (!url) return "";
+    return `${url}${url.includes("?") ? "&" : "?"}v=${version}`;
+  }
+
+  function setStampPreviewCard(root, kind, state, previewUrl, fullPreviewUrl) {
     const card = find(root, `[data-stamp-preview-card="${kind}"]`);
     if (!card) return;
 
@@ -1065,11 +1071,17 @@
 
     if (image) {
       if (state === "ready" && previewUrl) {
+        const version = Date.now();
         image.hidden = false;
-        image.src = `${previewUrl}${previewUrl.includes("?") ? "&" : "?"}v=${Date.now()}`;
+        image.src = withPreviewVersion(previewUrl, version);
+        image.dataset.fullPreviewUrl = withPreviewVersion(
+          fullPreviewUrl || previewUrl,
+          version
+        );
       } else {
         image.hidden = true;
         image.removeAttribute("src");
+        delete image.dataset.fullPreviewUrl;
       }
     }
   }
@@ -1112,14 +1124,20 @@
     });
   }
 
-  function showMockupsGenerating(root, lineArtPreviewUrl) {
+  function showMockupsGenerating(root, lineArtPreviewUrl, lineArtFullPreviewUrl) {
     setStampPreviewSummary(
       root,
       "generating",
       root.dataset.stampPreviewsGeneratingMockups ||
         "Creating your box, cup and bag previews…"
     );
-    setStampPreviewCard(root, "line_art", "ready", lineArtPreviewUrl);
+    setStampPreviewCard(
+      root,
+      "line_art",
+      "ready",
+      lineArtPreviewUrl,
+      lineArtFullPreviewUrl
+    );
     stampPreviewKinds.forEach((kind) => setStampPreviewCard(root, kind, "generating"));
   }
 
@@ -1128,7 +1146,13 @@
       if (!stampPreviewKinds.includes(preview.kind)) return;
 
       if (preview.status === "completed" && preview.previewUrl) {
-        setStampPreviewCard(root, preview.kind, "ready", preview.previewUrl);
+        setStampPreviewCard(
+          root,
+          preview.kind,
+          "ready",
+          preview.previewUrl,
+          preview.fullPreviewUrl
+        );
       } else if (preview.status === "failed") {
         setStampPreviewCard(root, preview.kind, "failed");
       } else {
@@ -1271,6 +1295,7 @@
       artworkUrl: null,
       lineArtUrl: null,
       lineArtPreviewUrl: null,
+      lineArtFullPreviewUrl: null,
       inkColor: null,
       previewReady: false,
       uploading: false,
@@ -1338,6 +1363,7 @@
       state.artworkUrl = null;
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
+      state.lineArtFullPreviewUrl = null;
       state.inkColor = null;
       state.previewReady = false;
       state.file = null;
@@ -1368,7 +1394,11 @@
 
       state.previewReady = false;
       state.uploading = true;
-      showMockupsGenerating(root, state.lineArtPreviewUrl);
+      showMockupsGenerating(
+        root,
+        state.lineArtPreviewUrl,
+        state.lineArtFullPreviewUrl
+      );
       startGenerationProgress(62, 94);
       setButton(trigger, "uploading", "Creating 3 product previews…");
       setStatus(
@@ -1439,6 +1469,7 @@
       state.previewReady = false;
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
+      state.lineArtFullPreviewUrl = null;
       showLineArtGenerating(root);
 
       if (shouldScrollToPreviews) {
@@ -1487,6 +1518,7 @@
 
         state.lineArtUrl = result.lineArtUrl;
         state.lineArtPreviewUrl = result.previewUrl;
+        state.lineArtFullPreviewUrl = result.fullPreviewUrl || result.previewUrl;
         state.inkColor = result.color;
         setLineItemProperties(
           root,
@@ -1567,6 +1599,7 @@
       state.artworkUrl = null;
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
+      state.lineArtFullPreviewUrl = null;
       state.inkColor = null;
       state.previewReady = false;
       state.file = file;
@@ -1624,6 +1657,7 @@
         state.artworkUrl = null;
         state.lineArtUrl = null;
         state.lineArtPreviewUrl = null;
+        state.lineArtFullPreviewUrl = null;
         state.inkColor = null;
         state.previewReady = false;
         state.file = null;
@@ -1697,6 +1731,7 @@
             state.uploading = false;
             state.lineArtUrl = null;
             state.lineArtPreviewUrl = null;
+            state.lineArtFullPreviewUrl = null;
             state.previewReady = false;
             setLineItemProperties(
               root,

@@ -8,47 +8,47 @@ type Quad = [Point, Point, Point, Point];
 
 const canvasSize = 1254;
 const artworkSize = 768;
-const artworkContentSize = 648;
+const artworkContentSize = 704;
 
 const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>> = {
   regular: {
     box: [
-      { x: 397, y: 387 },
-      { x: 857, y: 387 },
-      { x: 857, y: 847 },
-      { x: 397, y: 847 }
+      { x: 363, y: 353 },
+      { x: 891, y: 353 },
+      { x: 891, y: 881 },
+      { x: 363, y: 881 }
     ],
     cup: [
-      { x: 452, y: 480 },
-      { x: 802, y: 480 },
-      { x: 786, y: 815 },
-      { x: 468, y: 815 }
+      { x: 426, y: 456 },
+      { x: 828, y: 456 },
+      { x: 810, y: 841 },
+      { x: 444, y: 841 }
     ],
     bag: [
-      { x: 407, y: 480 },
-      { x: 847, y: 480 },
-      { x: 847, y: 920 },
-      { x: 407, y: 920 }
+      { x: 374, y: 447 },
+      { x: 880, y: 447 },
+      { x: 880, y: 953 },
+      { x: 374, y: 953 }
     ]
   },
   white: {
     box: [
-      { x: 397, y: 397 },
-      { x: 857, y: 397 },
-      { x: 857, y: 857 },
-      { x: 397, y: 857 }
+      { x: 363, y: 363 },
+      { x: 891, y: 363 },
+      { x: 891, y: 891 },
+      { x: 363, y: 891 }
     ],
     cup: [
-      { x: 452, y: 480 },
-      { x: 802, y: 480 },
-      { x: 786, y: 815 },
-      { x: 468, y: 815 }
+      { x: 426, y: 456 },
+      { x: 828, y: 456 },
+      { x: 810, y: 841 },
+      { x: 444, y: 841 }
     ],
     bag: [
-      { x: 407, y: 430 },
-      { x: 847, y: 430 },
-      { x: 847, y: 870 },
-      { x: 407, y: 870 }
+      { x: 374, y: 397 },
+      { x: 880, y: 397 },
+      { x: 880, y: 903 },
+      { x: 374, y: 903 }
     ]
   }
 };
@@ -266,7 +266,7 @@ const warpArtwork = (artwork: Buffer, quad: Quad, color: InkColor) => {
   const maxX = Math.min(canvasSize - 1, Math.ceil(Math.max(...quad.map((point) => point.x))));
   const minY = Math.max(0, Math.floor(Math.min(...quad.map((point) => point.y))));
   const maxY = Math.min(canvasSize - 1, Math.ceil(Math.max(...quad.map((point) => point.y))));
-  const opacity = color === "white" ? 0.94 : 0.86;
+  const opacity = color === "white" ? 0.9 : 0.82;
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
@@ -288,11 +288,20 @@ const warpArtwork = (artwork: Buffer, quad: Quad, color: InkColor) => {
       const [red, green, blue, alpha] = sampleArtwork(artwork, sourceX, sourceY);
       if (alpha === 0) continue;
       const index = (y * canvasSize + x) * 4;
-      const paperVariation = 0.96 + ((x * 17 + y * 31) % 9) / 100;
+      const fineVariation = ((x * 17 + y * 31) % 13) / 100;
+      const broadVariation =
+        ((Math.floor(x / 7) * 11 + Math.floor(y / 7) * 19) % 9) / 100;
+      const materialVariation = Math.min(
+        1,
+        0.86 + fineVariation + broadVariation
+      );
+      const fiberFade = (x * 37 + y * 17) % 67 === 0 ? 0.72 : 1;
       overlay[index] = red;
       overlay[index + 1] = green;
       overlay[index + 2] = blue;
-      overlay[index + 3] = Math.round(alpha * opacity * paperVariation);
+      overlay[index + 3] = Math.round(
+        alpha * opacity * materialVariation * fiberFade
+      );
     }
   }
 

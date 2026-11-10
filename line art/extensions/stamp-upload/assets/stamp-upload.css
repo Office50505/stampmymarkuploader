@@ -537,8 +537,9 @@
 }
 
 .smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"] .smm-upload__stamp-preview-media img {
+  box-sizing: border-box;
   object-fit: contain;
-  padding: 8%;
+  padding: 3%;
 }
 
 .smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="black"] .smm-upload__stamp-preview-media img {

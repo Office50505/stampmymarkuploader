@@ -450,9 +450,7 @@
 }
 
 .smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="white"] .smm-upload__stamp-preview-media {
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 52%),
-    #202327;
+  background: #000;
 }
 
 .smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"] .smm-upload__stamp-preview-media img {
@@ -612,9 +610,7 @@ body.smm-preview-lightbox-open {
 }
 
 .smm-preview-lightbox[data-preview-kind="line_art"][data-ink-color="white"] .smm-preview-lightbox__image {
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.08), transparent 52%),
-    #202327;
+  background: #000;
 }
 
 .smm-preview-lightbox__image--next {

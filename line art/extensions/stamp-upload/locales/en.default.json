@@ -15,6 +15,7 @@
     "failed": "One or more previews could not be created.",
     "timeout": "The product previews are taking longer than expected. Please try again.",
     "retry": "Retry previews",
+    "progress": "Preview generation progress",
     "waiting": "Waiting for line art",
     "line_art": "Line art",
     "box": "Box",

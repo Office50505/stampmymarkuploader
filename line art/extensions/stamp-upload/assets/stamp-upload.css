@@ -287,8 +287,53 @@
   font-size: 17px;
   gap: 10px;
   line-height: 1.35;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   min-height: 28px;
+}
+
+.smm-upload__stamp-previews-percentage {
+  color: #171717;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  margin-left: auto;
+  min-width: 40px;
+  text-align: right;
+}
+
+.smm-upload__stamp-previews-progress {
+  background: #e8e4dc;
+  border-radius: 999px;
+  height: 7px;
+  margin: 0 0 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+.smm-upload__stamp-previews-progress-fill {
+  background: linear-gradient(90deg, #1677d2 0%, #18a5f2 55%, #64cfff 100%);
+  border-radius: inherit;
+  box-shadow: 0 0 14px rgba(24, 165, 242, 0.32);
+  display: block;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+  width: 100%;
+}
+
+.smm-upload__stamp-previews[data-state="ready"] .smm-upload__stamp-previews-progress-fill {
+  background: linear-gradient(90deg, #16a34a, #39c66b);
+  box-shadow: 0 0 14px rgba(22, 163, 74, 0.25);
+}
+
+.smm-upload__stamp-previews[data-state="ready"] .smm-upload__stamp-previews-percentage {
+  color: #15803d;
+}
+
+.smm-upload__stamp-previews[data-state="failed"] .smm-upload__stamp-previews-progress-fill {
+  background: #d0cbc2;
+  box-shadow: none;
 }
 
 .smm-upload__stamp-previews-summary-icon {
@@ -342,7 +387,7 @@
   font: inherit;
   font-size: 14px;
   font-weight: 700;
-  margin-left: auto;
+  margin-left: 2px;
   padding: 4px 0 4px 8px;
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -631,6 +676,10 @@ body.smm-preview-lightbox-open {
   .smm-upload__stamp-preview-orb,
   .smm-upload__stamp-preview-sheen {
     animation: none;
+  }
+
+  .smm-upload__stamp-previews-progress-fill {
+    transition: none;
   }
 
   .smm-upload__stamp-preview-card[data-state="ready"]:hover,

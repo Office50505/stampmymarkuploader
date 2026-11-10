@@ -779,6 +779,17 @@
     if (retry) retry.hidden = state !== "failed";
   }
 
+  function setStampPreviewProgress(root, percentage) {
+    const progress = find(root, "[data-stamp-previews-progress]");
+    const fill = find(root, "[data-stamp-previews-progress-fill]");
+    const output = find(root, "[data-stamp-previews-percentage]");
+    const value = Math.max(0, Math.min(100, Math.round(percentage)));
+
+    if (progress) progress.setAttribute("aria-valuenow", String(value));
+    if (fill) fill.style.transform = `scaleX(${value / 100})`;
+    if (output) output.textContent = `${value}%`;
+  }
+
   let activeStampPreviewTrigger = null;
 
   function closeStampPreviewLightbox() {
@@ -915,6 +926,7 @@
       section.hidden = true;
       section.dataset.state = "waiting";
     }
+    setStampPreviewProgress(root, 0);
 
     ["line_art", ...stampPreviewKinds].forEach((kind) => {
       setStampPreviewCard(root, kind, "waiting");
@@ -1110,6 +1122,42 @@
       uploading: false,
       file: null
     };
+    let generationProgress = 0;
+    let generationProgressTimer = null;
+    let generationProgressTick = 0;
+
+    function stopGenerationProgress() {
+      if (generationProgressTimer === null) return;
+
+      window.clearInterval(generationProgressTimer);
+      generationProgressTimer = null;
+    }
+
+    function startGenerationProgress(startAt, cap) {
+      stopGenerationProgress();
+      generationProgress = startAt;
+      generationProgressTick = 0;
+      setStampPreviewProgress(root, generationProgress);
+
+      generationProgressTimer = window.setInterval(() => {
+        if (generationProgress >= cap) {
+          stopGenerationProgress();
+          return;
+        }
+
+        const increments = [2, 3, 2, 1, 3, 2];
+        const increment = increments[generationProgressTick % increments.length];
+        generationProgressTick += 1;
+        generationProgress = Math.min(cap, generationProgress + increment);
+        setStampPreviewProgress(root, generationProgress);
+      }, 520);
+    }
+
+    function completeGenerationProgress() {
+      stopGenerationProgress();
+      generationProgress = 100;
+      setStampPreviewProgress(root, generationProgress);
+    }
 
     // The Permanent Stamp theme's sticky bar predates this Line Art app and
     // discovers required uploaders through this marker. Add it only after the
@@ -1129,6 +1177,8 @@
       if (state.uploading) return;
 
       const previousUploadId = state.uploadId;
+      stopGenerationProgress();
+      generationProgress = 0;
       state.uploadId = null;
       state.filename = null;
       state.artworkUrl = null;
@@ -1165,6 +1215,7 @@
       state.previewReady = false;
       state.uploading = true;
       showMockupsGenerating(root, state.lineArtPreviewUrl);
+      startGenerationProgress(62, 94);
       setButton(trigger, "uploading", "Creating 3 product previews…");
       setStatus(
         root,
@@ -1186,6 +1237,7 @@
 
         state.previewReady = true;
         state.uploading = false;
+        completeGenerationProgress();
         setStampPreviewSummary(
           root,
           "ready",
@@ -1198,6 +1250,7 @@
           setAddToCartEnabled(form, true);
         }
       } catch (error) {
+        stopGenerationProgress();
         state.previewReady = false;
         state.uploading = false;
         stampPreviewKinds.forEach((kind) => {
@@ -1254,6 +1307,7 @@
       while (state.uploadId) {
         const requestedColor = getSelectedInkColor(root);
         state.inkColor = requestedColor;
+        startGenerationProgress(6, 58);
         setButton(
           trigger,
           "uploading",
@@ -1362,6 +1416,8 @@
       state.inkColor = null;
       state.previewReady = false;
       state.file = file;
+      stopGenerationProgress();
+      generationProgress = 0;
       clearPreview(root);
       resetStampPreviews(root);
       setTextFieldsVisible(root, false, false);
@@ -1406,6 +1462,8 @@
         await generateLineArt(true);
       } catch (error) {
         uploadProgress.stop();
+        stopGenerationProgress();
+        generationProgress = 0;
         state.uploading = false;
         state.uploadId = null;
         state.filename = null;
@@ -1481,6 +1539,7 @@
           try {
             await generateLineArt();
           } catch (error) {
+            stopGenerationProgress();
             state.uploading = false;
             state.lineArtUrl = null;
             state.lineArtPreviewUrl = null;

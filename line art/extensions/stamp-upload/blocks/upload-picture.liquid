@@ -90,9 +90,22 @@
         <span class="smm-upload__stamp-previews-spinner"></span>
       </span>
       <span data-stamp-previews-summary>{{ 'stamp_previews.generating_line_art' | t }}</span>
+      <strong class="smm-upload__stamp-previews-percentage" data-stamp-previews-percentage>0%</strong>
       <button class="smm-upload__stamp-previews-retry" type="button" data-stamp-previews-retry hidden>
         {{ 'stamp_previews.retry' | t }}
       </button>
+    </div>
+
+    <div
+      class="smm-upload__stamp-previews-progress"
+      role="progressbar"
+      aria-label="{{ 'stamp_previews.progress' | t | escape }}"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+      data-stamp-previews-progress
+    >
+      <span class="smm-upload__stamp-previews-progress-fill" data-stamp-previews-progress-fill></span>
     </div>
 
     <div class="smm-upload__stamp-previews-grid">

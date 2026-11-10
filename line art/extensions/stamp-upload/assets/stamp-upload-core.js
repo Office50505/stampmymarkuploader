@@ -707,6 +707,108 @@
     if (retry) retry.hidden = state !== "failed";
   }
 
+  let activeStampPreviewTrigger = null;
+
+  function closeStampPreviewLightbox() {
+    const lightbox = document.querySelector("[data-stamp-preview-lightbox]");
+    if (!lightbox || lightbox.hidden) return;
+
+    const image = find(lightbox, "[data-stamp-preview-lightbox-image]");
+    lightbox.hidden = true;
+    document.body.classList.remove("smm-preview-lightbox-open");
+
+    if (image) image.removeAttribute("src");
+    if (activeStampPreviewTrigger) activeStampPreviewTrigger.focus();
+    activeStampPreviewTrigger = null;
+  }
+
+  function getStampPreviewLightbox() {
+    const existing = document.querySelector("[data-stamp-preview-lightbox]");
+    if (existing) return existing;
+
+    const lightbox = document.createElement("div");
+    lightbox.className = "smm-preview-lightbox";
+    lightbox.dataset.stampPreviewLightbox = "true";
+    lightbox.hidden = true;
+
+    const dialog = document.createElement("div");
+    dialog.className = "smm-preview-lightbox__dialog";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "smm-preview-lightbox-caption");
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "smm-preview-lightbox__close";
+    closeButton.setAttribute("aria-label", "Close fullscreen preview");
+    closeButton.textContent = "×";
+    closeButton.addEventListener("click", closeStampPreviewLightbox);
+
+    const image = document.createElement("img");
+    image.className = "smm-preview-lightbox__image";
+    image.dataset.stampPreviewLightboxImage = "true";
+
+    const caption = document.createElement("p");
+    caption.className = "smm-preview-lightbox__caption";
+    caption.id = "smm-preview-lightbox-caption";
+    caption.dataset.stampPreviewLightboxCaption = "true";
+
+    dialog.appendChild(closeButton);
+    dialog.appendChild(image);
+    dialog.appendChild(caption);
+    lightbox.appendChild(dialog);
+    lightbox.addEventListener("click", (event) => {
+      if (event.target === lightbox) closeStampPreviewLightbox();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && !lightbox.hidden) {
+        closeStampPreviewLightbox();
+      }
+    });
+    document.body.appendChild(lightbox);
+
+    return lightbox;
+  }
+
+  function openStampPreviewLightbox(card) {
+    if (!card || card.dataset.state !== "ready") return;
+
+    const sourceImage = find(card, "[data-stamp-preview-image]");
+    if (!sourceImage || !sourceImage.src) return;
+
+    const lightbox = getStampPreviewLightbox();
+    const image = find(lightbox, "[data-stamp-preview-lightbox-image]");
+    const caption = find(lightbox, "[data-stamp-preview-lightbox-caption]");
+    const label = find(card, "figcaption")?.textContent?.trim() || "Stamp preview";
+
+    activeStampPreviewTrigger = card;
+    image.src = sourceImage.currentSrc || sourceImage.src;
+    image.alt = sourceImage.alt || label;
+    caption.textContent = label;
+    lightbox.hidden = false;
+    document.body.classList.add("smm-preview-lightbox-open");
+    find(lightbox, ".smm-preview-lightbox__close")?.focus();
+  }
+
+  function enableStampPreviewLightbox(root) {
+    root.querySelectorAll("[data-stamp-preview-card]").forEach((card) => {
+      if (card.dataset.stampPreviewLightboxReady === "true") return;
+
+      const label = find(card, "figcaption")?.textContent?.trim() || "Stamp preview";
+      card.dataset.stampPreviewLightboxReady = "true";
+      card.setAttribute("role", "button");
+      card.setAttribute("aria-label", `Open ${label} fullscreen`);
+      card.setAttribute("aria-disabled", card.dataset.state === "ready" ? "false" : "true");
+      card.tabIndex = card.dataset.state === "ready" ? 0 : -1;
+      card.addEventListener("click", () => openStampPreviewLightbox(card));
+      card.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openStampPreviewLightbox(card);
+      });
+    });
+  }
+
   function setStampPreviewCard(root, kind, state, previewUrl) {
     const card = find(root, `[data-stamp-preview-card="${kind}"]`);
     if (!card) return;
@@ -720,6 +822,8 @@
     };
 
     card.dataset.state = state;
+    card.setAttribute("aria-disabled", state === "ready" ? "false" : "true");
+    card.tabIndex = state === "ready" ? 0 : -1;
     if (status) status.textContent = labels[state] || "";
 
     if (image) {
@@ -957,6 +1061,7 @@
     if (required) {
       setAddToCartEnabled(form, false);
     }
+    enableStampPreviewLightbox(root);
     setTextFieldsVisible(root, false, false);
     setButton(trigger, "idle", idleLabel);
 

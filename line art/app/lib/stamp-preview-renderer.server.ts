@@ -12,10 +12,10 @@ const artworkContentSize = 430;
 
 const placementQuads: Record<StampPreviewKind, Quad> = {
   box: [
-    { x: 350, y: 330 },
-    { x: 650, y: 250 },
-    { x: 720, y: 420 },
-    { x: 395, y: 510 }
+    { x: 302, y: 302 },
+    { x: 722, y: 302 },
+    { x: 722, y: 722 },
+    { x: 302, y: 722 }
   ],
   cup: [
     { x: 355, y: 435 },

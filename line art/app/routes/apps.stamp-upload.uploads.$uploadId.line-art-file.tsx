@@ -27,8 +27,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   return new Response(result.file.body, {
     headers: {
       "Content-Type": result.contentType,
-      "Cache-Control": "private, max-age=3600",
-      "Content-Disposition": `inline; filename="stamp-line-art.${thumbnail ? "webp" : "png"}"`,
+      "Cache-Control": "private, max-age=31536000, immutable",
+      "Content-Disposition": `inline; filename="stamp-line-art.${result.contentType === "image/webp" ? "webp" : "png"}"`,
       "X-Content-Type-Options": "nosniff"
     }
   });

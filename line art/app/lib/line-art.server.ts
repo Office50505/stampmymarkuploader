@@ -111,6 +111,9 @@ const generatedStorageKey = (shop: string, uploadId: string) => {
 export const lineArtThumbnailStorageKey = (storageKey: string) =>
   storageKey.replace(/\.png$/i, "-thumb.webp");
 
+export const lineArtDisplayStorageKey = (storageKey: string) =>
+  storageKey.replace(/\.png$/i, "-display.webp");
+
 const createLineArtThumbnail = (body: Buffer) =>
   sharp(body)
     .resize(640, 640, {
@@ -119,6 +122,16 @@ const createLineArtThumbnail = (body: Buffer) =>
       withoutEnlargement: true
     })
     .webp({ quality: 84, effort: 4, smartSubsample: true })
+    .toBuffer();
+
+const createLineArtDisplayPreview = (body: Buffer) =>
+  sharp(body)
+    .resize(1024, 1024, {
+      fit: "contain",
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
+      withoutEnlargement: true
+    })
+    .webp({ quality: 94, alphaQuality: 100, effort: 4, smartSubsample: true })
     .toBuffer();
 
 export const buildLineArtCacheKey = ({
@@ -166,10 +179,15 @@ const persistCompletedLineArt = async ({
 
   const key = generatedStorageKey(shop, uploadId);
   const thumbnailKey = lineArtThumbnailStorageKey(key);
-  const thumbnail = await createLineArtThumbnail(body);
+  const displayKey = lineArtDisplayStorageKey(key);
+  const [thumbnail, displayPreview] = await Promise.all([
+    createLineArtThumbnail(body),
+    createLineArtDisplayPreview(body)
+  ]);
   await Promise.all([
     uploadStoredFile({ key, contentType: "image/png", body }),
-    uploadStoredFile({ key: thumbnailKey, contentType: "image/webp", body: thumbnail })
+    uploadStoredFile({ key: thumbnailKey, contentType: "image/webp", body: thumbnail }),
+    uploadStoredFile({ key: displayKey, contentType: "image/webp", body: displayPreview })
   ]);
 
   return prisma.upload.update({
@@ -483,8 +501,33 @@ export const getStoredLineArtForStorefront = async ({
   }
 
   if (!thumbnail) {
-    const file = await fetchStoredFile(upload.lineArtStorageKey);
-    return { ok: true as const, upload, file, contentType: "image/png" as const };
+    const displayKey = lineArtDisplayStorageKey(upload.lineArtStorageKey);
+    const storedDisplayPreview = await fetchStoredFileIfExists(displayKey);
+    if (storedDisplayPreview) {
+      return {
+        ok: true as const,
+        upload,
+        file: storedDisplayPreview,
+        contentType: "image/webp" as const
+      };
+    }
+
+    const fullFile = await fetchStoredFile(upload.lineArtStorageKey);
+    const displayBody = await createLineArtDisplayPreview(
+      Buffer.from(await fullFile.arrayBuffer())
+    );
+    await uploadStoredFile({
+      key: displayKey,
+      contentType: "image/webp",
+      body: displayBody
+    });
+
+    return {
+      ok: true as const,
+      upload,
+      file: new Response(displayBody),
+      contentType: "image/webp" as const
+    };
   }
 
   const thumbnailKey = lineArtThumbnailStorageKey(upload.lineArtStorageKey);

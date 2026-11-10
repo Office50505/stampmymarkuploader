@@ -298,6 +298,6 @@ export const renderStampPreview = async ({
         blend: color === "white" ? "over" : "multiply"
       }
     ])
-    .png({ compressionLevel: 6, adaptiveFiltering: true })
+    .webp({ quality: 94, alphaQuality: 100, effort: 4, smartSubsample: true })
     .toBuffer();
 };

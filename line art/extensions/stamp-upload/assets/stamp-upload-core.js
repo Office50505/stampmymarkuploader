@@ -42,13 +42,12 @@
     return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
   }
 
-  // Camera photos are often several megabytes even when the artwork itself is
-  // simple. Resize only large JPEGs before upload; every other file type keeps
-  // its original pixels and bytes. If the browser cannot optimise a photo, the
-  // original file is used as a safe fallback.
-  const jpegOptimizationThreshold = 1024 * 1024;
+  // Large phone photos and exported logos can spend more time uploading than
+  // the preview needs. Keep up to 2048 px of detail, preserve PNG artwork
+  // losslessly, and use a high-quality WebP for photo formats only when smaller.
+  const imageOptimizationThreshold = 1024 * 1024;
   const maxPhotoEdge = 2048;
-  const jpegQuality = 0.9;
+  const webpQuality = 0.94;
 
   function loadImage(file) {
     return new Promise((resolve, reject) => {
@@ -67,8 +66,8 @@
     });
   }
 
-  async function optimizeJpegForUpload(file) {
-    if (file.type !== "image/jpeg" || file.size <= jpegOptimizationThreshold) {
+  async function optimizeImageForUpload(file) {
+    if (!allowedTypes.includes(file.type) || file.size <= imageOptimizationThreshold) {
       return file;
     }
 
@@ -84,25 +83,25 @@
       const width = Math.max(1, Math.round(sourceWidth * scale));
       const height = Math.max(1, Math.round(sourceHeight * scale));
       const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d", { alpha: false });
+      const context = canvas.getContext("2d", { alpha: true });
 
       if (!context) return file;
 
       canvas.width = width;
       canvas.height = height;
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, width, height);
       context.drawImage(image, 0, 0, width, height);
 
+      const outputType = file.type === "image/png" ? "image/png" : "image/webp";
       const optimizedBlob = await new Promise((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", jpegQuality);
+        canvas.toBlob(resolve, outputType, webpQuality);
       });
 
       // Never trade a customer's original for a larger version.
       if (!optimizedBlob || optimizedBlob.size >= file.size) return file;
 
-      return new File([optimizedBlob], file.name.replace(/\.[^.]+$/, ".jpg"), {
-        type: "image/jpeg",
+      const outputExtension = outputType === "image/png" ? ".png" : ".webp";
+      return new File([optimizedBlob], file.name.replace(/\.[^.]+$/, outputExtension), {
+        type: outputType,
         lastModified: file.lastModified,
       });
     } catch (_error) {
@@ -790,7 +789,7 @@
         throw new Error(result.error || root.dataset.lineArtFailed || "Line art generation failed.");
       }
 
-      await wait(2500);
+      await wait(1250);
     }
 
     throw new Error(
@@ -1046,10 +1045,11 @@
 
   function withPreviewVersion(url, version) {
     if (!url) return "";
+    if (!version) return url;
     return `${url}${url.includes("?") ? "&" : "?"}v=${version}`;
   }
 
-  function setStampPreviewCard(root, kind, state, previewUrl, fullPreviewUrl) {
+  function setStampPreviewCard(root, kind, state, previewUrl, fullPreviewUrl, version) {
     const card = find(root, `[data-stamp-preview-card="${kind}"]`);
     if (!card) return;
 
@@ -1069,13 +1069,17 @@
 
     if (image) {
       if (state === "ready" && previewUrl) {
-        const version = Date.now();
-        image.hidden = false;
-        image.src = withPreviewVersion(previewUrl, version);
-        image.dataset.fullPreviewUrl = withPreviewVersion(
+        const cardPreviewUrl = withPreviewVersion(previewUrl, version);
+        const cardFullPreviewUrl = withPreviewVersion(
           fullPreviewUrl || previewUrl,
           version
         );
+        image.hidden = false;
+        image.decoding = "async";
+        if (image.getAttribute("src") !== cardPreviewUrl) {
+          image.src = cardPreviewUrl;
+        }
+        image.dataset.fullPreviewUrl = cardFullPreviewUrl;
       } else {
         image.hidden = true;
         image.removeAttribute("src");
@@ -1122,7 +1126,12 @@
     });
   }
 
-  function showMockupsGenerating(root, lineArtPreviewUrl, lineArtFullPreviewUrl) {
+  function showMockupsGenerating(
+    root,
+    lineArtPreviewUrl,
+    lineArtFullPreviewUrl,
+    lineArtPreviewVersion
+  ) {
     setStampPreviewSummary(
       root,
       "generating",
@@ -1134,7 +1143,8 @@
       "line_art",
       "ready",
       lineArtPreviewUrl,
-      lineArtFullPreviewUrl
+      lineArtFullPreviewUrl,
+      lineArtPreviewVersion
     );
     stampPreviewKinds.forEach((kind) => setStampPreviewCard(root, kind, "generating"));
   }
@@ -1149,7 +1159,8 @@
           preview.kind,
           "ready",
           preview.previewUrl,
-          preview.fullPreviewUrl
+          preview.fullPreviewUrl,
+          preview.version
         );
       } else if (preview.status === "failed") {
         setStampPreviewCard(root, preview.kind, "failed");
@@ -1192,7 +1203,7 @@
         );
       }
 
-      await wait(2500);
+      await wait(1000);
     }
 
     throw new Error(
@@ -1294,6 +1305,7 @@
       lineArtUrl: null,
       lineArtPreviewUrl: null,
       lineArtFullPreviewUrl: null,
+      lineArtPreviewVersion: null,
       inkColor: null,
       previewReady: false,
       uploading: false,
@@ -1362,6 +1374,7 @@
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
       state.lineArtFullPreviewUrl = null;
+      state.lineArtPreviewVersion = null;
       state.inkColor = null;
       state.previewReady = false;
       state.file = null;
@@ -1395,7 +1408,8 @@
       showMockupsGenerating(
         root,
         state.lineArtPreviewUrl,
-        state.lineArtFullPreviewUrl
+        state.lineArtFullPreviewUrl,
+        state.lineArtPreviewVersion
       );
       startGenerationProgress(62, 94);
       setButton(trigger, "uploading", "Creating 3 product previews…");
@@ -1406,11 +1420,37 @@
       );
 
       try {
-        await postJson("stamp-previews", {
+        const startResult = await postJson("stamp-previews", {
           uploadId: state.uploadId,
           sessionId
         });
-        await pollStampPreviews(root, state.uploadId, sessionId);
+        const startedPreviews = Array.isArray(startResult.previews)
+          ? startResult.previews
+          : [];
+        renderStampPreviewResults(root, startedPreviews);
+
+        const failedPreview = startedPreviews.find(
+          (preview) => preview.status === "failed"
+        );
+        if (failedPreview) {
+          throw new Error(
+            failedPreview.error ||
+              root.dataset.stampPreviewsFailed ||
+              "One or more product previews could not be created."
+          );
+        }
+
+        const allPreviewsReady = stampPreviewKinds.every((kind) =>
+          startedPreviews.some(
+            (preview) =>
+              preview.kind === kind &&
+              preview.status === "completed" &&
+              preview.previewUrl
+          )
+        );
+        if (!allPreviewsReady) {
+          await pollStampPreviews(root, state.uploadId, sessionId);
+        }
 
         if (getSelectedInkColor(root) !== state.inkColor) {
           await generateLineArt();
@@ -1468,6 +1508,7 @@
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
       state.lineArtFullPreviewUrl = null;
+      state.lineArtPreviewVersion = null;
       showLineArtGenerating(root);
 
       if (shouldScrollToPreviews) {
@@ -1513,6 +1554,7 @@
         state.lineArtUrl = result.lineArtUrl;
         state.lineArtPreviewUrl = result.previewUrl;
         state.lineArtFullPreviewUrl = result.fullPreviewUrl || result.previewUrl;
+        state.lineArtPreviewVersion = result.version || null;
         state.inkColor = result.color;
         setLineItemProperties(
           root,
@@ -1567,7 +1609,7 @@
       if (required) setAddToCartEnabled(form, false);
       setButton(trigger, "uploading", "Preparing photo…");
       setStatus(root, "Preparing photo for a faster upload…");
-      const file = await optimizeJpegForUpload(selectedFile);
+      const file = await optimizeImageForUpload(selectedFile);
 
       if (maxBytes && file.size > maxBytes) {
         state.uploading = false;
@@ -1594,6 +1636,7 @@
       state.lineArtUrl = null;
       state.lineArtPreviewUrl = null;
       state.lineArtFullPreviewUrl = null;
+      state.lineArtPreviewVersion = null;
       state.inkColor = null;
       state.previewReady = false;
       state.file = file;
@@ -1649,6 +1692,7 @@
           state.lineArtUrl = null;
           state.lineArtPreviewUrl = null;
           state.lineArtFullPreviewUrl = null;
+          state.lineArtPreviewVersion = null;
           state.previewReady = false;
           setLineItemProperties(
             root,
@@ -1683,6 +1727,7 @@
         state.lineArtUrl = null;
         state.lineArtPreviewUrl = null;
         state.lineArtFullPreviewUrl = null;
+        state.lineArtPreviewVersion = null;
         state.inkColor = null;
         state.previewReady = false;
         state.file = null;
@@ -1757,6 +1802,7 @@
             state.lineArtUrl = null;
             state.lineArtPreviewUrl = null;
             state.lineArtFullPreviewUrl = null;
+            state.lineArtPreviewVersion = null;
             state.previewReady = false;
             setLineItemProperties(
               root,

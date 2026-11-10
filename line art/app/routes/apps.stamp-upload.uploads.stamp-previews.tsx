@@ -29,15 +29,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return errorResponse("Product previews could not be started.", result.status, result.errors);
   }
 
-  const statuses = new Map(result.previews.map((preview) => [preview.kind, preview.status]));
+  const previewsByKind = new Map(result.previews.map((preview) => [preview.kind, preview]));
   return jsonResponse(
     {
       ok: true,
       uploadId: result.upload.uploadId,
-      previews: stampPreviewKinds.map((kind) => ({
-        kind,
-        status: statuses.get(kind) || "not_started"
-      }))
+      previews: stampPreviewKinds.map((kind) => {
+        const preview = previewsByKind.get(kind);
+        const ready = preview?.status === "completed" && Boolean(preview.storageKey);
+        const previewUrl = ready
+          ? `/apps/line-art-upload/uploads/${encodeURIComponent(result.upload.uploadId)}/stamp-preview-file` +
+            `?kind=${encodeURIComponent(kind)}&sessionId=${encodeURIComponent(String(body.sessionId || ""))}&thumbnail=1`
+          : null;
+        const fullPreviewUrl = ready
+          ? `/apps/line-art-upload/uploads/${encodeURIComponent(result.upload.uploadId)}/stamp-preview-file` +
+            `?kind=${encodeURIComponent(kind)}&sessionId=${encodeURIComponent(String(body.sessionId || ""))}`
+          : null;
+
+        return {
+          kind,
+          status: preview?.status || "not_started",
+          version: preview?.generatedAt?.getTime() || null,
+          previewUrl,
+          fullPreviewUrl,
+          error: preview?.status === "failed" ? preview.error : null
+        };
+      })
     },
     { status: 202 }
   );

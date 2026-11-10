@@ -14,7 +14,7 @@ import {
 export const stampPreviewKinds = ["box", "cup", "bag"] as const;
 export type StampPreviewKind = (typeof stampPreviewKinds)[number];
 
-const stampPreviewRenderer = "deterministic-v5-white-ink-dark-surfaces";
+const stampPreviewRenderer = "deterministic-v6-webp-fast-delivery";
 
 const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });
@@ -25,17 +25,18 @@ const previewError = (kind: StampPreviewKind, error: unknown) => {
   return `The ${kind} preview could not be created. Please try again.`;
 };
 
-const isPng = (body: Buffer) =>
-  body.length >= 8 &&
-  body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+const isWebp = (body: Buffer) =>
+  body.length >= 12 &&
+  body.subarray(0, 4).toString("ascii") === "RIFF" &&
+  body.subarray(8, 12).toString("ascii") === "WEBP";
 
 const generatedStorageKey = (shop: string, uploadId: string, kind: StampPreviewKind) => {
   const shopSlug = shop.replace(/[^a-z0-9.-]/gi, "-").toLowerCase();
-  return `shops/${shopSlug}/uploads/${uploadId}/stamp-preview-${kind}.png`;
+  return `shops/${shopSlug}/uploads/${uploadId}/stamp-preview-${kind}.webp`;
 };
 
 export const stampPreviewThumbnailStorageKey = (storageKey: string) =>
-  storageKey.replace(/\.png$/i, "-thumb.webp");
+  storageKey.replace(/\.(?:png|webp)$/i, "-thumb.webp");
 
 const createStampPreviewThumbnail = (body: Buffer) =>
   sharp(body)
@@ -138,13 +139,15 @@ export const startStampPreviewGeneration = async ({
           if (
             generatedBody.length === 0 ||
             generatedBody.length > uploadConfig.maxBytes ||
-            !isPng(generatedBody)
+            !isWebp(generatedBody)
           ) {
-            throw new Error("Rendered preview did not pass PNG validation.");
+            throw new Error("Rendered preview did not pass WEBP validation.");
           }
           const key = generatedStorageKey(shop, uploadId, kind);
-          await uploadStoredFile({ key, contentType: "image/png", body: generatedBody });
-          await storeStampPreviewThumbnail(key, generatedBody);
+          await Promise.all([
+            uploadStoredFile({ key, contentType: "image/webp", body: generatedBody }),
+            storeStampPreviewThumbnail(key, generatedBody)
+          ]);
 
           await prisma.stampPreview.upsert({
             where: { uploadId_kind: { uploadId, kind } },
@@ -155,7 +158,7 @@ export const startStampPreviewGeneration = async ({
               model: stampPreviewRenderer,
               storageKey: key,
               storageUrl: `bunny://${storageBucket()}/${key}`,
-              contentType: "image/png",
+              contentType: "image/webp",
               fileSize: generatedBody.length,
               sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
               generatedAt: new Date()
@@ -166,7 +169,7 @@ export const startStampPreviewGeneration = async ({
               requestId: null,
               storageKey: key,
               storageUrl: `bunny://${storageBucket()}/${key}`,
-              contentType: "image/png",
+              contentType: "image/webp",
               fileSize: generatedBody.length,
               sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
               generatedAt: new Date(),
@@ -276,18 +279,23 @@ const refreshOnePreview = async (
       throw new Error(`Generated image download failed with ${generatedResponse.status}.`);
     }
 
-    const generatedBody = Buffer.from(await generatedResponse.arrayBuffer());
+    const sourceBody = Buffer.from(await generatedResponse.arrayBuffer());
+    const generatedBody = await sharp(sourceBody)
+      .webp({ quality: 94, alphaQuality: 100, effort: 4, smartSubsample: true })
+      .toBuffer();
     if (
       generatedBody.length === 0 ||
       generatedBody.length > uploadConfig.maxBytes ||
-      !isPng(generatedBody)
+      !isWebp(generatedBody)
     ) {
-      throw new Error("Generated preview did not pass PNG validation.");
+      throw new Error("Generated preview did not pass WEBP validation.");
     }
 
     const key = generatedStorageKey(shop, preview.uploadId, preview.kind);
-    await uploadStoredFile({ key, contentType: "image/png", body: generatedBody });
-    await storeStampPreviewThumbnail(key, generatedBody);
+    await Promise.all([
+      uploadStoredFile({ key, contentType: "image/webp", body: generatedBody }),
+      storeStampPreviewThumbnail(key, generatedBody)
+    ]);
 
     await prisma.stampPreview.update({
       where: { id: preview.id },
@@ -295,7 +303,7 @@ const refreshOnePreview = async (
         status: "completed",
         storageKey: key,
         storageUrl: `bunny://${storageBucket()}/${key}`,
-        contentType: "image/png",
+        contentType: "image/webp",
         fileSize: generatedBody.length,
         generatedAt: new Date(),
         error: null
@@ -367,7 +375,8 @@ export const getStoredStampPreviewForStorefront = async ({
 
   if (!thumbnail) {
     const file = await fetchStoredFile(preview.storageKey);
-    return { ok: true as const, preview, file, contentType: "image/png" as const };
+    const contentType = preview.contentType === "image/webp" ? "image/webp" : "image/png";
+    return { ok: true as const, preview, file, contentType };
   }
 
   const thumbnailKey = stampPreviewThumbnailStorageKey(preview.storageKey);

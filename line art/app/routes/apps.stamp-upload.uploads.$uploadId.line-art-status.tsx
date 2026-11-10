@@ -40,6 +40,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     uploadId: upload.uploadId,
     status: upload.lineArtStatus,
     color: upload.lineArtColor,
+    version: upload.lineArtGeneratedAt?.getTime() || null,
     previewUrl,
     fullPreviewUrl,
     lineArtUrl: ready ? createLineArtOrderFileUrl(upload) : null,

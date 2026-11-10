@@ -45,6 +45,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       return {
         kind,
         status: preview?.status || "not_started",
+        version: preview?.generatedAt?.getTime() || null,
         previewUrl,
         fullPreviewUrl,
         error: preview?.status === "failed" ? preview.error : null

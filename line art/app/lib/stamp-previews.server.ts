@@ -13,10 +13,15 @@ const kindLabels: Record<StampPreviewKind, string> = {
   bag: "kraft paper shopping bag"
 };
 
-const kindScenes: Record<StampPreviewKind, string> = {
-  box: "Show one closed natural kraft cardboard mailer box at a tasteful three-quarter angle, with the stamp centered cleanly on the top lid.",
-  cup: "Show one premium matte white takeaway coffee cup with a simple fitted lid, with the stamp centered cleanly on the front of the cup.",
-  bag: "Show one upright natural kraft paper shopping bag with twisted paper handles, with the stamp centered cleanly on the front panel."
+const kindPlacementAreas: Record<StampPreviewKind, string> = {
+  box: "the center of the blank top lid",
+  cup: "the center of the blank front face of the cup",
+  bag: "the center of the blank front panel"
+};
+
+const getMockupUrl = (kind: StampPreviewKind) => {
+  const appUrl = requireServerEnv("SHOPIFY_APP_URL").replace(/\/+$/, "");
+  return `${appUrl}/stamp-mockups/blank-${kind}.png`;
 };
 
 const configureFal = () => {
@@ -45,21 +50,24 @@ export const resolveStampPreviewKind = (
     : null;
 
 export const buildStampPreviewPrompt = (kind: StampPreviewKind, color: InkColor) => `
-TASK
-Create a premium, photorealistic ecommerce product mockup showing the supplied stamp line art applied to a ${kindLabels[kind]}.
+INPUT IMAGES
+- Image 1 is the finished blank ${kindLabels[kind]} product photograph. It is the edit target.
+- Image 2 is the finished customer stamp line-art PNG. It is a locked artwork asset, not inspiration.
+
+TASK — EDIT IMAGE 1 ONLY
+Preserve Image 1's product, camera angle, crop, background, lighting, materials, shadows, and composition. Apply Image 2 once as a realistic single-color ${color} ink impression at ${kindPlacementAreas[kind]}.
 
 ARTWORK FIDELITY — HIGHEST PRIORITY
-- The supplied transparent PNG is the finished customer artwork, not inspiration. Reproduce it exactly.
-- Preserve every letter, word, number, icon, border, line, spacing relationship, proportion, orientation, and layout exactly as supplied.
-- Do not redraw, restyle, simplify, improve, translate, correct, replace, add, or remove anything in the artwork.
-- Apply the complete artwork once, as a realistic single-color ${color} ink stamp impression. Do not invent other text or branding anywhere in the image.
+- Copy the complete artwork from Image 2 exactly. Preserve every letter, word, number, icon, border, line, spacing relationship, proportion, orientation, and layout.
+- Do not redraw, reinterpret, restyle, simplify, improve, translate, correct, replace, add, or remove anything in Image 2.
+- Never substitute a generic logo, badge, seal, monogram, coffee mark, shipping mark, or invented text.
+- If exact reproduction is difficult, prioritize copying Image 2 over adding realism.
 - Keep the artwork crisp, legible, flat to the product surface, and naturally integrated with subtle ink absorption. No embossing, engraving, label, sticker, foil, or raised print effect.
 
-PRODUCT AND COMPOSITION
-- ${kindScenes[kind]}
-- Square, catalog-ready composition with the entire product visible and generous breathing room.
-- Warm off-white seamless studio background, soft diffused daylight, realistic contact shadow, refined neutral styling.
-- Product photography only: no hands, people, props, extra products, captions, frames, watermarks, or logos other than the supplied artwork.
+PRODUCT LOCK
+- Do not replace, regenerate, resize, rotate, move, crop, or redesign the product from Image 1.
+- Do not alter any part of Image 1 except the local blank surface where the stamp impression is applied.
+- Do not add hands, people, props, extra products, captions, frames, watermarks, or any other logos or text.
 
 OUTPUT
 - Return exactly one 1024 by 1024 photorealistic product image.
@@ -136,10 +144,11 @@ export const startStampPreviewGeneration = async ({
     await Promise.all(
       pendingKinds.map(async (kind) => {
         try {
+          const mockupUrl = getMockupUrl(kind);
           const queued = await fal.queue.submit(lineArtConfig.model, {
             input: {
               prompt: buildStampPreviewPrompt(kind, color),
-              image_urls: [sourceUrl],
+              image_urls: [mockupUrl, sourceUrl],
               image_size: "square_hd",
               background: "opaque",
               quality: lineArtConfig.quality,

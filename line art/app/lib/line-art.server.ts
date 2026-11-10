@@ -15,8 +15,8 @@ import {
 } from "./storage.server";
 
 const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-const lineArtPipelineVersion = "line-art-v4-detail-safe";
-const deterministicLineArtModel = "deterministic-monochrome-v1";
+const lineArtPipelineVersion = "line-art-v5-ink-efficient";
+const deterministicLineArtModel = "deterministic-monochrome-v2-coverage-gated";
 
 const inkColors = {
   black: { name: "black", hex: "#111111" },
@@ -59,11 +59,21 @@ SOURCE FIDELITY
 LINE-ART CONVERSION
 - Convert the design into crisp, high-contrast, vector-like stamp artwork using one ink color only.
 - Use solid black ink (#111111) for every visible mark. Use no other color. This is a neutral production master that will be recolored exactly after generation.
-- Replace gradients, photographs, lighting, shading, texture, transparency effects, and soft shadows with clean outlines and simple solid shapes.
+- Replace gradients, photographs, lighting, shading, texture, transparency effects, and soft shadows with clean contours and deliberately simplified line work.
 - Keep important internal details, but simplify tiny noise and hairline details that would not reproduce reliably as a physical stamp.
 - Do not merge distinct logo parts or flood-fill enclosed regions that are empty in the source.
 - Use smooth continuous contours, balanced negative space, clean joins, and stamp-safe stroke thickness.
 - If the source contains a photograph, trace only the main subject and essential identifying contours as simplified line art without inventing details.
+
+INK-EFFICIENT OUTLINE POLICY — CRITICAL
+- Use an outline-first treatment and the minimum practical ink needed to preserve the artwork's identity.
+- Do not make strokes thicker, bolder, or heavier than necessary for a reliable stamp impression.
+- Convert broad dark, colored, shaded, or filled regions into their essential outer and inner contour lines with transparent negative-space interiors wherever the identity remains clear.
+- Never reproduce a large solid slab, blob, disk, background panel, or complete filled silhouette merely because that area is filled in the source.
+- Preserve intentional internal openings and introduce clean negative-space separation wherever a dense region would otherwise swallow recognizable detail.
+- Small essential marks, normal letter strokes, and genuinely solid brand elements may remain filled when outlining them would change the logo. Do not hollow ordinary text or make text illegible.
+- Aim for open, breathable line art with substantially more transparent negative space than ink. Avoid unnecessary ink coverage while keeping all important text and identifying contours readable.
+- Do not invert positive and negative space, and do not turn the transparent background into part of the artwork.
 
 OUTPUT
 - Return exactly one isolated artwork, centered with generous transparent padding.
@@ -273,14 +283,6 @@ export const startLineArtGeneration = async ({
     };
   }
 
-  if (
-    upload.lineArtStatus === "completed" &&
-    upload.lineArtColor === color &&
-    upload.lineArtStorageKey
-  ) {
-    return { ok: true as const, status: "completed" as const, upload, color };
-  }
-
   try {
     let sourceBody: Buffer | null = null;
     let sourceSha256 = upload.sourceSha256;
@@ -295,6 +297,15 @@ export const startLineArtGeneration = async ({
     }
 
     const cacheKey = buildLineArtCacheKey({ sourceSha256 });
+    if (
+      upload.lineArtStatus === "completed" &&
+      upload.lineArtColor === color &&
+      upload.lineArtStorageKey &&
+      upload.lineArtCacheKey === cacheKey
+    ) {
+      return { ok: true as const, status: "completed" as const, upload, color };
+    }
+
     if (
       upload.lineArtStatus === "processing" &&
       upload.lineArtCacheKey === cacheKey &&

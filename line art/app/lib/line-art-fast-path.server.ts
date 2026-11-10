@@ -3,6 +3,7 @@ import sharp from "sharp";
 const outputSize = 1024;
 const contentSize = 860;
 const analysisSize = 384;
+const maxFastPathInkCoverage = 0.4;
 
 type RgbaImage = {
   data: Buffer;
@@ -173,6 +174,36 @@ const buildRecoloredArtwork = (
   return recolored;
 };
 
+const inkCoverageWithinArtworkBounds = (
+  pixels: Buffer,
+  width: number,
+  height: number
+) => {
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  let alphaTotal = 0;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = pixels[(y * width + x) * 4 + 3];
+      if (alpha < 8) continue;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+      alphaTotal += alpha / 255;
+    }
+  }
+
+  if (maxX < minX || maxY < minY) return 0;
+
+  const boundsArea = (maxX - minX + 1) * (maxY - minY + 1);
+  return boundsArea > 0 ? alphaTotal / boundsArea : 0;
+};
+
 export const recolorMonochromeLineArt = async ({
   source,
   inkHex
@@ -229,6 +260,18 @@ export const tryCreateMonochromeLineArt = async ({
 
   const fullImage = await decodeRgba(source);
   const recolored = buildRecoloredArtwork(fullImage, analysis, inkHex);
+  const inkCoverage = inkCoverageWithinArtworkBounds(
+    recolored,
+    fullImage.width,
+    fullImage.height
+  );
+
+  // The instant path is intentionally limited to artwork that is already
+  // economical line art. Dense one-color logos still need the AI conversion:
+  // recoloring them directly would preserve broad slabs of solid ink instead
+  // of converting those regions into stamp-safe contours and negative space.
+  if (inkCoverage > maxFastPathInkCoverage) return null;
+
   const padding = Math.floor((outputSize - contentSize) / 2);
 
   return sharp(recolored, {

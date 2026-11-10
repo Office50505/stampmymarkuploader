@@ -9,6 +9,8 @@ type Quad = [Point, Point, Point, Point];
 const canvasSize = 1254;
 const artworkSize = 768;
 const artworkContentSize = 704;
+const minimumArtworkContentSize = Math.round(artworkContentSize * 0.58);
+const targetInkArea = artworkContentSize * artworkContentSize * 0.22;
 
 const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>> = {
   regular: {
@@ -174,6 +176,32 @@ const removeOpaqueWhiteBackground = (
   return { data: normalized, width, height };
 };
 
+const visualContentSize = (
+  data: Buffer,
+  width: number,
+  height: number
+) => {
+  let alphaTotal = 0;
+  for (let index = 3; index < data.length; index += 4) {
+    alphaTotal += data[index] / 255;
+  }
+
+  const boundingArea = Math.max(1, width * height);
+  const inkFillRatio = Math.max(0.04, alphaTotal / boundingArea);
+  const aspectRatio = width / Math.max(1, height);
+  const aspectSpan = Math.max(aspectRatio, 1 / Math.max(aspectRatio, 0.01));
+  const desiredLongEdge = Math.sqrt(
+    (targetInkArea * aspectSpan) / inkFillRatio
+  );
+
+  return Math.round(
+    Math.max(
+      minimumArtworkContentSize,
+      Math.min(artworkContentSize, desiredLongEdge)
+    )
+  );
+};
+
 const prepareArtwork = async (body: Buffer, color: InkColor) => {
   const decoded = await sharp(body)
     .ensureAlpha()
@@ -194,22 +222,34 @@ const prepareArtwork = async (body: Buffer, color: InkColor) => {
   })
     .png()
     .toBuffer();
-  const padding = Math.floor((artworkSize - artworkContentSize) / 2);
-
-  return sharp(normalizedPng)
+  const trimmedPng = await sharp(normalizedPng)
     .trim({
       background: { r: 0, g: 0, b: 0, alpha: 0 },
       threshold: 6
     })
-    .resize(artworkContentSize, artworkContentSize, {
+    .png()
+    .toBuffer();
+  const trimmed = await sharp(trimmedPng)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const contentSize = visualContentSize(
+    trimmed.data,
+    trimmed.info.width,
+    trimmed.info.height
+  );
+  const padding = Math.floor((artworkSize - contentSize) / 2);
+
+  return sharp(trimmedPng)
+    .resize(contentSize, contentSize, {
       fit: "contain",
       background: { r: 0, g: 0, b: 0, alpha: 0 }
     })
     .extend({
       top: padding,
-      bottom: artworkSize - artworkContentSize - padding,
+      bottom: artworkSize - contentSize - padding,
       left: padding,
-      right: artworkSize - artworkContentSize - padding,
+      right: artworkSize - contentSize - padding,
       background: { r: 0, g: 0, b: 0, alpha: 0 }
     })
     .ensureAlpha()

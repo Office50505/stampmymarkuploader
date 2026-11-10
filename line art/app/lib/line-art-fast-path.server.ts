@@ -51,6 +51,7 @@ const decodeRgba = async (body: Buffer, resizeForAnalysis = false): Promise<Rgba
 
 type MonochromeAnalysis =
   | { mode: "transparent" }
+  | { mode: "transparent-luminance"; darkestLuminance: number }
   | { mode: "white-background"; darkestLuminance: number };
 
 const analyzeMonochromeArtwork = (image: RgbaImage): MonochromeAnalysis | null => {
@@ -85,7 +86,15 @@ const analyzeMonochromeArtwork = (image: RgbaImage): MonochromeAnalysis | null =
       )
     );
 
-    return percentile(distances, 0.95) <= 26 ? { mode: "transparent" } : null;
+    // A transparent canvas does not prove the visible artwork is already
+    // single-color. Logos often keep opaque white counters and lettering inside
+    // a dark outer shape; alpha-only recoloring would flood those details and
+    // leave only a silhouette. Keep this shortcut deliberately conservative.
+    if (percentile(distances, 0.95) > 18) return null;
+    if (percentile(distances, 0.99) > 30) return null;
+    if (percentile(distances, 0.999) > 45) return null;
+
+    return { mode: "transparent" };
   }
 
   const borderValues: number[] = [];
@@ -133,7 +142,7 @@ const buildRecoloredArtwork = (
   const ink = parseHexColor(inkHex);
   const recolored = Buffer.alloc(image.width * image.height * 4);
   const contrastRange =
-    analysis.mode === "white-background"
+    analysis.mode !== "transparent"
       ? Math.max(32, 255 - analysis.darkestLuminance)
       : 255;
 
@@ -151,10 +160,14 @@ const buildRecoloredArtwork = (
       0.2126 * image.data[index] +
       0.7152 * image.data[index + 1] +
       0.0722 * image.data[index + 2];
-    recolored[index + 3] = Math.max(
+    const luminanceAlpha = Math.max(
       0,
       Math.min(255, Math.round(((255 - luminance) / contrastRange) * 255))
     );
+    recolored[index + 3] =
+      analysis.mode === "transparent-luminance"
+        ? Math.round((luminanceAlpha * image.data[index + 3]) / 255)
+        : luminanceAlpha;
   }
 
   return recolored;
@@ -182,12 +195,13 @@ export const recolorMonochromeLineArt = async ({
     if (luminance < 245) foregroundLuminance.push(luminance);
   }
 
+  const darkestLuminance = Math.max(0, percentile(foregroundLuminance, 0.02));
   const analysis: MonochromeAnalysis =
     transparentPixels / pixelCount >= 0.001
-      ? { mode: "transparent" }
+      ? { mode: "transparent-luminance", darkestLuminance }
       : {
           mode: "white-background",
-          darkestLuminance: Math.max(0, percentile(foregroundLuminance, 0.02))
+          darkestLuminance
         };
   const recolored = buildRecoloredArtwork(image, analysis, inkHex);
 

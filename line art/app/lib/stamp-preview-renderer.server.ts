@@ -27,10 +27,10 @@ const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>
       { x: 444, y: 841 }
     ],
     bag: [
-      { x: 425, y: 480 },
-      { x: 829, y: 480 },
-      { x: 806, y: 850 },
-      { x: 448, y: 850 }
+      { x: 425, y: 525 },
+      { x: 829, y: 525 },
+      { x: 806, y: 895 },
+      { x: 448, y: 895 }
     ]
   },
   white: {
@@ -47,10 +47,10 @@ const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>
       { x: 444, y: 841 }
     ],
     bag: [
-      { x: 425, y: 480 },
-      { x: 829, y: 480 },
-      { x: 806, y: 850 },
-      { x: 448, y: 850 }
+      { x: 425, y: 525 },
+      { x: 829, y: 525 },
+      { x: 806, y: 895 },
+      { x: 448, y: 895 }
     ]
   }
 };

@@ -14,7 +14,7 @@ import {
 export const stampPreviewKinds = ["bag", "cup", "box"] as const;
 export type StampPreviewKind = (typeof stampPreviewKinds)[number];
 
-const stampPreviewRenderer = "deterministic-v14-reference-size";
+const stampPreviewRenderer = "deterministic-v15-lower-clear-cup";
 
 const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });

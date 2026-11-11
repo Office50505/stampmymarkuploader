@@ -17,6 +17,14 @@
   };
   const appProxyRoot = "/apps/line-art-upload/";
   const appProxyBase = appProxyRoot + "uploads/";
+  // The live theme renders line-item properties containing "artwork" as image
+  // thumbnails. Keep the generated line art under its own artwork property so
+  // customers see both previews instead of a long signed URL.
+  const lineArtPropertyName = "properties[StampMyMark line art artwork]";
+  const legacyLineArtPropertyNames = [
+    "properties[Printmivo line art]",
+    "properties[StampMyMark line art]"
+  ];
   const instantMockupAssetVersion = "1";
   const instantCanvasSize = 640;
   const instantArtworkSize = 512;
@@ -602,6 +610,7 @@
     }
 
     if (input) {
+      input.name = name;
       input.value = value || "";
       input.disabled = !value;
     }
@@ -638,7 +647,7 @@
       root,
       form,
       "[data-upload-line-art-property]",
-      "properties[Printmivo line art]",
+      lineArtPropertyName,
       lineArtUrl
     );
   }
@@ -692,7 +701,8 @@
       "properties[StampMyMark artwork]",
       buildArtworkUploadUrl(root, uploadId, artworkUrl)
     );
-    setFormDataValue(formData, "properties[Printmivo line art]", lineArtUrl);
+    legacyLineArtPropertyNames.forEach((name) => formData.delete(name));
+    setFormDataValue(formData, lineArtPropertyName, lineArtUrl);
 
     const text = getTextFieldPayload(root);
     setFormDataValue(formData, "properties[Above]", text.textAbove);

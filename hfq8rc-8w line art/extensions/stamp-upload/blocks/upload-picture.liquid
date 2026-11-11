@@ -1,0 +1,366 @@
+{% liquid
+  assign selected_variant = product.selected_or_first_available_variant
+  assign max_bytes = block.settings.max_file_size_mb | times: 1048576
+%}
+
+<link rel="stylesheet" href="{{ 'stamp-upload.css' | asset_url }}" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="{{ 'stamp-upload.css' | asset_url }}"></noscript>
+
+<div
+  id="smm-upload-{{ block.id }}"
+  class="smm-upload"
+  style="display:block;margin:16px 0 18px;width:100%;"
+  data-line-art-upload
+  data-smm-module-url="{{ 'stamp-upload-core.js' | asset_url }}"
+  data-product-id="{{ product.id }}"
+  data-product-gid="gid://shopify/Product/{{ product.id }}"
+  data-product-handle="{{ product.handle | escape }}"
+  data-product-title="{{ product.title | escape }}"
+  data-variant-id="{{ selected_variant.id }}"
+  data-variant-gid="gid://shopify/ProductVariant/{{ selected_variant.id }}"
+  data-variant-title="{{ selected_variant.title | escape }}"
+  data-size-option-name="{{ block.settings.size_option_name | escape }}"
+  data-color-option-name="{{ block.settings.color_option_name | escape }}"
+  data-required="{{ block.settings.required }}"
+  data-max-bytes="{{ max_bytes }}"
+  data-customer-id="{% if customer %}{{ customer.id }}{% endif %}"
+  data-show-text-fields-after-upload="{{ block.settings.show_text_fields_after_upload }}"
+  data-line-art-preparing="{{ 'line_art.preparing' | t | escape }}"
+  data-line-art-generating="{{ 'line_art.generating' | t | escape }}"
+  data-line-art-ready="{{ 'line_art.ready' | t | escape }}"
+  data-line-art-failed="{{ 'line_art.failed' | t | escape }}"
+  data-line-art-timeout="{{ 'line_art.timeout' | t | escape }}"
+  data-stamp-previews-generating-line-art="{{ 'stamp_previews.generating_line_art' | t | escape }}"
+  data-stamp-previews-generating-mockups="{{ 'stamp_previews.generating_mockups' | t | escape }}"
+  data-stamp-previews-updating-color="{{ 'stamp_previews.updating_color' | t | escape }}"
+  data-stamp-previews-ready="{{ 'stamp_previews.ready' | t | escape }}"
+  data-stamp-previews-failed="{{ 'stamp_previews.failed' | t | escape }}"
+  data-stamp-previews-timeout="{{ 'stamp_previews.timeout' | t | escape }}"
+>
+  <div class="smm-upload__preview" data-upload-preview hidden></div>
+
+  <p class="smm-upload__line-art-note">{{ 'line_art.upload_help' | t }}</p>
+
+  <button
+    class="smm-upload__button"
+    type="button"
+    data-upload-trigger
+    style="align-items:center;appearance:none;background:#1298e8;border:0;border-radius:3px;color:#fff;cursor:pointer;display:inline-flex;font-family:inherit;font-size:14px;font-weight:600;justify-content:center;line-height:20px;min-height:42px;padding:10px 16px;text-align:center;width:100%;"
+  >
+    <svg class="smm-upload__button-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+      <path d="M7 18.5H6a4 4 0 0 1-.7-7.94A6.5 6.5 0 0 1 17.74 8.3 4.6 4.6 0 0 1 18 17.5h-1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M12 20V11m0 0-3.25 3.25M12 11l3.25 3.25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span data-upload-button-label>{{ block.settings.button_label }}</span>
+  </button>
+
+  <input
+    class="smm-upload__input"
+    type="file"
+    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+    data-upload-input
+    hidden
+  >
+
+  <input type="hidden" name="properties[_stampmymark_upload_id]" data-upload-id-property disabled>
+  <input type="hidden" name="properties[_stampmymark_original_filename]" data-upload-filename-property disabled>
+  <input type="hidden" name="properties[StampMyMark artwork]" data-upload-artwork-property disabled>
+  <input type="hidden" name="properties[StampMyMark line art artwork]" data-upload-line-art-property disabled>
+  <input type="hidden" name="properties[Above]" data-upload-text-above-property disabled>
+  <input type="hidden" name="properties[Below]" data-upload-text-below-property disabled>
+  <input type="hidden" name="properties[Notes]" data-upload-designer-notes-property disabled>
+
+  <div class="smm-upload__status" data-upload-status role="status" aria-live="polite"></div>
+
+  <section
+    class="smm-upload__stamp-previews"
+    data-stamp-previews
+    data-state="waiting"
+    aria-labelledby="smm-stamp-preview-title-{{ block.id }}"
+    hidden
+  >
+    <fieldset class="smm-upload__preview-ink" data-preview-ink-selector>
+      <legend class="smm-upload__preview-ink-title">{{ 'stamp_previews.ink_color' | t }}</legend>
+      <div class="smm-upload__preview-ink-options">
+        {% assign preview_ink_colors = 'black,blue,green,purple,red,white' | split: ',' %}
+        {% for preview_ink_color in preview_ink_colors %}
+          {% capture preview_ink_label_key %}stamp_previews.colors.{{ preview_ink_color }}{% endcapture %}
+          {% assign preview_ink_label = preview_ink_label_key | t %}
+          <button
+            class="smm-upload__preview-ink-option smm-upload__preview-ink-option--{{ preview_ink_color }}"
+            type="button"
+            data-preview-ink-color="{{ preview_ink_color }}"
+            aria-pressed="false"
+            aria-label="{{ 'stamp_previews.select_color' | t: color: preview_ink_label | escape }}"
+          >
+            <span class="smm-upload__preview-ink-swatch" aria-hidden="true"></span>
+            <span>{{ preview_ink_label }}</span>
+          </button>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <h3 class="smm-upload__stamp-previews-title" id="smm-stamp-preview-title-{{ block.id }}">
+      {{ 'stamp_previews.title' | t }}
+    </h3>
+
+    <div class="smm-upload__stamp-previews-summary" aria-live="polite">
+      <span class="smm-upload__stamp-previews-summary-icon" aria-hidden="true">
+        <svg class="smm-upload__stamp-previews-check" viewBox="0 0 24 24" fill="none">
+          <path d="m5 12.5 4.2 4.2L19 7" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="smm-upload__stamp-previews-spinner"></span>
+      </span>
+      <span data-stamp-previews-summary>{{ 'stamp_previews.generating_line_art' | t }}</span>
+      <strong class="smm-upload__stamp-previews-percentage" data-stamp-previews-percentage>0%</strong>
+      <button class="smm-upload__stamp-previews-retry" type="button" data-stamp-previews-retry hidden>
+        {{ 'stamp_previews.retry' | t }}
+      </button>
+    </div>
+
+    <div
+      class="smm-upload__stamp-previews-progress"
+      role="progressbar"
+      aria-label="{{ 'stamp_previews.progress' | t | escape }}"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="0"
+      data-stamp-previews-progress
+    >
+      <span class="smm-upload__stamp-previews-progress-fill" data-stamp-previews-progress-fill></span>
+    </div>
+
+    <div class="smm-upload__stamp-previews-grid">
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="line_art" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.line_art_alt' | t | escape }}" width="640" height="640" loading="eager" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.line_art' | t }}</figcaption>
+      </figure>
+
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="bag" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.bag_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.bag' | t }}</figcaption>
+      </figure>
+
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="cup" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.cup_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.cup' | t }}</figcaption>
+      </figure>
+
+      <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="box" data-state="waiting">
+        <div class="smm-upload__stamp-preview-media">
+          <div class="smm-upload__stamp-preview-generating" aria-hidden="true">
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--one"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--two"></span>
+            <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
+            <span class="smm-upload__stamp-preview-sheen"></span>
+          </div>
+          <img data-stamp-preview-image alt="{{ 'stamp_previews.box_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
+          <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
+        </div>
+        <figcaption>{{ 'stamp_previews.box' | t }}</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  {% if block.settings.show_text_fields_after_upload %}
+    <div class="smm-upload__text-fields" data-upload-text-fields hidden>
+      {% if block.settings.show_text_above_field %}
+        <div class="smm-upload__field">
+          <label class="smm-upload__label" for="smm-upload-text-above-{{ block.id }}">
+            {{ block.settings.text_above_label }} <span class="smm-upload__optional">({{ 'Optional' }})</span>
+          </label>
+          <input
+            type="text"
+            id="smm-upload-text-above-{{ block.id }}"
+            class="smm-upload__input-text"
+            placeholder="{% if block.settings.text_above_placeholder == 'You can leave this blank if you do not want any text here.' %}e.g. ACME BAKERY{% else %}{{ block.settings.text_above_placeholder | escape }}{% endif %}"
+            maxlength="30"
+            data-upload-text-field
+            data-upload-text-above
+          >
+          <div class="smm-upload__field-meta">
+            <span>One line, up to 30 characters</span>
+            <span data-upload-character-count>0/30</span>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if block.settings.show_text_below_field %}
+        <div class="smm-upload__field">
+          <label class="smm-upload__label" for="smm-upload-text-below-{{ block.id }}">
+            {{ block.settings.text_below_label }} <span class="smm-upload__optional">({{ 'Optional' }})</span>
+          </label>
+          <input
+            type="text"
+            id="smm-upload-text-below-{{ block.id }}"
+            class="smm-upload__input-text"
+            placeholder="{% if block.settings.text_below_placeholder == 'You can leave this blank if you do not want any text here.' %}e.g. Est. 2015 · Austin, TX{% else %}{{ block.settings.text_below_placeholder | escape }}{% endif %}"
+            maxlength="30"
+            data-upload-text-field
+            data-upload-text-below
+          >
+          <div class="smm-upload__field-meta">
+            <span>One line, up to 30 characters</span>
+            <span data-upload-character-count>0/30</span>
+          </div>
+        </div>
+      {% endif %}
+
+      {% if block.settings.show_designer_notes_field %}
+        <div class="smm-upload__print-note" role="note">
+          <span class="smm-upload__print-note-icon" aria-hidden="true">!</span>
+          <span>We print exactly what you type. Please double-check spelling, capitals and punctuation.</span>
+        </div>
+        <div class="smm-upload__field">
+          <label class="smm-upload__label" for="smm-upload-designer-notes-{{ block.id }}">
+            {{ block.settings.designer_notes_label }} <span class="smm-upload__optional">({{ 'Optional' }})</span>
+          </label>
+          <textarea
+            id="smm-upload-designer-notes-{{ block.id }}"
+            class="smm-upload__textarea"
+            rows="4"
+            maxlength="300"
+            placeholder="{% if block.settings.designer_notes_placeholder == 'You can leave this blank if you do not want any text here.' %}e.g. Make the logo bigger, use a bold font, add a round border{% else %}{{ block.settings.designer_notes_placeholder | escape }}{% endif %}"
+            data-upload-text-field
+            data-upload-designer-notes
+          ></textarea>
+          <div class="smm-upload__field-meta">
+            <span>Style, size, font or layout requests</span>
+            <span data-upload-character-count>0/300</span>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+{% schema %}
+{
+  "name": "Line Art Uploader",
+  "target": "section",
+  "javascript": "stamp-upload.js",
+  "settings": [
+    {
+      "type": "text",
+      "id": "button_label",
+      "label": "Button label",
+      "default": "Upload Logo & Create Line Art"
+    },
+    {
+      "type": "checkbox",
+      "id": "required",
+      "label": "Require upload before add to cart",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "size_option_name",
+      "label": "Size option name",
+      "default": "Size"
+    },
+    {
+      "type": "text",
+      "id": "color_option_name",
+      "label": "Ink color option name",
+      "default": "Ink color"
+    },
+    {
+      "type": "range",
+      "id": "max_file_size_mb",
+      "label": "Maximum file size",
+      "min": 1,
+      "max": 50,
+      "step": 1,
+      "unit": "MB",
+      "default": 25
+    },
+    {
+      "type": "checkbox",
+      "id": "show_text_fields_after_upload",
+      "label": "Show text fields only after upload",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_text_above_field",
+      "label": "Show text above field",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "text_above_label",
+      "label": "Text above label",
+      "default": "Text Above the Picture"
+    },
+    {
+      "type": "text",
+      "id": "text_above_placeholder",
+      "label": "Text above placeholder",
+      "default": "You can leave this blank if you do not want any text here."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_text_below_field",
+      "label": "Show text below field",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "text_below_label",
+      "label": "Text below label",
+      "default": "Text Below the Picture"
+    },
+    {
+      "type": "text",
+      "id": "text_below_placeholder",
+      "label": "Text below placeholder",
+      "default": "You can leave this blank if you do not want any text here."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_designer_notes_field",
+      "label": "Show notes field",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "designer_notes_label",
+      "label": "Notes label",
+      "default": "Notes For Your Designer"
+    },
+    {
+      "type": "text",
+      "id": "designer_notes_placeholder",
+      "label": "Notes placeholder",
+      "default": "You can leave this blank if you do not want any text here."
+    }
+  ]
+}
+{% endschema %}

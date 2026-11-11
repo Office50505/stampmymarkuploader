@@ -1,0 +1,704 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "breadcrumb": {
+      "type": "breadcrumb",
+      "disabled": true,
+      "settings": {
+        "container": "container",
+        "text_alignment": "center",
+        "hide_current": false,
+        "hide_on_mb": false,
+        "animations": "inherit"
+      }
+    },
+    "main": {
+      "type": "main-product",
+      "blocks": {
+        "badge_ChqgGj": {
+          "type": "badge",
+          "settings": {}
+        },
+        "stamp_trust_line": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "{% render 'printmivo-stamp-social-proof', kind: 'trust' %}"
+          }
+        },
+        "title": {
+          "type": "title",
+          "settings": {}
+        },
+        "price": {
+          "type": "price",
+          "settings": {
+            "show_saving": true,
+            "sale_badge_type": "percentage"
+          }
+        },
+        "variant_picker": {
+          "type": "variant_picker",
+          "settings": {
+            "size_title": "Size"
+          }
+        },
+        "stampmymark_uploader_us_upload_picture_DQdpkC": {
+          "type": "shopify://apps/stampmymark-uploader-us/blocks/upload-picture/01a13a49-4d98-7c89-830e-8271b2193be4",
+          "settings": {
+            "button_label": "Upload Your Logo",
+            "required": true,
+            "size_option_name": "Size",
+            "max_file_size_mb": 25,
+            "show_text_fields_after_upload": true,
+            "show_text_above_field": true,
+            "text_above_label": "Text Above the Picture",
+            "text_above_placeholder": "You can leave this blank if you do not want any text here.",
+            "show_text_below_field": true,
+            "text_below_label": "Text Below the Picture",
+            "text_below_placeholder": "You can leave this blank if you do not want any text here.",
+            "show_designer_notes_field": true,
+            "designer_notes_label": "Notes For Your Designer",
+            "designer_notes_placeholder": "You can leave this blank if you do not want any text here.",
+            "app_url": "https://printmivo-us-production.up.railway.app"
+          }
+        },
+        "buy_buttons": {
+          "type": "buy_buttons",
+          "settings": {
+            "show_quantity_selector": true,
+            "show_atc_button": true,
+            "show_dynamic_checkout": true,
+            "show_gift_card_recipient": true
+          }
+        },
+        "stamp_testimonial": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "{% render 'printmivo-stamp-social-proof', kind: 'testimonial' %}"
+          }
+        },
+        "printmivo_good_hands": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "<img src=\"{{ 'printmivo-good-hands-trust-banner-v2.webp' | asset_url }}\" alt=\"{{ 'printmivo_good_hands.alt' | t | escape }}\" width=\"1600\" height=\"894\" loading=\"lazy\" decoding=\"async\" style=\"display:block;width:100%;height:auto;\">"
+          }
+        },
+        "printmivo_reels": {
+          "type": "custom_liquid",
+          "settings": {
+            "custom_liquid": "{% render 'printmivo-product-reels', product: product %}"
+          }
+        },
+        "addons": {
+          "type": "addons",
+          "disabled": true,
+          "settings": {
+            "show_atcp": false,
+            "show_ask_a_question": false,
+            "show_social": false
+          }
+        },
+        "shipping_VBJFtx": {
+          "type": "shipping",
+          "disabled": true,
+          "settings": {
+            "show_delivery_times": true,
+            "deliver_text": "Estimated Delivery:",
+            "deliver_days": "7",
+            "date_format": "%b %d",
+            "show_shipping_text": true,
+            "shipping_text": "<p><strong>Shipping: </strong>Free shipping on $80+. $9.99 flat-rate below $80.</p>"
+          }
+        },
+        "trust_badge_NyBMd4": {
+          "type": "trust_badge",
+          "disabled": true,
+          "settings": {
+            "trust_badges_text": "<p>Guarantee safe & secure checkout</p>",
+            "trust_badges_image_width": "60%",
+            "position": "below"
+          }
+        },
+        "image_3hJkeX": {
+          "type": "image",
+          "settings": {
+            "image_link": "",
+            "image_width": 100,
+            "image_alignment": "start"
+          }
+        }
+      },
+      "block_order": [
+        "badge_ChqgGj",
+        "stamp_trust_line",
+        "title",
+        "price",
+        "variant_picker",
+        "stampmymark_uploader_us_upload_picture_DQdpkC",
+        "buy_buttons",
+        "stamp_testimonial",
+        "printmivo_good_hands",
+        "printmivo_reels",
+        "addons",
+        "shipping_VBJFtx",
+        "trust_badge_NyBMd4",
+        "image_3hJkeX"
+      ],
+      "custom_css": [
+        ".m-button--secondary {background: #da3f3f; color: #ffffff; border: 1px solid;}",
+        "@media screen and (min-width: 1024px) {.m-product-form--wrapper {width: 600px; } .upload-wrapper {width: 600px; }}",
+        ".main-product__block-image {margin-top: 8px !important; margin-bottom: 0 !important;}"
+      ],
+      "settings": {
+        "container": "w-full",
+        "layout": "layout-4",
+        "show_atwl": false,
+        "enable_history_state": true,
+        "enable_variant_group_images": false,
+        "disable_selected_variant_default": false,
+        "show_featured_media": true,
+        "show_zoom_button": true,
+        "enable_video_autoplay": false,
+        "show_nav_media_mobile": false,
+        "show_pagination_mobile": true,
+        "use_sticky_atc": false,
+        "use_sticky_atc_on_mobile": false,
+        "enable_dynamic_checkout": false,
+        "sticky_atc_wishtlist": false,
+        "sticky_atc_compare": false
+      }
+    },
+    "printmivo_stamp_comparison": {
+      "type": "printmivo-stamp-comparison",
+      "settings": {
+        "eyebrow": "THE SMARTER WAY TO BRAND",
+        "heading": "Stamp vs. printed packaging",
+        "text": "See how a reusable custom stamp gives every small run a branded finish without the commitment of pre-printed packaging.",
+        "printed_image": "shopify://shop_images/printmivo-before-packaging-v1.png",
+        "printed_eyebrow": "PRE-PRINTED",
+        "printed_label": "Printed packaging",
+        "printed_text": "Higher minimums, less flexibility and packaging that can become outdated.",
+        "stamp_image": "shopify://shop_images/printmivo-after-packaging-v1.png",
+        "stamp_eyebrow": "PRINTMIVO STAMP",
+        "stamp_label": "Made for every run",
+        "stamp_text": "Brand cups, bags, boxes and more whenever you need them.",
+        "background_color": "#ffffff",
+        "padding_top": 28,
+        "padding_bottom": 28
+      }
+    },
+    "printmivo_stamp_guarantee": {
+      "type": "printmivo-stamp-guarantee",
+      "blocks": {
+        "artwork_checked": {
+          "type": "guarantee",
+          "settings": {
+            "title": "Free proof before production",
+            "text": "We review your uploaded logo and send a proof before production begins."
+          }
+        },
+        "made_for_daily_use": {
+          "type": "guarantee",
+          "settings": {
+            "title": "Free reprint if we make an error",
+            "text": "If we make a production error, we will correct it with a free reprint."
+          }
+        },
+        "support_for_custom_orders": {
+          "type": "guarantee",
+          "settings": {
+            "title": "Help with custom orders",
+            "text": "Need help choosing a size or preparing artwork? Our team is here before production starts."
+          }
+        }
+      },
+      "block_order": [
+        "artwork_checked",
+        "made_for_daily_use",
+        "support_for_custom_orders"
+      ],
+      "disabled": true,
+      "settings": {
+        "eyebrow": "ORDER WITH CONFIDENCE",
+        "heading": "Custom work, checked before production",
+        "description": "We review your artwork before production and stand behind the quality of every custom order."
+      }
+    },
+    "printmivo_use_cases": {
+      "type": "printmivo-use-cases",
+      "disabled": true,
+      "settings": {
+        "mode": "permanent",
+        "image_one": "shopify://shop_images/printmivo-usecase-permanent-cups-v1.webp",
+        "image_two": "shopify://shop_images/printmivo-usecase-permanent-retail-v1.webp",
+        "image_three": "shopify://shop_images/printmivo-usecase-permanent-mailers-v1.webp",
+        "background_color": "#ffffff",
+        "padding_top": 72,
+        "padding_bottom": 72
+      }
+    },
+    "printmivo_how_it_works": {
+      "type": "printmivo-how-it-works",
+      "disabled": true,
+      "settings": {
+        "mode": "permanent",
+        "image_one": "shopify://shop_images/printmivo-howto-permanent-prep-v1.webp",
+        "image_two": "shopify://shop_images/printmivo-howto-permanent-align-v1.webp",
+        "image_three": "shopify://shop_images/printmivo-howto-permanent-press-v1.webp",
+        "image_four": "shopify://shop_images/printmivo-howto-permanent-finish-v1.webp",
+        "background_color": "#ffffff",
+        "padding_top": 80,
+        "padding_bottom": 88
+      }
+    },
+    "scrolling_promotion_MVNN6Q": {
+      "type": "scrolling-promotion",
+      "blocks": {
+        "announcement_wewTPP": {
+          "type": "announcement",
+          "settings": {
+            "custom_svg": "",
+            "icon_size": "medium",
+            "text": "Free Delivery on orders over $200",
+            "text_size": 16,
+            "text_link": ""
+          }
+        },
+        "image_88JkQc": {
+          "type": "image",
+          "settings": {
+            "image_height": 8,
+            "image_link": ""
+          }
+        },
+        "announcement_iDtgyD": {
+          "type": "announcement",
+          "settings": {
+            "custom_svg": "",
+            "icon_size": "medium",
+            "text": "Free Delivery on orders over $200",
+            "text_size": 16,
+            "text_link": ""
+          }
+        },
+        "image_T6f3z4": {
+          "type": "image",
+          "settings": {
+            "image_height": 8,
+            "image_link": ""
+          }
+        },
+        "announcement_pPW8nc": {
+          "type": "announcement",
+          "settings": {
+            "custom_svg": "",
+            "icon_size": "medium",
+            "text": "Free Delivery on orders over $200",
+            "text_size": 16,
+            "text_link": ""
+          }
+        },
+        "image_83fwGn": {
+          "type": "image",
+          "settings": {
+            "image_height": 8,
+            "image_link": ""
+          }
+        }
+      },
+      "block_order": [
+        "announcement_wewTPP",
+        "image_88JkQc",
+        "announcement_iDtgyD",
+        "image_T6f3z4",
+        "announcement_pPW8nc",
+        "image_83fwGn"
+      ],
+      "disabled": true,
+      "custom_css": [
+        ".m-promotion__text {font-weight: 500;}"
+      ],
+      "settings": {
+        "container": "w-full",
+        "direction": "left",
+        "speed": 20,
+        "item_gap": 50,
+        "item_gap_mobile": 30,
+        "color_scheme": "scheme-09e5b5b4-774c-4b6c-8025-416ced49cc74",
+        "padding_top": 24,
+        "padding_bottom": 24,
+        "custom_class": ""
+      }
+    },
+    "icon_box_9UtNky": {
+      "type": "icon-box",
+      "blocks": {
+        "iconbox_pJbJGA": {
+          "type": "iconbox",
+          "settings": {
+            "card_color_scheme": "",
+            "image_by_url": "",
+            "title": "Free proof before production",
+            "description": "<p>We check your uploaded artwork and send a proof before production begins.</p>",
+            "link": "",
+            "button_label": "Learn more [arrow]",
+            "button_link": "",
+            "button_style": "m-button--plain",
+            "button_size": ""
+          }
+        },
+        "iconbox_RW46nE": {
+          "type": "iconbox",
+          "settings": {
+            "card_color_scheme": "",
+            "image_by_url": "",
+            "title": "Free reprint if we make an error",
+            "description": "<p>If we make a production error, we will correct it with a free reprint.</p>",
+            "link": "",
+            "button_label": "Learn more [arrow]",
+            "button_link": "",
+            "button_style": "m-button--plain",
+            "button_size": ""
+          }
+        },
+        "iconbox_EiwgTg": {
+          "type": "iconbox",
+          "settings": {
+            "card_color_scheme": "",
+            "image_by_url": "",
+            "title": "Help with custom orders",
+            "description": "<p>Our team can help with artwork, sizing, and order questions before production.</p>",
+            "link": "",
+            "button_label": "Learn more [arrow]",
+            "button_link": "",
+            "button_style": "m-button--plain",
+            "button_size": ""
+          }
+        }
+      },
+      "block_order": [
+        "iconbox_pJbJGA",
+        "iconbox_RW46nE",
+        "iconbox_EiwgTg"
+      ],
+      "disabled": true,
+      "custom_css": [
+        ".m-icon-box__heading {font-weight: 400;}"
+      ],
+      "settings": {
+        "container": "container",
+        "color_scheme": "",
+        "heading": "Why Minimog?",
+        "heading_size": "h3",
+        "subheading": "",
+        "description": "",
+        "header_alignment": "center",
+        "item_per_row": 3,
+        "item_gap": 30,
+        "item_gap_mobile": 10,
+        "card_style": "vertical",
+        "image_max_width": "70px",
+        "content_alignment": "center",
+        "hover_effect": "scaling-up",
+        "enable_slider": false,
+        "show_pagination": false,
+        "show_navigation": false,
+        "use_scroll_mobile": true,
+        "use_grid_column_mb": false,
+        "padding_top": 100,
+        "padding_bottom": 0,
+        "custom_class": "",
+        "animations": "inherit"
+      }
+    },
+    "collapsible_tabs_JndiBV": {
+      "type": "printmivo-product-faq",
+      "blocks": {
+        "item_bHzngY": {
+          "type": "item",
+          "settings": {
+            "header": "What file should I upload?",
+            "content": "<p>A clear PNG, JPG, PDF, SVG or AI file works best. If anything needs attention, our team will contact you before production.</p>",
+            "open": true
+          }
+        },
+        "item_RGMrHr": {
+          "type": "item",
+          "settings": {
+            "header": "Can I see a proof before my order is made?",
+            "content": "<p>We check your artwork before production and contact you if we need any clarification.</p>",
+            "open": false
+          }
+        },
+        "item_nceVP8": {
+          "type": "item",
+          "settings": {
+            "header": "What can I stamp or label?",
+            "content": "<p>Our products are made for packaging, bags, boxes, cups, tags and more. Choose the product that matches the material you are branding.</p>",
+            "open": false
+          }
+        },
+        "item_NQRQAp": {
+          "type": "item",
+          "settings": {
+            "header": "How long will my custom stamp last?",
+            "content": "<p>With normal care and the right ink, a Printmivo stamp is made for repeated daily use.</p>",
+            "open": false
+          }
+        }
+      },
+      "block_order": [
+        "item_bHzngY",
+        "item_RGMrHr",
+        "item_nceVP8",
+        "item_NQRQAp"
+      ],
+      "settings": {
+        "heading": "Frequently Asked Questions",
+        "description": ""
+      }
+    },
+    "product-recommendations": {
+      "type": "printmivo-permanent-related",
+      "settings": {
+        "heading": "You may also like",
+        "product_2": "big-custom-stamp1",
+        "product_3": "big-custom-stamp-for-bakery",
+        "product_4": "custom-business-logo-stamp",
+        "product_5": "big-custom-stamp-for-coffee-shop-roastery",
+        "padding_top": 64,
+        "padding_bottom": 64
+      }
+    },
+    "recent-viewed-products": {
+      "type": "recent-viewed-products",
+      "disabled": true,
+      "settings": {
+        "container": "container-fluid",
+        "color_scheme": "",
+        "heading": "Recently Viewed Products",
+        "heading_size": "h3",
+        "text_align": "center",
+        "limit": 8,
+        "columns": 5,
+        "column_gap": 30,
+        "pcard_layout": "",
+        "pcard_image_ratio": "",
+        "show_vendor": false,
+        "hide_title": false,
+        "enable_slider": true,
+        "show_pagination": false,
+        "show_navigation": false,
+        "mobile_disable_slider": false,
+        "use_scroll_mobile": true,
+        "item_gap_mobile": 16,
+        "padding_top": 0,
+        "padding_bottom": 100,
+        "custom_class": "",
+        "animations": "inherit"
+      }
+    },
+    "1759318608e8f10b9a": {
+      "type": "apps",
+      "disabled": true,
+      "settings": {
+        "heading": "",
+        "heading_size": "h3",
+        "subheading": "",
+        "header_alignment": "center",
+        "container": "container",
+        "background_color": "",
+        "padding_top": 50,
+        "padding_bottom": 50,
+        "custom_class": ""
+      }
+    },
+    "printmivo_review_feed": {
+      "type": "printmivo-review-feed",
+      "blocks": {
+        "sample_review_cafe": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-1.webp",
+            "rating": 5,
+            "title": "Clear even on busy mornings",
+            "review_text": "We stamp every takeaway cup before opening and the logo stays sharp from the first impression to the last.",
+            "author": "Emily R.",
+            "location": "Chicago, IL",
+            "verified": true
+          }
+        },
+        "sample_review_bakery": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-2.webp",
+            "rating": 5,
+            "title": "Exactly what our packaging needed",
+            "review_text": "Our bakery bags finally look consistent without ordering custom-printed packaging. The impression is clean and easy to repeat.",
+            "author": "Daniel P.",
+            "location": "Austin, TX",
+            "verified": true
+          }
+        },
+        "sample_review_boutique": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-3.webp",
+            "rating": 5,
+            "title": "Makes small batches look finished",
+            "review_text": "We use it on boxes, tissue wraps and thank-you cards. It saves time and gives every order a clean finish.",
+            "author": "Sarah K.",
+            "location": "Seattle, WA",
+            "verified": true
+          }
+        },
+        "sample_review_candle": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-4.jpg",
+            "rating": 5,
+            "title": "Fine lines stayed readable",
+            "review_text": "Our detailed mark still comes through clearly on the jar lids. The proof matched what arrived and setup was simple.",
+            "author": "Olivia S.",
+            "location": "Portland, OR",
+            "verified": true
+          }
+        },
+        "sample_review_restaurant": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-5.webp",
+            "rating": 5,
+            "title": "Simple enough for the whole team",
+            "review_text": "Everyone gets a clean result after a couple of practice stamps, even when we are packing a rush of orders.",
+            "author": "Michael M.",
+            "location": "New York, NY",
+            "verified": true
+          }
+        },
+        "sample_review_market": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-6.webp",
+            "rating": 5,
+            "title": "Good weight and a crisp impression",
+            "review_text": "The stamp feels sturdy and our logo lands evenly on kraft bags. It has become part of our daily packing table.",
+            "author": "Jessica N.",
+            "location": "Denver, CO",
+            "verified": true
+          }
+        },
+        "sample_review_gift_shop": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-7.webp",
+            "rating": 5,
+            "title": "The proof looked like the final result",
+            "review_text": "The small leaf detail was important to us and it came out clearly. Our gift packaging now feels properly branded.",
+            "author": "Lauren T.",
+            "location": "Boston, MA",
+            "verified": true
+          }
+        },
+        "sample_review_candle_studio": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-8.webp",
+            "rating": 5,
+            "title": "Works across our paper packaging",
+            "review_text": "We use it on kraft sleeves, tags and thank-you cards. The result is consistent and still feels handmade.",
+            "author": "Amanda C.",
+            "location": "San Diego, CA",
+            "verified": true
+          }
+        },
+        "sample_review_coffee_cart": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-9.webp",
+            "rating": 5,
+            "title": "Our cups look properly branded now",
+            "review_text": "The impression is bold without filling in the smaller details. Customers have already asked where we had it made.",
+            "author": "Ethan B.",
+            "location": "Nashville, TN",
+            "verified": true
+          }
+        },
+        "sample_review_pastry_shop": {
+          "type": "review",
+          "settings": {
+            "image_asset": "printmivo-real-review-10.webp",
+            "rating": 5,
+            "title": "A small upgrade customers noticed",
+            "review_text": "Our pastry boxes look much more considered now, and we can brand just the quantity we need each morning.",
+            "author": "Rachel G.",
+            "location": "Columbus, OH",
+            "verified": true
+          }
+        },
+        "sample_review_adjustment": {
+          "type": "review",
+          "settings": {
+            "rating": 3,
+            "title": "Works well after a little practice",
+            "review_text": "The stamp feels sturdy and the logo is clear, but it took a few test presses to get the pressure even. Once we adjusted our technique, it worked well on our boxes.",
+            "author": "Taylor M.",
+            "location": "Phoenix, AZ",
+            "verified": true
+          }
+        }
+      },
+      "block_order": [
+        "sample_review_cafe",
+        "sample_review_bakery",
+        "sample_review_boutique",
+        "sample_review_candle",
+        "sample_review_restaurant",
+        "sample_review_adjustment",
+        "sample_review_market",
+        "sample_review_gift_shop",
+        "sample_review_candle_studio",
+        "sample_review_coffee_cart",
+        "sample_review_pastry_shop"
+      ],
+      "settings": {
+        "heading": "Happy customers",
+        "average_rating": 4.8,
+        "review_count": 5877,
+        "initial_review_count": 6,
+        "five_star_count": 4802,
+        "four_star_count": 960,
+        "three_star_count": 90,
+        "two_star_count": 15,
+        "one_star_count": 10,
+        "accent_color": "#da3f3f",
+        "background_color": "#ffffff",
+        "padding_top": 16,
+        "padding_bottom": 0
+      }
+    }
+  },
+  "order": [
+    "breadcrumb",
+    "main",
+    "printmivo_stamp_comparison",
+    "printmivo_review_feed",
+    "printmivo_stamp_guarantee",
+    "collapsible_tabs_JndiBV",
+    "product-recommendations",
+    "printmivo_use_cases",
+    "printmivo_how_it_works",
+    "scrolling_promotion_MVNN6Q",
+    "icon_box_9UtNky",
+    "recent-viewed-products",
+    "1759318608e8f10b9a"
+  ]
+}

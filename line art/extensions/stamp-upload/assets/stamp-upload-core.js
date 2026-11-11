@@ -446,6 +446,34 @@
     let stableFrames = 0;
     let cancelled = false;
     let animationFrame = null;
+    let restoringViewport = false;
+
+    const restoreViewport = () => {
+      if (cancelled || restoringViewport || !anchor.isConnected) return false;
+
+      const offset = anchor.getBoundingClientRect().top - anchorTop;
+      if (Math.abs(offset) <= 0.5) return false;
+
+      restoringViewport = true;
+      window.scrollBy(0, offset);
+      restoringViewport = false;
+      stableFrames = 0;
+      return true;
+    };
+
+    const handleFocusIn = (event) => {
+      const currentControls = getOptionControls(
+        root,
+        root.dataset.colorOptionName || "Ink color"
+      );
+      if (!currentControls.includes(event.target)) return;
+
+      restoreViewport();
+      if (shouldRestoreFocus && document.activeElement !== anchor) {
+        anchor.focus({ preventScroll: true });
+        restoreViewport();
+      }
+    };
 
     const cancel = () => {
       if (cancelled) return;
@@ -455,6 +483,8 @@
       window.removeEventListener("touchmove", cancel);
       window.removeEventListener("keydown", cancel);
       window.removeEventListener("pointerdown", cancel);
+      window.removeEventListener("scroll", restoreViewport);
+      document.removeEventListener("focusin", handleFocusIn, true);
       document.removeEventListener("variant:changed", markVariantSettled, true);
     };
 
@@ -486,11 +516,8 @@
         markVariantSettled();
       }
 
-      const offset = anchor.getBoundingClientRect().top - anchorTop;
-      if (Math.abs(offset) > 1) {
-        window.scrollBy(0, offset);
-        stableFrames = 0;
-      } else if (variantSettled) {
+      const viewportMoved = restoreViewport();
+      if (!viewportMoved && variantSettled) {
         stableFrames += 1;
       }
 
@@ -515,6 +542,8 @@
     window.addEventListener("touchmove", cancel, { passive: true });
     window.addEventListener("keydown", cancel);
     window.addEventListener("pointerdown", cancel, { passive: true });
+    window.addEventListener("scroll", restoreViewport, { passive: true });
+    document.addEventListener("focusin", handleFocusIn, true);
     document.addEventListener("variant:changed", markVariantSettled, true);
     animationFrame = window.requestAnimationFrame(restore);
   }

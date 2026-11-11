@@ -27,12 +27,20 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
 
   const previewsByKind = new Map(result.previews.map((preview) => [preview.kind, preview]));
+  const sourceVersion = result.upload.lineArtGeneratedAt?.getTime() || null;
+  const inkColor = result.upload.lineArtColor || "black";
   return jsonResponse({
     ok: true,
     uploadId: result.upload.uploadId,
+    inkColor,
+    sourceVersion,
     previews: stampPreviewKinds.map((kind) => {
       const preview = previewsByKind.get(kind);
-      const ready = preview?.status === "completed" && Boolean(preview.storageKey);
+      const previewSourceVersion = preview?.sourceLineArtGeneratedAt?.getTime() || null;
+      const ready =
+        preview?.status === "completed" &&
+        Boolean(preview.storageKey) &&
+        previewSourceVersion === sourceVersion;
       const previewUrl = ready
         ? `/apps/line-art-upload/uploads/${encodeURIComponent(result.upload.uploadId)}/stamp-preview-file` +
           `?kind=${encodeURIComponent(kind)}&sessionId=${encodeURIComponent(sessionId || "")}&thumbnail=1`
@@ -46,6 +54,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
         kind,
         status: preview?.status || "not_started",
         version: preview?.generatedAt?.getTime() || null,
+        inkColor,
+        sourceVersion: previewSourceVersion,
         previewUrl,
         fullPreviewUrl,
         error: preview?.status === "failed" ? preview.error : null

@@ -7,6 +7,14 @@
   const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
   const stampPreviewKinds = ["bag", "cup", "box"];
   const supportedInkColors = ["black", "blue", "green", "purple", "red", "white"];
+  const inkColorHex = {
+    black: "#111111",
+    blue: "#1557D5",
+    green: "#168A45",
+    purple: "#7137A8",
+    red: "#D5282F",
+    white: "#FFFFFF"
+  };
   const appProxyBase = "/apps/line-art-upload/uploads/";
   const sessionKey = "smm_upload_session_id";
   const stickySyncFrames = new WeakMap();
@@ -538,7 +546,7 @@
       root,
       form,
       "[data-upload-line-art-property]",
-      "properties[StampMyMark line art]",
+      "properties[Printmivo line art]",
       lineArtUrl
     );
   }
@@ -592,7 +600,7 @@
       "properties[StampMyMark artwork]",
       buildArtworkUploadUrl(root, uploadId, artworkUrl)
     );
-    setFormDataValue(formData, "properties[StampMyMark line art]", lineArtUrl);
+    setFormDataValue(formData, "properties[Printmivo line art]", lineArtUrl);
 
     const text = getTextFieldPayload(root);
     setFormDataValue(formData, "properties[Above]", text.textAbove);
@@ -824,11 +832,12 @@
     });
   }
 
-  async function postJson(path, payload) {
+  async function postJson(path, payload, options = {}) {
     const response = await fetch(appProxyBase + path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: options.signal
     });
     const body = await response.json().catch(() => ({}));
 
@@ -844,10 +853,11 @@
     return body;
   }
 
-  async function getJson(path) {
+  async function getJson(path, options = {}) {
     const response = await fetch(appProxyBase + path, {
       method: "GET",
-      headers: { Accept: "application/json" }
+      headers: { Accept: "application/json" },
+      signal: options.signal
     });
     const body = await response.json().catch(() => ({}));
 
@@ -862,10 +872,33 @@
     return body;
   }
 
-  const wait = (milliseconds) =>
-    new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+  const isAbortError = (error) => error && error.name === "AbortError";
 
-  async function pollLineArt(root, uploadId, sessionId, isCurrent = () => true) {
+  const wait = (milliseconds, signal) =>
+    new Promise((resolve, reject) => {
+      if (signal?.aborted) {
+        reject(new DOMException("Request was replaced.", "AbortError"));
+        return;
+      }
+
+      const timer = window.setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, milliseconds);
+      const onAbort = () => {
+        window.clearTimeout(timer);
+        reject(new DOMException("Request was replaced.", "AbortError"));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+
+  async function pollLineArt(
+    root,
+    uploadId,
+    sessionId,
+    isCurrent = () => true,
+    signal
+  ) {
     const deadline = Date.now() + 3 * 60 * 1000;
     const path =
       `${encodeURIComponent(uploadId)}/line-art-status` +
@@ -873,7 +906,7 @@
 
     while (Date.now() < deadline) {
       if (!isCurrent()) return null;
-      const result = await getJson(path);
+      const result = await getJson(path, { signal });
       if (!isCurrent()) return null;
 
       if (result.status === "completed" && result.previewUrl && result.lineArtUrl) {
@@ -884,7 +917,7 @@
         throw new Error(result.error || root.dataset.lineArtFailed || "Line art generation failed.");
       }
 
-      await wait(1250);
+      await wait(1250, signal);
     }
 
     throw new Error(
@@ -1194,14 +1227,28 @@
     return preload;
   }
 
-  function swapStampPreviewImage(card, image, previewUrl, fullPreviewUrl) {
-    preloadFullStampPreview(fullPreviewUrl);
+  function scheduleFullStampPreviewPreload(url) {
+    if (!url || fullPreviewPreloads.has(url)) return;
 
+    const start = () => {
+      preloadFullStampPreview(url).catch(() => {
+        // The thumbnail remains usable if a background full-size preload fails.
+      });
+    };
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(start, { timeout: 2500 });
+    } else {
+      window.setTimeout(start, 1200);
+    }
+  }
+
+  function swapStampPreviewImage(card, image, previewUrl, fullPreviewUrl) {
     if (image.getAttribute("src") === previewUrl) {
       image.hidden = false;
       image.dataset.fullPreviewUrl = fullPreviewUrl;
       card.dataset.state = "ready";
       setStampPreviewCardInteractive(card, true);
+      scheduleFullStampPreviewPreload(fullPreviewUrl);
       return;
     }
 
@@ -1217,6 +1264,7 @@
       delete image.dataset.pendingPreviewUrl;
       card.dataset.state = "ready";
       setStampPreviewCardInteractive(card, true);
+      scheduleFullStampPreviewPreload(fullPreviewUrl);
       image.classList.remove("smm-upload__stamp-preview-image--reveal");
       void image.offsetWidth;
       image.classList.add("smm-upload__stamp-preview-image--reveal");
@@ -1290,6 +1338,41 @@
     });
   }
 
+  function recolorLineArtPreviewInstantly(image, color) {
+    const hex = inkColorHex[color];
+    if (!image?.complete || !image.naturalWidth || !hex) return false;
+
+    try {
+      const canvas = document.createElement("canvas");
+      canvas.width = image.naturalWidth;
+      canvas.height = image.naturalHeight;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return false;
+
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      const red = parseInt(hex.slice(1, 3), 16);
+      const green = parseInt(hex.slice(3, 5), 16);
+      const blue = parseInt(hex.slice(5, 7), 16);
+
+      for (let index = 0; index < pixels.data.length; index += 4) {
+        if (pixels.data[index + 3] === 0) continue;
+        pixels.data[index] = red;
+        pixels.data[index + 1] = green;
+        pixels.data[index + 2] = blue;
+      }
+
+      context.putImageData(pixels, 0, 0);
+      const instantUrl = canvas.toDataURL("image/webp", 0.92);
+      image.src = instantUrl;
+      image.dataset.fullPreviewUrl = instantUrl;
+      return true;
+    } catch (_error) {
+      // The server variant will replace the image shortly if canvas access is unavailable.
+      return false;
+    }
+  }
+
   function showInstantLineArtInk(root, color, fullPreviewUrl, version) {
     const card = find(root, '[data-stamp-preview-card="line_art"]');
     if (!card) return;
@@ -1300,13 +1383,14 @@
 
     if (!image?.getAttribute("src")) return;
 
+    recolorLineArtPreviewInstantly(image, card.dataset.inkColor);
+
     card.dataset.state = "ready";
     setStampPreviewCardInteractive(card, true);
     if (status) status.textContent = "";
     if (fullPreviewUrl) {
       const versionedFullPreviewUrl = withPreviewVersion(fullPreviewUrl, version);
       image.dataset.fullPreviewUrl = versionedFullPreviewUrl;
-      preloadFullStampPreview(versionedFullPreviewUrl);
     }
   }
 
@@ -1378,9 +1462,20 @@
     );
   }
 
-  function renderStampPreviewResults(root, previews) {
+  function renderStampPreviewResults(
+    root,
+    previews,
+    expectedColor,
+    expectedSourceVersion
+  ) {
     previews.forEach((preview) => {
       if (!stampPreviewKinds.includes(preview.kind)) return;
+      if (
+        (expectedColor && preview.inkColor !== expectedColor) ||
+        (expectedSourceVersion && preview.sourceVersion !== expectedSourceVersion)
+      ) {
+        return;
+      }
 
       if (preview.status === "completed" && preview.previewUrl) {
         setStampPreviewCard(
@@ -1399,7 +1494,15 @@
     });
   }
 
-  async function pollStampPreviews(root, uploadId, sessionId, isCurrent = () => true) {
+  async function pollStampPreviews(
+    root,
+    uploadId,
+    sessionId,
+    expectedColor,
+    expectedSourceVersion,
+    isCurrent = () => true,
+    signal
+  ) {
     const deadline = Date.now() + 4 * 60 * 1000;
     const path =
       `${encodeURIComponent(uploadId)}/stamp-previews-status` +
@@ -1407,10 +1510,21 @@
 
     while (Date.now() < deadline) {
       if (!isCurrent()) return null;
-      const result = await getJson(path);
+      const result = await getJson(path, { signal });
       if (!isCurrent()) return null;
+      if (
+        result.inkColor !== expectedColor ||
+        result.sourceVersion !== expectedSourceVersion
+      ) {
+        return null;
+      }
       const previews = Array.isArray(result.previews) ? result.previews : [];
-      renderStampPreviewResults(root, previews);
+      renderStampPreviewResults(
+        root,
+        previews,
+        expectedColor,
+        expectedSourceVersion
+      );
 
       const failed = previews.find((preview) => preview.status === "failed");
       if (failed) {
@@ -1434,7 +1548,7 @@
         );
       }
 
-      await wait(1000);
+      await wait(1000, signal);
     }
 
     throw new Error(
@@ -1538,6 +1652,7 @@
       lineArtFullPreviewUrl: null,
       lineArtPreviewVersion: null,
       inkColor: null,
+      desiredInkColor: null,
       previewReady: false,
       uploading: false,
       generationRunId: 0,
@@ -1546,7 +1661,22 @@
     let generationProgress = 0;
     let generationProgressTimer = null;
     let generationProgressTick = 0;
-    let stampPreviewQueue = Promise.resolve();
+    let activeGenerationController = null;
+    let inkChangeTimer = null;
+
+    function cancelActiveGeneration() {
+      if (activeGenerationController) {
+        activeGenerationController.abort();
+        activeGenerationController = null;
+      }
+    }
+
+    function cancelScheduledInkChange() {
+      if (inkChangeTimer !== null) {
+        window.clearTimeout(inkChangeTimer);
+        inkChangeTimer = null;
+      }
+    }
 
     function stopGenerationProgress() {
       if (generationProgressTimer === null) return;
@@ -1606,8 +1736,8 @@
         const changed = selectInkColor(root, color, button);
         syncPreviewInkControls(root, color);
         showInstantLineArtInk(root, color);
-        if (!changed && state.uploadId && color !== state.inkColor) {
-          generateLineArt();
+        if (state.uploadId && (!changed || color !== state.inkColor)) {
+          requestInkGeneration(color);
         }
       });
     });
@@ -1617,6 +1747,8 @@
 
       const previousUploadId = state.uploadId;
       state.generationRunId += 1;
+      cancelScheduledInkChange();
+      cancelActiveGeneration();
       stopGenerationProgress();
       generationProgress = 0;
       state.uploadId = null;
@@ -1627,6 +1759,7 @@
       state.lineArtFullPreviewUrl = null;
       state.lineArtPreviewVersion = null;
       state.inkColor = null;
+      state.desiredInkColor = null;
       state.previewReady = false;
       state.file = null;
       fileInput.value = "";
@@ -1651,7 +1784,13 @@
       }
     }
 
-    async function generateStampPreviews(runId, preserveExisting = false) {
+    async function generateStampPreviews(
+      runId,
+      preserveExisting = false,
+      expectedColor = state.inkColor,
+      expectedSourceVersion = state.lineArtPreviewVersion,
+      signal
+    ) {
       if (
         runId !== state.generationRunId ||
         !state.uploadId ||
@@ -1680,13 +1819,26 @@
       try {
         const startResult = await postJson("stamp-previews", {
           uploadId: state.uploadId,
-          sessionId
-        });
+          sessionId,
+          inkColor: expectedColor,
+          sourceVersion: expectedSourceVersion
+        }, { signal });
         if (runId !== state.generationRunId) return;
+        if (
+          startResult.inkColor !== expectedColor ||
+          startResult.sourceVersion !== expectedSourceVersion
+        ) {
+          return;
+        }
         const startedPreviews = Array.isArray(startResult.previews)
           ? startResult.previews
           : [];
-        renderStampPreviewResults(root, startedPreviews);
+        renderStampPreviewResults(
+          root,
+          startedPreviews,
+          expectedColor,
+          expectedSourceVersion
+        );
 
         const failedPreview = startedPreviews.find(
           (preview) => preview.status === "failed"
@@ -1712,13 +1864,16 @@
             root,
             state.uploadId,
             sessionId,
-            () => runId === state.generationRunId
+            expectedColor,
+            expectedSourceVersion,
+            () => runId === state.generationRunId,
+            signal
           );
           if (!pollResult || runId !== state.generationRunId) return;
         }
 
-        if (getSelectedInkColor(root) !== state.inkColor) {
-          generateLineArt();
+        if (getSelectedInkColor(root) !== expectedColor) {
+          requestInkGeneration(getSelectedInkColor(root));
           return;
         }
 
@@ -1737,6 +1892,7 @@
           setAddToCartEnabled(form, true);
         }
       } catch (error) {
+        if (isAbortError(error)) return;
         if (runId !== state.generationRunId) return;
         stopGenerationProgress();
         state.previewReady = false;
@@ -1766,22 +1922,49 @@
       }
     }
 
-    function queueStampPreviews(runId, preserveExisting) {
-      const queued = stampPreviewQueue
-        .catch(() => undefined)
-        .then(() => generateStampPreviews(runId, preserveExisting));
-      stampPreviewQueue = queued.catch(() => undefined);
-      return queued;
+    function requestInkGeneration(color) {
+      const requestedColor = String(color || "").trim().toLowerCase();
+      if (!state.uploadId || !supportedInkColors.includes(requestedColor)) return;
+      if (
+        requestedColor === state.desiredInkColor &&
+        (inkChangeTimer !== null || activeGenerationController)
+      ) {
+        return;
+      }
+      if (requestedColor === state.inkColor && state.previewReady) return;
+
+      state.desiredInkColor = requestedColor;
+      state.generationRunId += 1;
+      const runId = state.generationRunId;
+      cancelScheduledInkChange();
+      cancelActiveGeneration();
+      syncPreviewInkControls(root, requestedColor);
+      showInstantLineArtInk(root, requestedColor);
+
+      // Product themes can emit more than one change event while replacing a
+      // variant control. Coalesce them into exactly one latest-color request.
+      inkChangeTimer = window.setTimeout(() => {
+        inkChangeTimer = null;
+        generateLineArt(false, { runId, requestedColor });
+      }, 120);
     }
 
-    async function generateLineArt(shouldScrollToPreviews = false) {
+    async function generateLineArt(shouldScrollToPreviews = false, request = null) {
       if (!state.uploadId) return;
 
-      const runId = state.generationRunId + 1;
-      state.generationRunId = runId;
-      const requestedColor = getSelectedInkColor(root);
+      const runId = request?.runId || state.generationRunId + 1;
+      if (request?.runId && request.runId !== state.generationRunId) return;
+      if (!request?.runId) {
+        state.generationRunId = runId;
+        cancelScheduledInkChange();
+        cancelActiveGeneration();
+      }
+      const requestedColor = request?.requestedColor || getSelectedInkColor(root);
+      const controller = new AbortController();
+      const signal = controller.signal;
+      activeGenerationController = controller;
       const preserveExisting = Boolean(state.lineArtPreviewUrl);
-      state.inkColor = requestedColor;
+      state.desiredInkColor = requestedColor;
       syncPreviewInkControls(root, requestedColor);
       state.uploading = true;
       state.previewReady = false;
@@ -1819,7 +2002,7 @@
           uploadId: state.uploadId,
           sessionId,
           inkColor: requestedColor
-        });
+        }, { signal });
         if (runId !== state.generationRunId) return;
 
         const result =
@@ -1831,14 +2014,18 @@
                 root,
                 state.uploadId,
                 sessionId,
-                () => runId === state.generationRunId
+                () => runId === state.generationRunId,
+                signal
               );
         if (!result || runId !== state.generationRunId) return;
         const currentColor = getSelectedInkColor(root);
 
-        if (currentColor !== result.color) {
-          generateLineArt();
+        if (currentColor !== result.color || state.desiredInkColor !== result.color) {
+          requestInkGeneration(currentColor);
           return;
+        }
+        if (!result.version) {
+          throw new Error("The line-art revision could not be verified.");
         }
 
         state.lineArtUrl = result.lineArtUrl;
@@ -1872,10 +2059,17 @@
             state.lineArtPreviewVersion
           );
         }
-        if (preserveExisting) await wait(140);
+        if (preserveExisting) await wait(80, signal);
         if (runId !== state.generationRunId) return;
-        await queueStampPreviews(runId, preserveExisting);
+        await generateStampPreviews(
+          runId,
+          preserveExisting,
+          result.color,
+          result.version,
+          signal
+        );
       } catch (error) {
+        if (isAbortError(error)) return;
         if (runId !== state.generationRunId) return;
 
         stopGenerationProgress();
@@ -1900,6 +2094,10 @@
           "error"
         );
         if (required) setAddToCartEnabled(form, true);
+      } finally {
+        if (activeGenerationController === controller) {
+          activeGenerationController = null;
+        }
       }
     }
 
@@ -1913,7 +2111,7 @@
     if (previewRetry) {
       previewRetry.addEventListener("click", () => {
         if (!state.uploading && state.lineArtUrl) {
-          queueStampPreviews(state.generationRunId, true);
+          generateLineArt();
         }
       });
     }
@@ -1956,6 +2154,9 @@
         return;
       }
 
+      cancelScheduledInkChange();
+      cancelActiveGeneration();
+
       if (state.uploadId) {
         try {
           await postJson("remove", { uploadId: state.uploadId, sessionId });
@@ -1973,6 +2174,7 @@
       state.lineArtFullPreviewUrl = null;
       state.lineArtPreviewVersion = null;
       state.inkColor = null;
+      state.desiredInkColor = null;
       state.previewReady = false;
       state.file = file;
       stopGenerationProgress();
@@ -2033,6 +2235,7 @@
         state.lineArtFullPreviewUrl = null;
         state.lineArtPreviewVersion = null;
         state.inkColor = null;
+        state.desiredInkColor = null;
         state.previewReady = false;
         state.file = null;
         fileInput.value = "";
@@ -2092,14 +2295,8 @@
           const selectedColor = getSelectedInkColor(root);
           syncPreviewInkControls(root, selectedColor);
           showInstantLineArtInk(root, selectedColor);
-          if (
-            !state.uploadId ||
-            selectedColor === state.inkColor
-          ) {
-            return;
-          }
-
-          await generateLineArt();
+          if (!state.uploadId) return;
+          requestInkGeneration(selectedColor);
         }, 0);
       });
 

@@ -22,7 +22,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const result = await startStampPreviewGeneration({
     shop,
     uploadId: String(body.uploadId),
-    sessionId: body.sessionId ? String(body.sessionId) : null
+    sessionId: body.sessionId ? String(body.sessionId) : null,
+    expectedColor: body.inkColor ? String(body.inkColor) : null,
+    expectedSourceVersion: Number.isFinite(Number(body.sourceVersion))
+      ? Number(body.sourceVersion)
+      : null
   });
 
   if (!result.ok) {
@@ -30,13 +34,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   const previewsByKind = new Map(result.previews.map((preview) => [preview.kind, preview]));
+  const sourceVersion = result.upload.lineArtGeneratedAt?.getTime() || null;
+  const inkColor = result.upload.lineArtColor || "black";
   return jsonResponse(
     {
       ok: true,
       uploadId: result.upload.uploadId,
+      inkColor,
+      sourceVersion,
       previews: stampPreviewKinds.map((kind) => {
         const preview = previewsByKind.get(kind);
-        const ready = preview?.status === "completed" && Boolean(preview.storageKey);
+        const previewSourceVersion = preview?.sourceLineArtGeneratedAt?.getTime() || null;
+        const ready =
+          preview?.status === "completed" &&
+          Boolean(preview.storageKey) &&
+          previewSourceVersion === sourceVersion;
         const previewUrl = ready
           ? `/apps/line-art-upload/uploads/${encodeURIComponent(result.upload.uploadId)}/stamp-preview-file` +
             `?kind=${encodeURIComponent(kind)}&sessionId=${encodeURIComponent(String(body.sessionId || ""))}&thumbnail=1`
@@ -50,6 +62,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           kind,
           status: preview?.status || "not_started",
           version: preview?.generatedAt?.getTime() || null,
+          inkColor,
+          sourceVersion: previewSourceVersion,
           previewUrl,
           fullPreviewUrl,
           error: preview?.status === "failed" ? preview.error : null

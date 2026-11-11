@@ -590,12 +590,14 @@ export const getStoredLineArtForStorefront = async ({
   shop,
   uploadId,
   sessionId,
-  thumbnail = false
+  thumbnail = false,
+  version
 }: {
   shop: string;
   uploadId: string;
   sessionId?: string | null;
   thumbnail?: boolean;
+  version?: number | null;
 }) => {
   const owned = await getOwnedUpload({ shop, uploadId, sessionId });
   if (!owned.ok) return owned;
@@ -603,6 +605,9 @@ export const getStoredLineArtForStorefront = async ({
   const { upload } = owned;
   if (upload.lineArtStatus !== "completed" || !upload.lineArtStorageKey) {
     return { ok: false as const, status: 404, errors: ["Line art is not ready."] };
+  }
+  if (version && upload.lineArtGeneratedAt?.getTime() !== version) {
+    return { ok: false as const, status: 409, errors: ["Line art was replaced."] };
   }
 
   if (!thumbnail) {

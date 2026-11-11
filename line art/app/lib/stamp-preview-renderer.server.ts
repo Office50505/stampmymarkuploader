@@ -348,6 +348,74 @@ const warpArtwork = (artwork: Buffer, quad: Quad, color: InkColor) => {
   return overlay;
 };
 
+const renderPreparedStampPreview = async ({
+  kind,
+  preparedArtwork,
+  color
+}: {
+  kind: StampPreviewKind;
+  preparedArtwork: Buffer;
+  color: InkColor;
+}) => {
+  const palette = color === "white" ? "white" : "regular";
+  const overlay = warpArtwork(preparedArtwork, placementQuads[palette][kind], color);
+  const composite = await sharp(mockupPath(kind, color))
+    .resize(canvasSize, canvasSize, { fit: "cover" })
+    .composite([
+      {
+        input: overlay,
+        raw: { width: canvasSize, height: canvasSize, channels: 4 },
+        blend: color === "white" ? "over" : "multiply"
+      }
+    ])
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const compositeInput = {
+    raw: {
+      width: composite.info.width,
+      height: composite.info.height,
+      channels: composite.info.channels
+    }
+  } as const;
+
+  // Compression effort affects CPU time, not visual quality. Encoding both
+  // outputs from the same composite avoids decoding the full WEBP again just
+  // to create the storefront thumbnail.
+  const [body, thumbnail] = await Promise.all([
+    sharp(composite.data, compositeInput)
+      .webp({ quality: 94, alphaQuality: 100, effort: 3, smartSubsample: true })
+      .toBuffer(),
+    sharp(composite.data, compositeInput)
+      .resize(640, 640, { fit: "cover", withoutEnlargement: true })
+      .webp({ quality: 84, effort: 3, smartSubsample: true })
+      .toBuffer()
+  ]);
+
+  return { kind, body, thumbnail };
+};
+
+export const renderStampPreviews = async ({
+  kinds,
+  artwork,
+  color
+}: {
+  kinds: StampPreviewKind[];
+  artwork: Buffer;
+  color: InkColor;
+}) => {
+  // The artwork normalization/trim pass is identical for every mockup and was
+  // previously repeated three times. Prepare it once and reuse the pixels.
+  const preparedArtwork = await prepareArtwork(artwork, color);
+
+  return Promise.all(
+    kinds.map((kind) =>
+      renderPreparedStampPreview({ kind, preparedArtwork, color })
+    )
+  );
+};
+
 export const renderStampPreview = async ({
   kind,
   artwork,
@@ -357,19 +425,7 @@ export const renderStampPreview = async ({
   artwork: Buffer;
   color: InkColor;
 }) => {
-  const palette = color === "white" ? "white" : "regular";
-  const preparedArtwork = await prepareArtwork(artwork, color);
-  const overlay = warpArtwork(preparedArtwork, placementQuads[palette][kind], color);
+  const [preview] = await renderStampPreviews({ kinds: [kind], artwork, color });
 
-  return sharp(mockupPath(kind, color))
-    .resize(canvasSize, canvasSize, { fit: "cover" })
-    .composite([
-      {
-        input: overlay,
-        raw: { width: canvasSize, height: canvasSize, channels: 4 },
-        blend: color === "white" ? "over" : "multiply"
-      }
-    ])
-    .webp({ quality: 94, alphaQuality: 100, effort: 4, smartSubsample: true })
-    .toBuffer();
+  return preview.body;
 };

@@ -3,7 +3,7 @@ import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
 import { getOwnedUpload, type InkColor } from "./line-art.server";
-import { renderStampPreview } from "./stamp-preview-renderer.server";
+import { renderStampPreviews } from "./stamp-preview-renderer.server";
 import {
   fetchStoredFile,
   fetchStoredFileIfExists,
@@ -14,7 +14,8 @@ import {
 export const stampPreviewKinds = ["bag", "cup", "box"] as const;
 export type StampPreviewKind = (typeof stampPreviewKinds)[number];
 
-const stampPreviewRenderer = "deterministic-v17-no-ice-clear-cup";
+const stampPreviewRenderer = "deterministic-v18-revision-safe-batch";
+const stampPreviewJobs = new Map<string, Promise<void>>();
 
 const configureFal = () => {
   fal.config({ credentials: requireServerEnv("FAL_KEY") });
@@ -30,9 +31,15 @@ const isWebp = (body: Buffer) =>
   body.subarray(0, 4).toString("ascii") === "RIFF" &&
   body.subarray(8, 12).toString("ascii") === "WEBP";
 
-const generatedStorageKey = (shop: string, uploadId: string, kind: StampPreviewKind) => {
+const generatedStorageKey = (
+  shop: string,
+  uploadId: string,
+  kind: StampPreviewKind,
+  color: InkColor,
+  sourceVersion: number
+) => {
   const shopSlug = shop.replace(/[^a-z0-9.-]/gi, "-").toLowerCase();
-  return `shops/${shopSlug}/uploads/${uploadId}/stamp-preview-${kind}.webp`;
+  return `shops/${shopSlug}/uploads/${uploadId}/stamp-preview-${kind}-${color}-${sourceVersion}.webp`;
 };
 
 export const stampPreviewThumbnailStorageKey = (storageKey: string) =>
@@ -88,11 +95,15 @@ const hasCurrentResult = (
 export const startStampPreviewGeneration = async ({
   shop,
   uploadId,
-  sessionId
+  sessionId,
+  expectedColor,
+  expectedSourceVersion
 }: {
   shop: string;
   uploadId: string;
   sessionId?: string | null;
+  expectedColor?: string | null;
+  expectedSourceVersion?: number | null;
 }) => {
   const owned = await getOwnedUpload({ shop, uploadId, sessionId });
   if (!owned.ok) return owned;
@@ -110,131 +121,199 @@ export const startStampPreviewGeneration = async ({
     };
   }
 
+  const color = (upload.lineArtColor || "black") as InkColor;
+  const sourceGeneratedAt = upload.lineArtGeneratedAt;
+  const sourceVersion = sourceGeneratedAt.getTime();
+  if (
+    (expectedColor && expectedColor !== color) ||
+    (expectedSourceVersion && expectedSourceVersion !== sourceVersion)
+  ) {
+    return {
+      ok: false as const,
+      status: 409,
+      errors: ["This preview request was replaced by a newer ink selection."]
+    };
+  }
+
   const existing = await prisma.stampPreview.findMany({
     where: { uploadId }
   });
   const existingByKind = new Map(existing.map((preview) => [preview.kind, preview]));
   const pendingKinds = stampPreviewKinds.filter((kind) => {
     const preview = existingByKind.get(kind);
-    return !preview || !hasCurrentResult(preview, upload.lineArtGeneratedAt!);
+    return !preview || !hasCurrentResult(preview, sourceGeneratedAt);
   });
 
   if (pendingKinds.length === 0) {
     return { ok: true as const, upload, previews: existing };
   }
 
-  try {
-    const stored = await fetchStoredFile(upload.lineArtStorageKey);
-    const sourceBody = Buffer.from(await stored.arrayBuffer());
-    const color = (upload.lineArtColor || "black") as InkColor;
+  const isCurrentRevision = async () => {
+    const current = await prisma.upload.findUnique({
+      where: { uploadId },
+      select: {
+        lineArtStatus: true,
+        lineArtColor: true,
+        lineArtGeneratedAt: true
+      }
+    });
 
-    await Promise.all(
-      pendingKinds.map(async (kind) => {
-        try {
-          const generatedBody = await renderStampPreview({
-            kind,
-            artwork: sourceBody,
-            color
-          });
-          if (
-            generatedBody.length === 0 ||
-            generatedBody.length > uploadConfig.maxBytes ||
-            !isWebp(generatedBody)
-          ) {
-            throw new Error("Rendered preview did not pass WEBP validation.");
-          }
-          const key = generatedStorageKey(shop, uploadId, kind);
-          await Promise.all([
-            uploadStoredFile({ key, contentType: "image/webp", body: generatedBody }),
-            storeStampPreviewThumbnail(key, generatedBody)
-          ]);
-
-          await prisma.stampPreview.upsert({
-            where: { uploadId_kind: { uploadId, kind } },
-            create: {
-              uploadId,
-              kind,
-              status: "completed",
-              model: stampPreviewRenderer,
-              storageKey: key,
-              storageUrl: `bunny://${storageBucket()}/${key}`,
-              contentType: "image/webp",
-              fileSize: generatedBody.length,
-              sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
-              generatedAt: new Date()
-            },
-            update: {
-              status: "completed",
-              model: stampPreviewRenderer,
-              requestId: null,
-              storageKey: key,
-              storageUrl: `bunny://${storageBucket()}/${key}`,
-              contentType: "image/webp",
-              fileSize: generatedBody.length,
-              sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
-              generatedAt: new Date(),
-              error: null
-            }
-          });
-        } catch (error) {
-          const message = previewError(kind, error);
-          await prisma.stampPreview.upsert({
-            where: { uploadId_kind: { uploadId, kind } },
-            create: {
-              uploadId,
-              kind,
-              status: "failed",
-              model: stampPreviewRenderer,
-              sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
-              error: message
-            },
-            update: {
-              status: "failed",
-              model: stampPreviewRenderer,
-              requestId: null,
-              sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
-              generatedAt: null,
-              error: message
-            }
-          });
-        }
-      })
+    return Boolean(
+      current &&
+        current.lineArtStatus === "completed" &&
+        current.lineArtColor === color &&
+        current.lineArtGeneratedAt?.getTime() === sourceVersion
     );
+  };
 
-    const previews = await prisma.stampPreview.findMany({
+  const jobKey = `${uploadId}:${sourceVersion}:${stampPreviewRenderer}`;
+  let job = stampPreviewJobs.get(jobKey);
+  if (!job) {
+    job = (async () => {
+      try {
+        const stored = await fetchStoredFile(upload.lineArtStorageKey!);
+        const sourceBody = Buffer.from(await stored.arrayBuffer());
+        const rendered = await renderStampPreviews({
+          kinds: [...pendingKinds],
+          artwork: sourceBody,
+          color
+        });
+
+        if (!(await isCurrentRevision())) return;
+
+        await Promise.all(
+          rendered.map(async ({ kind, body, thumbnail }) => {
+            try {
+              if (
+                body.length === 0 ||
+                body.length > uploadConfig.maxBytes ||
+                !isWebp(body) ||
+                thumbnail.length === 0 ||
+                !isWebp(thumbnail)
+              ) {
+                throw new Error("Rendered preview did not pass WEBP validation.");
+              }
+
+              const key = generatedStorageKey(
+                shop,
+                uploadId,
+                kind,
+                color,
+                sourceVersion
+              );
+              await Promise.all([
+                uploadStoredFile({ key, contentType: "image/webp", body }),
+                uploadStoredFile({
+                  key: stampPreviewThumbnailStorageKey(key),
+                  contentType: "image/webp",
+                  body: thumbnail
+                })
+              ]);
+
+              // Rendering and storage are asynchronous. Never let an older ink
+              // request overwrite the row belonging to the latest selection.
+              if (!(await isCurrentRevision())) return;
+
+              await prisma.stampPreview.upsert({
+                where: { uploadId_kind: { uploadId, kind } },
+                create: {
+                  uploadId,
+                  kind,
+                  status: "completed",
+                  model: stampPreviewRenderer,
+                  storageKey: key,
+                  storageUrl: `bunny://${storageBucket()}/${key}`,
+                  contentType: "image/webp",
+                  fileSize: body.length,
+                  sourceLineArtGeneratedAt: sourceGeneratedAt,
+                  generatedAt: new Date()
+                },
+                update: {
+                  status: "completed",
+                  model: stampPreviewRenderer,
+                  requestId: null,
+                  storageKey: key,
+                  storageUrl: `bunny://${storageBucket()}/${key}`,
+                  contentType: "image/webp",
+                  fileSize: body.length,
+                  sourceLineArtGeneratedAt: sourceGeneratedAt,
+                  generatedAt: new Date(),
+                  error: null
+                }
+              });
+            } catch (error) {
+              const message = previewError(kind, error);
+              if (!(await isCurrentRevision())) return;
+              await prisma.stampPreview.upsert({
+                where: { uploadId_kind: { uploadId, kind } },
+                create: {
+                  uploadId,
+                  kind,
+                  status: "failed",
+                  model: stampPreviewRenderer,
+                  sourceLineArtGeneratedAt: sourceGeneratedAt,
+                  error: message
+                },
+                update: {
+                  status: "failed",
+                  model: stampPreviewRenderer,
+                  requestId: null,
+                  sourceLineArtGeneratedAt: sourceGeneratedAt,
+                  generatedAt: null,
+                  error: message
+                }
+              });
+            }
+          })
+        );
+      } catch (error) {
+        const message = "Product previews could not be started. Please try again.";
+        console.error("Stamp preview generation could not be started", error);
+        if (!(await isCurrentRevision())) return;
+
+        await Promise.all(
+          pendingKinds.map((kind) =>
+            prisma.stampPreview.upsert({
+              where: { uploadId_kind: { uploadId, kind } },
+              create: {
+                uploadId,
+                kind,
+                status: "failed",
+                model: stampPreviewRenderer,
+                sourceLineArtGeneratedAt: sourceGeneratedAt,
+                error: message
+              },
+              update: {
+                status: "failed",
+                model: stampPreviewRenderer,
+                requestId: null,
+                sourceLineArtGeneratedAt: sourceGeneratedAt,
+                error: message
+              }
+            })
+          )
+        );
+      }
+    })().finally(() => {
+      stampPreviewJobs.delete(jobKey);
+    });
+    stampPreviewJobs.set(jobKey, job);
+  }
+
+  await job;
+  const [currentUpload, previews] = await Promise.all([
+    prisma.upload.findUnique({ where: { uploadId } }),
+    prisma.stampPreview.findMany({
       where: { uploadId },
       orderBy: { createdAt: "asc" }
-    });
-    return { ok: true as const, upload, previews };
-  } catch (error) {
-    const message = "Product previews could not be started. Please try again.";
-    console.error("Stamp preview generation could not be started", error);
+    })
+  ]);
 
-    await Promise.all(
-      pendingKinds.map((kind) =>
-        prisma.stampPreview.upsert({
-          where: { uploadId_kind: { uploadId, kind } },
-          create: {
-            uploadId,
-            kind,
-            status: "failed",
-            model: stampPreviewRenderer,
-            sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
-            error: message
-          },
-          update: {
-            status: "failed",
-            model: stampPreviewRenderer,
-            requestId: null,
-            sourceLineArtGeneratedAt: upload.lineArtGeneratedAt,
-            error: message
-          }
-        })
-      )
-    );
-
-    return { ok: false as const, status: 502, errors: [message] };
-  }
+  return {
+    ok: true as const,
+    upload: currentUpload || upload,
+    previews
+  };
 };
 
 const refreshOnePreview = async (
@@ -245,6 +324,7 @@ const refreshOnePreview = async (
     status: string;
     requestId: string | null;
     model: string | null;
+    sourceLineArtGeneratedAt: Date | null;
   },
   shop: string
 ) => {
@@ -291,7 +371,25 @@ const refreshOnePreview = async (
       throw new Error("Generated preview did not pass WEBP validation.");
     }
 
-    const key = generatedStorageKey(shop, preview.uploadId, preview.kind);
+    const currentUpload = await prisma.upload.findUnique({
+      where: { uploadId: preview.uploadId },
+      select: { lineArtColor: true, lineArtGeneratedAt: true }
+    });
+    const sourceVersion = preview.sourceLineArtGeneratedAt?.getTime();
+    if (
+      !currentUpload?.lineArtColor ||
+      !sourceVersion ||
+      currentUpload.lineArtGeneratedAt?.getTime() !== sourceVersion
+    ) {
+      return;
+    }
+    const key = generatedStorageKey(
+      shop,
+      preview.uploadId,
+      preview.kind,
+      currentUpload.lineArtColor as InkColor,
+      sourceVersion
+    );
     await Promise.all([
       uploadStoredFile({ key, contentType: "image/webp", body: generatedBody }),
       storeStampPreviewThumbnail(key, generatedBody)
@@ -355,13 +453,15 @@ export const getStoredStampPreviewForStorefront = async ({
   uploadId,
   sessionId,
   kind,
-  thumbnail = false
+  thumbnail = false,
+  version
 }: {
   shop: string;
   uploadId: string;
   sessionId?: string | null;
   kind: StampPreviewKind;
   thumbnail?: boolean;
+  version?: number | null;
 }) => {
   const owned = await getOwnedUpload({ shop, uploadId, sessionId });
   if (!owned.ok) return owned;
@@ -371,6 +471,9 @@ export const getStoredStampPreviewForStorefront = async ({
   });
   if (!preview || preview.status !== "completed" || !preview.storageKey) {
     return { ok: false as const, status: 404, errors: ["Stamp preview is not ready."] };
+  }
+  if (version && preview.generatedAt?.getTime() !== version) {
+    return { ok: false as const, status: 409, errors: ["Stamp preview was replaced."] };
   }
 
   if (!thumbnail) {

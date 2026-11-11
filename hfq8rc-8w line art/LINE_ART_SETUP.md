@@ -9,7 +9,7 @@ This folder contains an isolated copy of the existing StampMyMark uploader with 
 
 ## Required isolated resources
 
-1. A new Shopify app named `hfq8rc-8w-lineart-uploader` with custom distribution restricted to `hfq8rc-8w.myshopify.com`.
+1. A new Shopify app named `lineartuploader` with custom distribution restricted to `hfq8rc-8w.myshopify.com`.
 2. The Railway project and service named `hfq8rc-8w-lineart-uploader`.
 3. The PostgreSQL service in that Railway project.
 4. Bunny.net credentials for private original and generated files.
@@ -20,7 +20,7 @@ Never reuse the US uploader's Shopify client ID or secret. Storage may use the e
 ## Setup order
 
 1. Run `npm install` in this folder.
-2. Link this folder to the new `hfq8rc-8w-lineart-uploader` Shopify app and replace the placeholder `client_id` in `shopify.app.toml`.
+2. Link this folder to the new `lineartuploader` Shopify app and replace the placeholder `client_id` in `shopify.app.toml`.
 3. Add `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, and `FAL_KEY` to Railway.
 4. Deploy the web service from repository root `/hfq8rc-8w line art`.
 5. Deploy the Shopify app configuration and theme extension.

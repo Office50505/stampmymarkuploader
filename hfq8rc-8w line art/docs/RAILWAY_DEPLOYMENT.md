@@ -4,7 +4,7 @@ The production project and app service are both named `hfq8rc-8w-lineart-uploade
 
 ## Services
 
-- `hfq8rc-8w-lineart-uploader`: Node web service at `https://hfq8rc-8w-lineart-uploader.up.railway.app`, port 8080
+- `hfq8rc-8w-lineart-uploader`: Node web service at `https://stampmymark-lineart-uploader.up.railway.app`, port 8080
 - `Postgres`: isolated app database
 
 The repository includes `railway.json`, which runs:
@@ -20,7 +20,7 @@ healthcheck: /healthcheck
 ```text
 SHOPIFY_API_KEY
 SHOPIFY_API_SECRET
-SHOPIFY_APP_URL=https://hfq8rc-8w-lineart-uploader.up.railway.app
+SHOPIFY_APP_URL=https://stampmymark-lineart-uploader.up.railway.app
 SHOPIFY_SHOP_DOMAIN=hfq8rc-8w.myshopify.com
 SCOPES=read_products,read_orders,write_app_proxy
 DATABASE_URL=${{Postgres.DATABASE_URL}}

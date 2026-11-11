@@ -1,7 +1,7 @@
-name = "hfq8rc-8w-lineart-uploader"
+name = "lineartuploader"
 # Replace this with the client ID of the Shopify app created for hfq8rc-8w.myshopify.com.
 client_id = "REPLACE_WITH_NEW_SHOPIFY_CLIENT_ID"
-application_url = "https://hfq8rc-8w-lineart-uploader.up.railway.app"
+application_url = "https://stampmymark-lineart-uploader.up.railway.app"
 embedded = true
 
 [build]
@@ -12,9 +12,9 @@ scopes = "read_products,read_orders,write_app_proxy"
 
 [auth]
 redirect_urls = [
-  "https://hfq8rc-8w-lineart-uploader.up.railway.app/auth/callback",
-  "https://hfq8rc-8w-lineart-uploader.up.railway.app/auth/shopify/callback",
-  "https://hfq8rc-8w-lineart-uploader.up.railway.app/api/auth/callback"
+  "https://stampmymark-lineart-uploader.up.railway.app/auth/callback",
+  "https://stampmymark-lineart-uploader.up.railway.app/auth/shopify/callback",
+  "https://stampmymark-lineart-uploader.up.railway.app/api/auth/callback"
 ]
 
 [webhooks]
@@ -29,6 +29,6 @@ topics = ["app/uninstalled"]
 uri = "/webhooks/app/uninstalled"
 
 [app_proxy]
-url = "https://hfq8rc-8w-lineart-uploader.up.railway.app/apps/stamp-upload"
+url = "https://stampmymark-lineart-uploader.up.railway.app/apps/stamp-upload"
 subpath = "line-art-upload"
 prefix = "apps"

@@ -1,0 +1,27 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "c4bc7360de43e175599d85e64ff74f26"
+application_url = "https://stampmymark-lineart-uploader.up.railway.app"
+embedded = true
+name = "lineartuploader"
+
+[app_proxy]
+url = "https://stampmymark-lineart-uploader.up.railway.app/apps/stamp-upload"
+subpath = "line-art-upload"
+prefix = "apps"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders,read_products,write_app_proxy"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://stampmymark-lineart-uploader.up.railway.app/auth/callback",
+  "https://stampmymark-lineart-uploader.up.railway.app/auth/shopify/callback",
+  "https://stampmymark-lineart-uploader.up.railway.app/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2026-10"

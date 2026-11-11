@@ -436,19 +436,31 @@
     });
   }
 
-  function keepViewportAnchored(anchor, controls) {
+  function keepViewportAnchored(root, anchor, initialControls) {
     if (!anchor || !anchor.isConnected) return;
 
     const anchorTop = anchor.getBoundingClientRect().top;
     const startedAt = window.performance?.now?.() || Date.now();
+    const shouldRestoreFocus = document.activeElement === anchor;
+    let variantSettled = false;
+    let stableFrames = 0;
     let cancelled = false;
     let animationFrame = null;
 
     const cancel = () => {
+      if (cancelled) return;
       cancelled = true;
       if (animationFrame) window.cancelAnimationFrame(animationFrame);
       window.removeEventListener("wheel", cancel);
       window.removeEventListener("touchmove", cancel);
+      window.removeEventListener("keydown", cancel);
+      window.removeEventListener("pointerdown", cancel);
+      document.removeEventListener("variant:changed", markVariantSettled, true);
+    };
+
+    const markVariantSettled = () => {
+      variantSettled = true;
+      stableFrames = 0;
     };
 
     const restore = () => {
@@ -458,18 +470,42 @@
       }
 
       const elapsed = (window.performance?.now?.() || Date.now()) - startedAt;
-      if (elapsed > 1800) {
+      if (elapsed > 8000) {
         cancel();
         return;
+      }
+
+      const currentControls = getOptionControls(
+        root,
+        root.dataset.colorOptionName || "Ink color"
+      );
+      if (
+        !variantSettled &&
+        currentControls.some((control) => !initialControls.includes(control))
+      ) {
+        markVariantSettled();
       }
 
       const offset = anchor.getBoundingClientRect().top - anchorTop;
       if (Math.abs(offset) > 1) {
         window.scrollBy(0, offset);
+        stableFrames = 0;
+      } else if (variantSettled) {
+        stableFrames += 1;
       }
 
-      if (controls.includes(document.activeElement) && document.activeElement !== anchor) {
+      if (
+        shouldRestoreFocus &&
+        currentControls.includes(document.activeElement) &&
+        document.activeElement !== anchor
+      ) {
         anchor.focus({ preventScroll: true });
+        stableFrames = 0;
+      }
+
+      if (variantSettled && stableFrames >= 6) {
+        cancel();
+        return;
       }
 
       animationFrame = window.requestAnimationFrame(restore);
@@ -477,6 +513,9 @@
 
     window.addEventListener("wheel", cancel, { passive: true });
     window.addEventListener("touchmove", cancel, { passive: true });
+    window.addEventListener("keydown", cancel);
+    window.addEventListener("pointerdown", cancel, { passive: true });
+    document.addEventListener("variant:changed", markVariantSettled, true);
     animationFrame = window.requestAnimationFrame(restore);
   }
 
@@ -489,10 +528,9 @@
 
     if (!control || control.disabled) return false;
 
-    keepViewportAnchored(anchor, controls);
-
     if (control.tagName === "SELECT") {
       if (String(control.value).trim().toLowerCase() === normalizedColor) return false;
+      keepViewportAnchored(root, anchor, controls);
       control.value = Array.from(control.options).find(
         (option) => String(option.value).trim().toLowerCase() === normalizedColor
       )?.value || control.value;
@@ -502,6 +540,7 @@
     }
 
     if (control.checked) return false;
+    keepViewportAnchored(root, anchor, controls);
     control.checked = true;
     control.dispatchEvent(new Event("input", { bubbles: true }));
     control.dispatchEvent(new Event("change", { bubbles: true }));
@@ -2026,9 +2065,13 @@
           preview.version
         );
       } else if (preview.status === "failed") {
-        setStampPreviewCard(root, preview.kind, "failed");
+        if (!keepInstantStampPreviewReady(root, preview.kind, expectedColor)) {
+          setStampPreviewCard(root, preview.kind, "failed");
+        }
       } else {
-        setStampPreviewCard(root, preview.kind, "generating");
+        if (!keepInstantStampPreviewReady(root, preview.kind, expectedColor)) {
+          setStampPreviewCard(root, preview.kind, "generating");
+        }
       }
     });
   }
@@ -2200,6 +2243,7 @@
       instantArtworkMask: null,
       instantArtworkPromise: null,
       instantPreviewRunId: 0,
+      inkUpdateFallbackColor: null,
       file: null
     };
     let generationProgress = 0;
@@ -2279,6 +2323,54 @@
       setStampPreviewProgress(root, generationProgress);
     }
 
+    function settleInstantInkPreview(color) {
+      if (
+        !state.uploadId ||
+        state.desiredInkColor !== color ||
+        getSelectedInkColor(root) !== color
+      ) {
+        return;
+      }
+
+      state.inkUpdateFallbackColor = null;
+      state.previewReady = true;
+      state.uploading = false;
+      completeGenerationProgress();
+      setStampPreviewSummary(
+        root,
+        "ready",
+        root.dataset.stampPreviewsReady || "Previews ready"
+      );
+      setButton(trigger, "uploaded", "Change File");
+      setStatus(root, "Your stamp previews are ready.", "success");
+    }
+
+    function showInkUpdateFallback(color) {
+      if (
+        !state.uploadId ||
+        state.desiredInkColor !== color ||
+        getSelectedInkColor(root) !== color
+      ) {
+        return;
+      }
+
+      state.inkUpdateFallbackColor = color;
+      state.previewReady = false;
+      state.uploading = true;
+      showLineArtGenerating(root, true);
+      startGenerationProgress(70, 78);
+      setButton(
+        trigger,
+        "uploading",
+        root.dataset.lineArtGenerating || "Creating line art…"
+      );
+      setStatus(
+        root,
+        root.dataset.stampPreviewsUpdatingColor ||
+          "Updating previews for your selected ink…"
+      );
+    }
+
     // The Permanent Stamp theme's sticky bar predates this Line Art app and
     // discovers required uploaders through this marker. Add it only after the
     // Line Art module owns the block so the legacy uploader cannot initialize it.
@@ -2331,6 +2423,7 @@
       state.instantArtworkMask = null;
       state.instantArtworkPromise = null;
       state.instantPreviewRunId += 1;
+      state.inkUpdateFallbackColor = null;
       state.previewReady = false;
       state.file = null;
       fileInput.value = "";
@@ -2372,22 +2465,26 @@
 
       const mockupsStartedAt = performanceNow();
 
-      state.previewReady = false;
-      state.uploading = true;
-      showMockupsGenerating(
-        root,
-        state.lineArtPreviewUrl,
-        state.lineArtFullPreviewUrl,
-        state.lineArtPreviewVersion,
-        preserveExisting
-      );
-      startGenerationProgress(preserveExisting ? 78 : 62, 94, preserveExisting);
-      setButton(trigger, "uploading", "Creating 3 product previews…");
-      setStatus(
-        root,
-        root.dataset.stampPreviewsGeneratingMockups ||
-          "Creating your clear cup, paper cup and container previews…"
-      );
+      const visibleFallback =
+        preserveExisting && state.inkUpdateFallbackColor === expectedColor;
+      state.previewReady = preserveExisting && !visibleFallback;
+      state.uploading = !preserveExisting || visibleFallback;
+      if (!preserveExisting || visibleFallback) {
+        showMockupsGenerating(
+          root,
+          state.lineArtPreviewUrl,
+          state.lineArtFullPreviewUrl,
+          state.lineArtPreviewVersion,
+          preserveExisting
+        );
+        startGenerationProgress(preserveExisting ? 78 : 62, 94, preserveExisting);
+        setButton(trigger, "uploading", "Creating 3 product previews…");
+        setStatus(
+          root,
+          root.dataset.stampPreviewsGeneratingMockups ||
+            "Creating your clear cup, paper cup and container previews…"
+        );
+      }
 
       try {
         const startResult = await postJson("stamp-previews", {
@@ -2452,6 +2549,7 @@
 
         state.previewReady = true;
         state.uploading = false;
+        state.inkUpdateFallbackColor = null;
         completeGenerationProgress();
         setStampPreviewSummary(
           root,
@@ -2478,6 +2576,26 @@
       } catch (error) {
         if (isAbortError(error)) return;
         if (runId !== state.generationRunId) return;
+        if (preserveExisting && state.inkUpdateFallbackColor !== expectedColor) {
+          state.previewReady = true;
+          state.uploading = false;
+          reportPerformanceMetric({
+            uploadId: state.uploadId,
+            sessionId,
+            phase: "mockups",
+            outcome: "failure",
+            startedAt: mockupsStartedAt,
+            inkColor: expectedColor,
+            mode: "ink_change",
+            errorCode: "background_preview_failed"
+          });
+          finishInkSwitchMetric(
+            "failure",
+            expectedColor,
+            "background_preview_failed"
+          );
+          return;
+        }
         stopGenerationProgress();
         state.previewReady = false;
         state.uploading = false;
@@ -2526,15 +2644,30 @@
       ) {
         return;
       }
-      if (requestedColor === state.inkColor && state.previewReady) return;
+      const cardsAlreadyUseRequestedColor = stampPreviewKinds.every((kind) => {
+        const card = find(root, `[data-stamp-preview-card="${kind}"]`);
+        return card?.dataset.inkColor === requestedColor;
+      });
+      if (
+        requestedColor === state.desiredInkColor &&
+        state.previewReady &&
+        cardsAlreadyUseRequestedColor
+      ) {
+        return;
+      }
 
       state.inkSwitchStartedAt = performanceNow();
       state.inkSwitchTarget = requestedColor;
       state.desiredInkColor = requestedColor;
+      state.inkUpdateFallbackColor = null;
       const instantPreviewStartedAt = performanceNow();
       renderInstantProductPreviews(root, state, requestedColor)
         .then((rendered) => {
-          if (!rendered) return;
+          if (!rendered) {
+            showInkUpdateFallback(requestedColor);
+            return;
+          }
+          settleInstantInkPreview(requestedColor);
           reportPerformanceMetric({
             uploadId: state.uploadId,
             sessionId,
@@ -2546,7 +2679,7 @@
           });
         })
         .catch(() => {
-          // The existing preview remains visible until the server result arrives.
+          showInkUpdateFallback(requestedColor);
         });
       state.generationRunId += 1;
       const runId = state.generationRunId;
@@ -2581,12 +2714,12 @@
       const lineArtStartedAt = performanceNow();
       state.desiredInkColor = requestedColor;
       syncPreviewInkControls(root, requestedColor);
-      state.uploading = true;
-      state.previewReady = false;
+      state.uploading = !preserveExisting;
+      state.previewReady = preserveExisting;
       if (!preserveExisting) {
         state.lineArtUrl = null;
+        showLineArtGenerating(root, false);
       }
-      showLineArtGenerating(root, preserveExisting);
 
       if (shouldScrollToPreviews) {
         scrollToStampPreviews(root);
@@ -2602,16 +2735,18 @@
       );
 
       try {
-        startGenerationProgress(preserveExisting ? 70 : 6, preserveExisting ? 78 : 58);
-        setButton(
-          trigger,
-          "uploading",
-          root.dataset.lineArtGenerating || "Creating line art…"
-        );
-        setStatus(
-          root,
-          root.dataset.lineArtGenerating || "Creating stamp-ready line art…"
-        );
+        if (!preserveExisting) {
+          startGenerationProgress(6, 58);
+          setButton(
+            trigger,
+            "uploading",
+            root.dataset.lineArtGenerating || "Creating line art…"
+          );
+          setStatus(
+            root,
+            root.dataset.lineArtGenerating || "Creating stamp-ready line art…"
+          );
+        }
 
         const startResult = await postJson("line-art", {
           uploadId: state.uploadId,
@@ -2720,6 +2855,27 @@
       } catch (error) {
         if (isAbortError(error)) return;
         if (runId !== state.generationRunId) return;
+
+        if (preserveExisting && state.inkUpdateFallbackColor !== requestedColor) {
+          state.uploading = false;
+          state.previewReady = true;
+          reportPerformanceMetric({
+            uploadId: state.uploadId,
+            sessionId,
+            phase: "line_art",
+            outcome: "failure",
+            startedAt: lineArtStartedAt,
+            inkColor: requestedColor,
+            mode: "ink_change",
+            errorCode: "background_generation_failed"
+          });
+          finishInkSwitchMetric(
+            "failure",
+            requestedColor,
+            "background_generation_failed"
+          );
+          return;
+        }
 
         stopGenerationProgress();
         state.uploading = false;
@@ -2842,6 +2998,7 @@
       state.instantArtworkMask = null;
       state.instantArtworkPromise = null;
       state.instantPreviewRunId += 1;
+      state.inkUpdateFallbackColor = null;
       state.previewReady = false;
       state.file = file;
       stopGenerationProgress();
@@ -2926,6 +3083,7 @@
         state.instantArtworkMask = null;
         state.instantArtworkPromise = null;
         state.instantPreviewRunId += 1;
+        state.inkUpdateFallbackColor = null;
         state.previewReady = false;
         state.file = null;
         fileInput.value = "";

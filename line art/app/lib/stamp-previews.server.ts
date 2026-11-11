@@ -3,6 +3,7 @@ import sharp from "sharp";
 import prisma from "~/db.server";
 import { lineArtConfig, requireServerEnv, uploadConfig } from "./env.server";
 import { getOwnedUpload, type InkColor } from "./line-art.server";
+import { logPerformanceMetric } from "./performance.server";
 import { renderStampPreviews } from "./stamp-preview-renderer.server";
 import {
   fetchStoredFile,
@@ -145,6 +146,17 @@ export const startStampPreviewGeneration = async ({
   });
 
   if (pendingKinds.length === 0) {
+    logPerformanceMetric({
+      source: "server",
+      phase: "mockups",
+      outcome: "success",
+      durationMs: 0,
+      shop,
+      uploadId,
+      inkColor: color,
+      mode: "cache",
+      previewCount: stampPreviewKinds.length
+    });
     return { ok: true as const, upload, previews: existing };
   }
 
@@ -170,6 +182,8 @@ export const startStampPreviewGeneration = async ({
   let job = stampPreviewJobs.get(jobKey);
   if (!job) {
     job = (async () => {
+      const jobStartedAt = Date.now();
+      let failedPreviewCount = 0;
       try {
         const stored = await fetchStoredFile(upload.lineArtStorageKey!);
         const sourceBody = Buffer.from(await stored.arrayBuffer());
@@ -179,10 +193,38 @@ export const startStampPreviewGeneration = async ({
           color
         });
 
-        if (!(await isCurrentRevision())) return;
+        if (!(await isCurrentRevision())) {
+          logPerformanceMetric({
+            source: "server",
+            phase: "mockups",
+            outcome: "cancelled",
+            durationMs: Date.now() - jobStartedAt,
+            shop,
+            uploadId,
+            inkColor: color,
+            mode: "render_store",
+            previewCount: pendingKinds.length
+          });
+          return;
+        }
+
+        rendered.forEach(({ kind, durationMs }) => {
+          logPerformanceMetric({
+            source: "server",
+            phase: "mockup_kind",
+            outcome: "success",
+            durationMs,
+            shop,
+            uploadId,
+            inkColor: color,
+            mode: "render",
+            kind
+          });
+        });
 
         await Promise.all(
           rendered.map(async ({ kind, body, thumbnail }) => {
+            const storeStartedAt = Date.now();
             try {
               if (
                 body.length === 0 ||
@@ -241,7 +283,19 @@ export const startStampPreviewGeneration = async ({
                   error: null
                 }
               });
+              logPerformanceMetric({
+                source: "server",
+                phase: "mockup_kind",
+                outcome: "success",
+                durationMs: Date.now() - storeStartedAt,
+                shop,
+                uploadId,
+                inkColor: color,
+                mode: "store",
+                kind
+              });
             } catch (error) {
+              failedPreviewCount += 1;
               const message = previewError(kind, error);
               if (!(await isCurrentRevision())) return;
               await prisma.stampPreview.upsert({
@@ -263,9 +317,33 @@ export const startStampPreviewGeneration = async ({
                   error: message
                 }
               });
+              logPerformanceMetric({
+                source: "server",
+                phase: "mockup_kind",
+                outcome: "failure",
+                durationMs: Date.now() - storeStartedAt,
+                shop,
+                uploadId,
+                inkColor: color,
+                mode: "store",
+                kind,
+                errorCode: "preview_failed"
+              });
             }
           })
         );
+        logPerformanceMetric({
+          source: "server",
+          phase: "mockups",
+          outcome: failedPreviewCount > 0 ? "failure" : "success",
+          durationMs: Date.now() - jobStartedAt,
+          shop,
+          uploadId,
+          inkColor: color,
+          mode: "render_store",
+          previewCount: pendingKinds.length,
+          errorCode: failedPreviewCount > 0 ? "preview_failed" : null
+        });
       } catch (error) {
         const message = "Product previews could not be started. Please try again.";
         console.error("Stamp preview generation could not be started", error);
@@ -293,6 +371,18 @@ export const startStampPreviewGeneration = async ({
             })
           )
         );
+        logPerformanceMetric({
+          source: "server",
+          phase: "mockups",
+          outcome: "failure",
+          durationMs: Date.now() - jobStartedAt,
+          shop,
+          uploadId,
+          inkColor: color,
+          mode: "render_store",
+          previewCount: pendingKinds.length,
+          errorCode: "preview_start_failed"
+        });
       }
     })().finally(() => {
       stampPreviewJobs.delete(jobKey);

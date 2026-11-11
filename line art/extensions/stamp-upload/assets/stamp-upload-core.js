@@ -853,6 +853,47 @@
     return body;
   }
 
+  const performanceNow = () =>
+    window.performance && typeof window.performance.now === "function"
+      ? window.performance.now()
+      : Date.now();
+
+  const elapsedPerformanceMs = (startedAt) =>
+    Math.max(0, Math.round(performanceNow() - startedAt));
+
+  function reportPerformanceMetric({
+    uploadId,
+    sessionId,
+    phase,
+    outcome,
+    startedAt,
+    inkColor,
+    mode,
+    errorCode
+  }) {
+    if (!uploadId || !sessionId || !Number.isFinite(startedAt)) return;
+
+    // Metrics are deliberately best-effort and never participate in the
+    // customer flow. No artwork, filename, notes, or raw error is sent.
+    fetch(appProxyBase + "performance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        uploadId,
+        sessionId,
+        phase,
+        outcome,
+        durationMs: elapsedPerformanceMs(startedAt),
+        inkColor: inkColor || null,
+        mode: mode || null,
+        errorCode: errorCode || null
+      }),
+      keepalive: true
+    }).catch(() => {
+      // Performance reporting must never delay or break the uploader.
+    });
+  }
+
   async function getJson(path, options = {}) {
     const response = await fetch(appProxyBase + path, {
       method: "GET",
@@ -1656,6 +1697,8 @@
       previewReady: false,
       uploading: false,
       generationRunId: 0,
+      inkSwitchStartedAt: null,
+      inkSwitchTarget: null,
       file: null
     };
     let generationProgress = 0;
@@ -1676,6 +1719,28 @@
         window.clearTimeout(inkChangeTimer);
         inkChangeTimer = null;
       }
+    }
+
+    function finishInkSwitchMetric(outcome, color, errorCode = null) {
+      if (
+        !Number.isFinite(state.inkSwitchStartedAt) ||
+        state.inkSwitchTarget !== color
+      ) {
+        return;
+      }
+
+      reportPerformanceMetric({
+        uploadId: state.uploadId,
+        sessionId,
+        phase: "ink_switch",
+        outcome,
+        startedAt: state.inkSwitchStartedAt,
+        inkColor: color,
+        mode: "line_art_and_mockups",
+        errorCode
+      });
+      state.inkSwitchStartedAt = null;
+      state.inkSwitchTarget = null;
     }
 
     function stopGenerationProgress() {
@@ -1760,6 +1825,8 @@
       state.lineArtPreviewVersion = null;
       state.inkColor = null;
       state.desiredInkColor = null;
+      state.inkSwitchStartedAt = null;
+      state.inkSwitchTarget = null;
       state.previewReady = false;
       state.file = null;
       fileInput.value = "";
@@ -1798,6 +1865,8 @@
       ) {
         return;
       }
+
+      const mockupsStartedAt = performanceNow();
 
       state.previewReady = false;
       state.uploading = true;
@@ -1888,6 +1957,17 @@
         setButton(trigger, "uploaded", "Change File");
         setStatus(root, "Your stamp previews are ready.", "success");
 
+        reportPerformanceMetric({
+          uploadId: state.uploadId,
+          sessionId,
+          phase: "mockups",
+          outcome: "success",
+          startedAt: mockupsStartedAt,
+          inkColor: expectedColor,
+          mode: preserveExisting ? "ink_change" : "initial"
+        });
+        finishInkSwitchMetric("success", expectedColor);
+
         if (required) {
           setAddToCartEnabled(form, true);
         }
@@ -1918,6 +1998,17 @@
             "One or more previews could not be created.",
           "error"
         );
+        reportPerformanceMetric({
+          uploadId: state.uploadId,
+          sessionId,
+          phase: "mockups",
+          outcome: "failure",
+          startedAt: mockupsStartedAt,
+          inkColor: expectedColor,
+          mode: preserveExisting ? "ink_change" : "initial",
+          errorCode: "preview_failed"
+        });
+        finishInkSwitchMetric("failure", expectedColor, "preview_failed");
         if (required) setAddToCartEnabled(form, true);
       }
     }
@@ -1933,6 +2024,8 @@
       }
       if (requestedColor === state.inkColor && state.previewReady) return;
 
+      state.inkSwitchStartedAt = performanceNow();
+      state.inkSwitchTarget = requestedColor;
       state.desiredInkColor = requestedColor;
       state.generationRunId += 1;
       const runId = state.generationRunId;
@@ -1964,6 +2057,7 @@
       const signal = controller.signal;
       activeGenerationController = controller;
       const preserveExisting = Boolean(state.lineArtPreviewUrl);
+      const lineArtStartedAt = performanceNow();
       state.desiredInkColor = requestedColor;
       syncPreviewInkControls(root, requestedColor);
       state.uploading = true;
@@ -2033,6 +2127,15 @@
         state.lineArtFullPreviewUrl = result.fullPreviewUrl || result.previewUrl;
         state.lineArtPreviewVersion = result.version || null;
         state.inkColor = result.color;
+        reportPerformanceMetric({
+          uploadId: state.uploadId,
+          sessionId,
+          phase: "line_art",
+          outcome: "success",
+          startedAt: lineArtStartedAt,
+          inkColor: result.color,
+          mode: preserveExisting ? "ink_change" : "initial"
+        });
         syncPreviewInkControls(root, result.color);
         setLineItemProperties(
           root,
@@ -2093,6 +2196,17 @@
           "Your logo is uploaded. The previews could not be updated, but you can still add to cart.",
           "error"
         );
+        reportPerformanceMetric({
+          uploadId: state.uploadId,
+          sessionId,
+          phase: "line_art",
+          outcome: "failure",
+          startedAt: lineArtStartedAt,
+          inkColor: requestedColor,
+          mode: preserveExisting ? "ink_change" : "initial",
+          errorCode: "generation_failed"
+        });
+        finishInkSwitchMetric("failure", requestedColor, "generation_failed");
         if (required) setAddToCartEnabled(form, true);
       } finally {
         if (activeGenerationController === controller) {
@@ -2124,6 +2238,8 @@
     fileInput.addEventListener("change", async () => {
       const selectedFile = fileInput.files && fileInput.files[0];
       if (!selectedFile) return;
+      const uploadStartedAt = performanceNow();
+      let metricsUploadId = null;
 
       const maxBytes = Number(root.dataset.maxBytes || "0");
       if (!(allowedTypes.includes(selectedFile.type) || allowedExtensions.includes(getExtension(selectedFile.name)))) {
@@ -2175,6 +2291,8 @@
       state.lineArtPreviewVersion = null;
       state.inkColor = null;
       state.desiredInkColor = null;
+      state.inkSwitchStartedAt = null;
+      state.inkSwitchTarget = null;
       state.previewReady = false;
       state.file = file;
       stopGenerationProgress();
@@ -2210,6 +2328,7 @@
           cartToken: getCartToken(),
           customerId: root.dataset.customerId || null
         });
+        metricsUploadId = initResult.uploadId;
 
         await uploadFile(initResult.uploadId, file, sessionId);
         await uploadProgress.complete();
@@ -2221,8 +2340,25 @@
         showPreview(root, file, removeUpload);
         setTextFieldsVisible(root, true, false);
         if (required) setAddToCartEnabled(form, true);
+        reportPerformanceMetric({
+          uploadId: state.uploadId,
+          sessionId,
+          phase: "upload",
+          outcome: "success",
+          startedAt: uploadStartedAt,
+          mode: "prepare_and_upload"
+        });
         await generateLineArt(true);
       } catch (error) {
+        reportPerformanceMetric({
+          uploadId: metricsUploadId,
+          sessionId,
+          phase: "upload",
+          outcome: "failure",
+          startedAt: uploadStartedAt,
+          mode: "prepare_and_upload",
+          errorCode: "upload_failed"
+        });
         uploadProgress.stop();
         stopGenerationProgress();
         generationProgress = 0;
@@ -2236,6 +2372,8 @@
         state.lineArtPreviewVersion = null;
         state.inkColor = null;
         state.desiredInkColor = null;
+        state.inkSwitchStartedAt = null;
+        state.inkSwitchTarget = null;
         state.previewReady = false;
         state.file = null;
         fileInput.value = "";

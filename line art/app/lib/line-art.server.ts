@@ -14,6 +14,7 @@ import {
   storageBucket,
   uploadStoredFile
 } from "./storage.server";
+import { logPerformanceMetric } from "./performance.server";
 
 const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const lineArtPipelineVersion = "line-art-v7-reference-fidelity";
@@ -280,12 +281,31 @@ export const startLineArtGeneration = async ({
 
   const { upload } = owned;
   const color = resolveInkColor(inkColor);
+  const startedAt = Date.now();
+  const logLineArt = (
+    outcome: "success" | "failure" | "queued" | "cancelled",
+    mode: string,
+    errorCode?: string
+  ) =>
+    logPerformanceMetric({
+      source: "server",
+      phase: "line_art",
+      outcome,
+      durationMs: Date.now() - startedAt,
+      shop,
+      uploadId,
+      inkColor: color,
+      mode,
+      errorCode
+    });
 
   if (!upload.uploadedAt) {
+    logLineArt("failure", "validation", "upload_incomplete");
     return { ok: false as const, status: 409, errors: ["Upload is not complete."] };
   }
 
   if (!supportedSourceTypes.has(upload.contentType)) {
+    logLineArt("failure", "validation", "unsupported_type");
     return {
       ok: false as const,
       status: 422,
@@ -316,6 +336,7 @@ export const startLineArtGeneration = async ({
       upload.lineArtStorageKey &&
       upload.lineArtCacheKey === cacheKey
     ) {
+      logLineArt("success", "same_color_cache");
       return { ok: true as const, status: "completed" as const, upload, color };
     }
 
@@ -338,6 +359,7 @@ export const startLineArtGeneration = async ({
                 lineArtError: null
               }
             });
+      logLineArt("queued", "in_flight");
       return {
         ok: true as const,
         status: "processing" as const,
@@ -368,6 +390,7 @@ export const startLineArtGeneration = async ({
         masterBody: Buffer.from(await ownMaster.arrayBuffer()),
         storeMaster: false
       });
+      logLineArt("success", "own_master");
       return { ok: true as const, status: "completed" as const, upload: completed, color };
     }
 
@@ -398,6 +421,7 @@ export const startLineArtGeneration = async ({
           model: cached.lineArtModel || lineArtConfig.model,
           masterBody: cachedBody
         });
+        logLineArt("success", "shared_cache");
         return { ok: true as const, status: "completed" as const, upload: completed, color };
       } catch (error) {
         console.warn("Cached line art could not be reused; generating a fresh result.", error);
@@ -429,6 +453,7 @@ export const startLineArtGeneration = async ({
           lineArtGeneratedAt: null
         }
       });
+      logLineArt("queued", "shared_in_flight");
       return { ok: true as const, status: "processing" as const, upload: shared, color };
     }
 
@@ -456,6 +481,7 @@ export const startLineArtGeneration = async ({
         model: deterministicLineArtModel,
         masterBody: fastPathBody
       });
+      logLineArt("success", "fast_path");
       return { ok: true as const, status: "completed" as const, upload: completed, color };
     }
 
@@ -493,6 +519,7 @@ export const startLineArtGeneration = async ({
       }
     });
 
+    logLineArt("queued", "ai_queue");
     return { ok: true as const, status: "processing" as const, upload: updated, color };
   } catch (error) {
     const message = cleanErrorMessage(error);
@@ -500,6 +527,7 @@ export const startLineArtGeneration = async ({
       where: { uploadId },
       data: { lineArtStatus: "failed", lineArtError: message }
     });
+    logLineArt("failure", "start", "generation_failed");
 
     return { ok: false as const, status: 502, errors: [message] };
   }
@@ -527,6 +555,17 @@ export const refreshLineArtGeneration = async ({
     const failed = await prisma.upload.update({
       where: { uploadId },
       data: { lineArtStatus: "failed", lineArtError: message }
+    });
+    logPerformanceMetric({
+      source: "server",
+      phase: "line_art",
+      outcome: "failure",
+      durationMs: Date.now() - upload.updatedAt.getTime(),
+      shop,
+      uploadId,
+      inkColor: resolveInkColor(upload.lineArtColor),
+      mode: "ai",
+      errorCode: "request_missing"
     });
     return { ok: true as const, upload: failed };
   }
@@ -575,12 +614,34 @@ export const refreshLineArtGeneration = async ({
       masterBody: generatedBody
     });
 
+    logPerformanceMetric({
+      source: "server",
+      phase: "line_art",
+      outcome: "success",
+      durationMs: Date.now() - upload.updatedAt.getTime(),
+      shop,
+      uploadId,
+      inkColor: resolveInkColor(upload.lineArtColor),
+      mode: "ai"
+    });
+
     return { ok: true as const, upload: completed };
   } catch (error) {
     const message = cleanErrorMessage(error);
     const failed = await prisma.upload.update({
       where: { uploadId },
       data: { lineArtStatus: "failed", lineArtError: message }
+    });
+    logPerformanceMetric({
+      source: "server",
+      phase: "line_art",
+      outcome: "failure",
+      durationMs: Date.now() - upload.updatedAt.getTime(),
+      shop,
+      uploadId,
+      inkColor: resolveInkColor(upload.lineArtColor),
+      mode: "ai",
+      errorCode: "generation_failed"
     });
     return { ok: true as const, upload: failed };
   }

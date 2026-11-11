@@ -357,6 +357,7 @@ const renderPreparedStampPreview = async ({
   preparedArtwork: Buffer;
   color: InkColor;
 }) => {
+  const startedAt = Date.now();
   const palette = color === "white" ? "white" : "regular";
   const overlay = warpArtwork(preparedArtwork, placementQuads[palette][kind], color);
   const composite = await sharp(mockupPath(kind, color))
@@ -393,7 +394,7 @@ const renderPreparedStampPreview = async ({
       .toBuffer()
   ]);
 
-  return { kind, body, thumbnail };
+  return { kind, body, thumbnail, durationMs: Date.now() - startedAt };
 };
 
 export const renderStampPreviews = async ({

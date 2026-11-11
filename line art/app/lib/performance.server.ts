@@ -4,7 +4,8 @@ export const clientPerformancePhases = [
   "upload",
   "line_art",
   "mockups",
-  "ink_switch"
+  "ink_switch",
+  "instant_preview"
 ] as const;
 
 export type ClientPerformancePhase = (typeof clientPerformancePhases)[number];

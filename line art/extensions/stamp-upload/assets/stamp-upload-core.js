@@ -15,10 +15,34 @@
     red: "#D5282F",
     white: "#FFFFFF"
   };
-  const appProxyBase = "/apps/line-art-upload/uploads/";
+  const appProxyRoot = "/apps/line-art-upload/";
+  const appProxyBase = appProxyRoot + "uploads/";
+  const instantMockupAssetVersion = "1";
+  const instantCanvasSize = 640;
+  const instantArtworkSize = 512;
+  const instantArtworkContentSize = Math.round((752 / 768) * instantArtworkSize);
+  const instantMinimumArtworkContentSize = Math.round(
+    instantArtworkContentSize * 0.58
+  );
+  const instantTargetInkArea =
+    instantArtworkContentSize * instantArtworkContentSize * 0.5;
+  const instantPlacementQuads = {
+    regular: {
+      box: [[363, 388], [891, 388], [891, 916], [363, 916]],
+      cup: [[426, 456], [828, 456], [810, 841], [444, 841]],
+      bag: [[425, 525], [829, 525], [806, 895], [448, 895]]
+    },
+    white: {
+      box: [[363, 350], [891, 350], [891, 878], [363, 878]],
+      cup: [[426, 456], [828, 456], [810, 841], [444, 841]],
+      bag: [[425, 525], [829, 525], [806, 895], [448, 895]]
+    }
+  };
   const sessionKey = "smm_upload_session_id";
   const stickySyncFrames = new WeakMap();
   const fullPreviewPreloads = new Map();
+  const instantMockupPreloads = new Map();
+  const instantTransformCache = new Map();
 
   const find = (root, selector) => root.querySelector(selector);
 
@@ -1340,6 +1364,9 @@
 
     card.dataset.state = state;
     card.dataset.inkColor = getSelectedInkColor(root);
+    if ((state === "ready" && previewUrl) || state === "waiting" || state === "failed") {
+      delete card.dataset.instantInkColor;
+    }
     const hasExistingPreview = Boolean(image && image.getAttribute("src"));
     setStampPreviewCardInteractive(
       card,
@@ -1377,6 +1404,463 @@
     ["line_art", ...stampPreviewKinds].forEach((kind) => {
       setStampPreviewCard(root, kind, "waiting");
     });
+  }
+
+  function loadInstantMockup(palette, kind) {
+    const key = `${palette}:${kind}:${instantMockupAssetVersion}`;
+    const existing = instantMockupPreloads.get(key);
+    if (existing) return existing;
+
+    const preload = new Promise((resolve, reject) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.fetchPriority = "low";
+      image.onload = async () => {
+        try {
+          await image.decode?.();
+        } catch (_error) {
+          // onload is sufficient when decode() is unavailable.
+        }
+        resolve(image);
+      };
+      image.onerror = reject;
+      image.src =
+        `${appProxyRoot}mockups/${palette}/${kind}` +
+        `?v=${instantMockupAssetVersion}`;
+    });
+
+    instantMockupPreloads.set(key, preload);
+    preload.catch(() => instantMockupPreloads.delete(key));
+    return preload;
+  }
+
+  function scheduleInstantMockupPreload() {
+    const start = () => {
+      ["regular", "white"].forEach((palette) => {
+        stampPreviewKinds.forEach((kind) => {
+          loadInstantMockup(palette, kind).catch(() => {
+            // Server previews remain the fallback if a static base cannot load.
+          });
+        });
+      });
+    };
+
+    if ("requestIdleCallback" in window) {
+      window.requestIdleCallback(start, { timeout: 1800 });
+    } else {
+      window.setTimeout(start, 350);
+    }
+  }
+
+  function loadInstantArtworkImage(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = async () => {
+        try {
+          await image.decode?.();
+        } catch (_error) {
+          // A loaded image can still be sampled when decode() is unavailable.
+        }
+        resolve(image);
+      };
+      image.onerror = reject;
+      image.src = url;
+    });
+  }
+
+  async function prepareInstantArtworkMask(url) {
+    const image = await loadInstantArtworkImage(url);
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = image.naturalWidth || image.width;
+    sourceCanvas.height = image.naturalHeight || image.height;
+    const sourceContext = sourceCanvas.getContext("2d", {
+      willReadFrequently: true
+    });
+    if (!sourceContext || !sourceCanvas.width || !sourceCanvas.height) {
+      throw new Error("Line-art mask could not be prepared.");
+    }
+
+    sourceContext.drawImage(image, 0, 0);
+    const sourcePixels = sourceContext.getImageData(
+      0,
+      0,
+      sourceCanvas.width,
+      sourceCanvas.height
+    );
+    let hasTransparency = false;
+    for (let index = 3; index < sourcePixels.data.length; index += 4) {
+      if (sourcePixels.data[index] < 250) {
+        hasTransparency = true;
+        break;
+      }
+    }
+
+    if (!hasTransparency) {
+      for (let index = 0; index < sourcePixels.data.length; index += 4) {
+        const distanceFromWhite = Math.max(
+          255 - sourcePixels.data[index],
+          255 - sourcePixels.data[index + 1],
+          255 - sourcePixels.data[index + 2]
+        );
+        sourcePixels.data[index + 3] = Math.max(
+          0,
+          Math.min(255, Math.round((distanceFromWhite - 6) * 1.35))
+        );
+      }
+      sourceContext.putImageData(sourcePixels, 0, 0);
+    }
+
+    let minX = sourceCanvas.width;
+    let minY = sourceCanvas.height;
+    let maxX = -1;
+    let maxY = -1;
+    let alphaTotal = 0;
+    for (let y = 0; y < sourceCanvas.height; y += 1) {
+      for (let x = 0; x < sourceCanvas.width; x += 1) {
+        const alpha = sourcePixels.data[(y * sourceCanvas.width + x) * 4 + 3];
+        if (alpha <= 6) continue;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+        alphaTotal += alpha / 255;
+      }
+    }
+    if (maxX < minX || maxY < minY) {
+      throw new Error("Line-art mask is empty.");
+    }
+
+    const trimmedWidth = maxX - minX + 1;
+    const trimmedHeight = maxY - minY + 1;
+    const boundingArea = Math.max(1, trimmedWidth * trimmedHeight);
+    const inkFillRatio = Math.max(0.04, alphaTotal / boundingArea);
+    const aspectRatio = trimmedWidth / Math.max(1, trimmedHeight);
+    const aspectSpan = Math.max(
+      aspectRatio,
+      1 / Math.max(aspectRatio, 0.01)
+    );
+    const desiredLongEdge = Math.sqrt(
+      (instantTargetInkArea * aspectSpan) / inkFillRatio
+    );
+    const contentSize = Math.round(
+      Math.max(
+        instantMinimumArtworkContentSize,
+        Math.min(instantArtworkContentSize, desiredLongEdge)
+      )
+    );
+    const fitScale = Math.min(
+      contentSize / trimmedWidth,
+      contentSize / trimmedHeight
+    );
+    const renderedWidth = Math.max(1, Math.round(trimmedWidth * fitScale));
+    const renderedHeight = Math.max(1, Math.round(trimmedHeight * fitScale));
+    const destinationX = Math.floor((instantArtworkSize - renderedWidth) / 2);
+    const destinationY = Math.floor((instantArtworkSize - renderedHeight) / 2);
+    const preparedCanvas = document.createElement("canvas");
+    preparedCanvas.width = instantArtworkSize;
+    preparedCanvas.height = instantArtworkSize;
+    const preparedContext = preparedCanvas.getContext("2d", {
+      willReadFrequently: true
+    });
+    if (!preparedContext) {
+      throw new Error("Line-art mask could not be normalized.");
+    }
+    preparedContext.imageSmoothingEnabled = true;
+    preparedContext.imageSmoothingQuality = "high";
+    preparedContext.drawImage(
+      sourceCanvas,
+      minX,
+      minY,
+      trimmedWidth,
+      trimmedHeight,
+      destinationX,
+      destinationY,
+      renderedWidth,
+      renderedHeight
+    );
+    const preparedPixels = preparedContext.getImageData(
+      0,
+      0,
+      instantArtworkSize,
+      instantArtworkSize
+    );
+    const alpha = new Uint8ClampedArray(
+      instantArtworkSize * instantArtworkSize
+    );
+    for (let index = 0; index < alpha.length; index += 1) {
+      alpha[index] = preparedPixels.data[index * 4 + 3];
+    }
+    return { alpha, size: instantArtworkSize };
+  }
+
+  function solveInstantLinearSystem(matrix, values) {
+    const size = values.length;
+    const augmented = matrix.map((row, index) => [...row, values[index]]);
+
+    for (let column = 0; column < size; column += 1) {
+      let pivot = column;
+      for (let row = column + 1; row < size; row += 1) {
+        if (
+          Math.abs(augmented[row][column]) >
+          Math.abs(augmented[pivot][column])
+        ) {
+          pivot = row;
+        }
+      }
+      if (Math.abs(augmented[pivot][column]) < 1e-10) return null;
+
+      [augmented[column], augmented[pivot]] = [
+        augmented[pivot],
+        augmented[column]
+      ];
+      const divisor = augmented[column][column];
+      for (let index = column; index <= size; index += 1) {
+        augmented[column][index] /= divisor;
+      }
+      for (let row = 0; row < size; row += 1) {
+        if (row === column) continue;
+        const factor = augmented[row][column];
+        for (let index = column; index <= size; index += 1) {
+          augmented[row][index] -= factor * augmented[column][index];
+        }
+      }
+    }
+    return augmented.map((row) => row[size]);
+  }
+
+  function getInstantTransform(palette, kind) {
+    const cacheKey = `${palette}:${kind}`;
+    const existing = instantTransformCache.get(cacheKey);
+    if (existing) return existing;
+
+    const scale = instantCanvasSize / 1254;
+    const quad = instantPlacementQuads[palette][kind].map(([x, y]) => ({
+      x: x * scale,
+      y: y * scale
+    }));
+    const targets = [
+      { x: 0, y: 0 },
+      { x: instantArtworkSize - 1, y: 0 },
+      { x: instantArtworkSize - 1, y: instantArtworkSize - 1 },
+      { x: 0, y: instantArtworkSize - 1 }
+    ];
+    const matrix = [];
+    const values = [];
+    quad.forEach((point, index) => {
+      const target = targets[index];
+      matrix.push([
+        point.x,
+        point.y,
+        1,
+        0,
+        0,
+        0,
+        -target.x * point.x,
+        -target.x * point.y
+      ]);
+      values.push(target.x);
+      matrix.push([
+        0,
+        0,
+        0,
+        point.x,
+        point.y,
+        1,
+        -target.y * point.x,
+        -target.y * point.y
+      ]);
+      values.push(target.y);
+    });
+    const transform = solveInstantLinearSystem(matrix, values);
+    if (!transform) return null;
+    const prepared = { quad, transform };
+    instantTransformCache.set(cacheKey, prepared);
+    return prepared;
+  }
+
+  function sampleInstantMaskAlpha(mask, sourceX, sourceY) {
+    const x0 = Math.floor(sourceX);
+    const y0 = Math.floor(sourceY);
+    const x1 = Math.min(mask.size - 1, x0 + 1);
+    const y1 = Math.min(mask.size - 1, y0 + 1);
+    const xWeight = sourceX - x0;
+    const yWeight = sourceY - y0;
+    return (
+      mask.alpha[y0 * mask.size + x0] * (1 - xWeight) * (1 - yWeight) +
+      mask.alpha[y0 * mask.size + x1] * xWeight * (1 - yWeight) +
+      mask.alpha[y1 * mask.size + x0] * (1 - xWeight) * yWeight +
+      mask.alpha[y1 * mask.size + x1] * xWeight * yWeight
+    );
+  }
+
+  function renderInstantMockup(baseImage, mask, palette, kind, color) {
+    const prepared = getInstantTransform(palette, kind);
+    const hex = inkColorHex[color];
+    if (!prepared || !hex) return null;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = instantCanvasSize;
+    canvas.height = instantCanvasSize;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(baseImage, 0, 0, instantCanvasSize, instantCanvasSize);
+
+    const overlayCanvas = document.createElement("canvas");
+    overlayCanvas.width = instantCanvasSize;
+    overlayCanvas.height = instantCanvasSize;
+    const overlayContext = overlayCanvas.getContext("2d");
+    if (!overlayContext) return null;
+    const overlay = overlayContext.createImageData(
+      instantCanvasSize,
+      instantCanvasSize
+    );
+    const red = parseInt(hex.slice(1, 3), 16);
+    const green = parseInt(hex.slice(3, 5), 16);
+    const blue = parseInt(hex.slice(5, 7), 16);
+    const minX = Math.max(
+      0,
+      Math.floor(Math.min(...prepared.quad.map((point) => point.x)))
+    );
+    const maxX = Math.min(
+      instantCanvasSize - 1,
+      Math.ceil(Math.max(...prepared.quad.map((point) => point.x)))
+    );
+    const minY = Math.max(
+      0,
+      Math.floor(Math.min(...prepared.quad.map((point) => point.y)))
+    );
+    const maxY = Math.min(
+      instantCanvasSize - 1,
+      Math.ceil(Math.max(...prepared.quad.map((point) => point.y)))
+    );
+    const opacity = color === "white" ? 0.95 : 0.93;
+    const transform = prepared.transform;
+
+    for (let y = minY; y <= maxY; y += 1) {
+      for (let x = minX; x <= maxX; x += 1) {
+        const denominator = transform[6] * x + transform[7] * y + 1;
+        const sourceX =
+          (transform[0] * x + transform[1] * y + transform[2]) /
+          denominator;
+        const sourceY =
+          (transform[3] * x + transform[4] * y + transform[5]) /
+          denominator;
+        if (
+          sourceX < 0 ||
+          sourceX > mask.size - 1 ||
+          sourceY < 0 ||
+          sourceY > mask.size - 1
+        ) {
+          continue;
+        }
+
+        const alpha = sampleInstantMaskAlpha(mask, sourceX, sourceY);
+        if (alpha <= 0) continue;
+        const outputIndex = (y * instantCanvasSize + x) * 4;
+        const fineVariation = ((x * 17 + y * 31) % 7) / 100;
+        const broadVariation =
+          ((Math.floor(x / 4) * 11 + Math.floor(y / 4) * 19) % 4) / 100;
+        const materialVariation = Math.min(
+          1,
+          0.94 + fineVariation + broadVariation
+        );
+        const fiberFade = (x * 37 + y * 17) % 97 === 0 ? 0.9 : 1;
+        overlay.data[outputIndex] = red;
+        overlay.data[outputIndex + 1] = green;
+        overlay.data[outputIndex + 2] = blue;
+        overlay.data[outputIndex + 3] = Math.round(
+          alpha * opacity * materialVariation * fiberFade
+        );
+      }
+    }
+
+    overlayContext.putImageData(overlay, 0, 0);
+    context.globalCompositeOperation = color === "white" ? "source-over" : "multiply";
+    context.drawImage(overlayCanvas, 0, 0);
+    context.globalCompositeOperation = "source-over";
+    return canvas.toDataURL("image/webp", 0.9);
+  }
+
+  function setInstantStampPreviewCard(root, kind, previewUrl, color) {
+    const card = find(root, `[data-stamp-preview-card="${kind}"]`);
+    if (!card || !previewUrl) return;
+    const image = find(card, "[data-stamp-preview-image]");
+    const status = find(card, "[data-stamp-preview-state]");
+    if (!image) return;
+
+    card.dataset.state = "ready";
+    card.dataset.inkColor = color;
+    card.dataset.instantInkColor = color;
+    image.src = previewUrl;
+    image.dataset.fullPreviewUrl = previewUrl;
+    image.hidden = false;
+    delete image.dataset.pendingPreviewUrl;
+    if (status) status.textContent = "";
+    setStampPreviewCardInteractive(card, true);
+  }
+
+  function keepInstantStampPreviewReady(root, kind, color) {
+    const card = find(root, `[data-stamp-preview-card="${kind}"]`);
+    const image = card && find(card, "[data-stamp-preview-image]");
+    if (
+      !card ||
+      !image?.getAttribute("src") ||
+      card.dataset.instantInkColor !== color
+    ) {
+      return false;
+    }
+
+    card.dataset.state = "ready";
+    setStampPreviewCardInteractive(card, true);
+    const status = find(card, "[data-stamp-preview-state]");
+    if (status) status.textContent = "";
+    return true;
+  }
+
+  async function renderInstantProductPreviews(root, state, color) {
+    const renderId = state.instantPreviewRunId + 1;
+    state.instantPreviewRunId = renderId;
+    const mask =
+      state.instantArtworkMask ||
+      (state.instantArtworkPromise
+        ? await state.instantArtworkPromise
+        : null);
+    if (!mask || renderId !== state.instantPreviewRunId) return false;
+
+    const palette = color === "white" ? "white" : "regular";
+    const bases = await Promise.all(
+      stampPreviewKinds.map((kind) => loadInstantMockup(palette, kind))
+    );
+    if (
+      renderId !== state.instantPreviewRunId ||
+      getSelectedInkColor(root) !== color
+    ) {
+      return false;
+    }
+
+    const previews = stampPreviewKinds.map((kind, index) => ({
+      kind,
+      previewUrl: renderInstantMockup(
+        bases[index],
+        mask,
+        palette,
+        kind,
+        color
+      )
+    }));
+    if (
+      renderId !== state.instantPreviewRunId ||
+      getSelectedInkColor(root) !== color
+    ) {
+      return false;
+    }
+    previews.forEach(({ kind, previewUrl }) => {
+      setInstantStampPreviewCard(root, kind, previewUrl, color);
+    });
+    return true;
   }
 
   function recolorLineArtPreviewInstantly(image, color) {
@@ -1448,9 +1932,16 @@
     } else {
       setStampPreviewCard(root, "line_art", "generating");
     }
-    stampPreviewKinds.forEach((kind) =>
-      setStampPreviewCard(root, kind, preserveExisting ? "updating" : "waiting")
-    );
+    const selectedColor = getSelectedInkColor(root);
+    stampPreviewKinds.forEach((kind) => {
+      if (
+        preserveExisting &&
+        keepInstantStampPreviewReady(root, kind, selectedColor)
+      ) {
+        return;
+      }
+      setStampPreviewCard(root, kind, preserveExisting ? "updating" : "waiting");
+    });
   }
 
   function scrollToStampPreviews(root) {
@@ -1498,9 +1989,16 @@
         lineArtPreviewVersion
       );
     }
-    stampPreviewKinds.forEach((kind) =>
-      setStampPreviewCard(root, kind, preserveExisting ? "updating" : "generating")
-    );
+    const selectedColor = getSelectedInkColor(root);
+    stampPreviewKinds.forEach((kind) => {
+      if (
+        preserveExisting &&
+        keepInstantStampPreviewReady(root, kind, selectedColor)
+      ) {
+        return;
+      }
+      setStampPreviewCard(root, kind, preserveExisting ? "updating" : "generating");
+    });
   }
 
   function renderStampPreviewResults(
@@ -1699,6 +2197,9 @@
       generationRunId: 0,
       inkSwitchStartedAt: null,
       inkSwitchTarget: null,
+      instantArtworkMask: null,
+      instantArtworkPromise: null,
+      instantPreviewRunId: 0,
       file: null
     };
     let generationProgress = 0;
@@ -1827,6 +2328,9 @@
       state.desiredInkColor = null;
       state.inkSwitchStartedAt = null;
       state.inkSwitchTarget = null;
+      state.instantArtworkMask = null;
+      state.instantArtworkPromise = null;
+      state.instantPreviewRunId += 1;
       state.previewReady = false;
       state.file = null;
       fileInput.value = "";
@@ -2027,6 +2531,23 @@
       state.inkSwitchStartedAt = performanceNow();
       state.inkSwitchTarget = requestedColor;
       state.desiredInkColor = requestedColor;
+      const instantPreviewStartedAt = performanceNow();
+      renderInstantProductPreviews(root, state, requestedColor)
+        .then((rendered) => {
+          if (!rendered) return;
+          reportPerformanceMetric({
+            uploadId: state.uploadId,
+            sessionId,
+            phase: "instant_preview",
+            outcome: "success",
+            startedAt: instantPreviewStartedAt,
+            inkColor: requestedColor,
+            mode: "browser_composite"
+          });
+        })
+        .catch(() => {
+          // The existing preview remains visible until the server result arrives.
+        });
       state.generationRunId += 1;
       const runId = state.generationRunId;
       cancelScheduledInkChange();
@@ -2127,6 +2648,31 @@
         state.lineArtFullPreviewUrl = result.fullPreviewUrl || result.previewUrl;
         state.lineArtPreviewVersion = result.version || null;
         state.inkColor = result.color;
+        if (!state.instantArtworkMask && !state.instantArtworkPromise) {
+          const maskSourceUrl = withPreviewVersion(
+            state.lineArtFullPreviewUrl || state.lineArtPreviewUrl,
+            state.lineArtPreviewVersion
+          );
+          const maskUploadId = state.uploadId;
+          const maskPromise = prepareInstantArtworkMask(maskSourceUrl)
+            .then((mask) => {
+              if (
+                state.uploadId === maskUploadId &&
+                state.instantArtworkPromise === maskPromise
+              ) {
+                state.instantArtworkMask = mask;
+              }
+              return mask;
+            })
+            .catch(() => {
+              if (state.instantArtworkPromise === maskPromise) {
+                state.instantArtworkPromise = null;
+              }
+              return null;
+            });
+          state.instantArtworkPromise = maskPromise;
+          scheduleInstantMockupPreload();
+        }
         reportPerformanceMetric({
           uploadId: state.uploadId,
           sessionId,
@@ -2293,6 +2839,9 @@
       state.desiredInkColor = null;
       state.inkSwitchStartedAt = null;
       state.inkSwitchTarget = null;
+      state.instantArtworkMask = null;
+      state.instantArtworkPromise = null;
+      state.instantPreviewRunId += 1;
       state.previewReady = false;
       state.file = file;
       stopGenerationProgress();
@@ -2374,6 +2923,9 @@
         state.desiredInkColor = null;
         state.inkSwitchStartedAt = null;
         state.inkSwitchTarget = null;
+        state.instantArtworkMask = null;
+        state.instantArtworkPromise = null;
+        state.instantPreviewRunId += 1;
         state.previewReady = false;
         state.file = null;
         fileInput.value = "";

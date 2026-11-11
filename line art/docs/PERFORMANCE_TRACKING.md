@@ -10,7 +10,8 @@ stamp_upload_performance
 Each JSON entry contains:
 
 - `source`: `client` for customer-perceived time or `server` for backend work.
-- `phase`: `upload`, `line_art`, `mockups`, `ink_switch`, or `mockup_kind`.
+- `phase`: `upload`, `line_art`, `mockups`, `ink_switch`, `instant_preview`, or
+  `mockup_kind`.
 - `outcome`: `success`, `failure`, `queued`, or `cancelled`.
 - `durationMs`: elapsed time in milliseconds, capped at ten minutes.
 - `mode`: the path taken, such as `fast_path`, `ai`, `cache`, `render`, or `store`.

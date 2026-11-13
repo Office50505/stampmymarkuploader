@@ -23,7 +23,7 @@ export type { StampPreviewKind, StampPreviewProfile };
 
 const stampPreviewRenderer = (profile: StampPreviewProfile) =>
   profile === "custom"
-    ? "deterministic-v21-lower-kraft-bag-placement"
+    ? "deterministic-v22-white-zoomed-custom-box"
     : "deterministic-v19-product-profile-permanent";
 const stampPreviewJobs = new Map<string, Promise<void>>();
 

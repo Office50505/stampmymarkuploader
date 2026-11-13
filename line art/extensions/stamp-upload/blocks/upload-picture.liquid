@@ -98,26 +98,28 @@
     aria-labelledby="smm-stamp-preview-title-{{ block.id }}"
     hidden
   >
-    <fieldset class="smm-upload__preview-ink" data-preview-ink-selector>
-      <legend class="smm-upload__preview-ink-title">{{ 'stamp_previews.ink_color' | t }}</legend>
-      <div class="smm-upload__preview-ink-options">
-        {% assign preview_ink_colors = 'black,blue,green,purple,red,white' | split: ',' %}
-        {% for preview_ink_color in preview_ink_colors %}
-          {% capture preview_ink_label_key %}stamp_previews.colors.{{ preview_ink_color }}{% endcapture %}
-          {% assign preview_ink_label = preview_ink_label_key | t %}
-          <button
-            class="smm-upload__preview-ink-option smm-upload__preview-ink-option--{{ preview_ink_color }}"
-            type="button"
-            data-preview-ink-color="{{ preview_ink_color }}"
-            aria-pressed="false"
-            aria-label="{{ 'stamp_previews.select_color' | t: color: preview_ink_label | escape }}"
-          >
-            <span class="smm-upload__preview-ink-swatch" aria-hidden="true"></span>
-            <span>{{ preview_ink_label }}</span>
-          </button>
-        {% endfor %}
-      </div>
-    </fieldset>
+    {% if preview_profile != 'custom' %}
+      <fieldset class="smm-upload__preview-ink" data-preview-ink-selector>
+        <legend class="smm-upload__preview-ink-title">{{ 'stamp_previews.ink_color' | t }}</legend>
+        <div class="smm-upload__preview-ink-options">
+          {% assign preview_ink_colors = 'black,blue,green,purple,red,white' | split: ',' %}
+          {% for preview_ink_color in preview_ink_colors %}
+            {% capture preview_ink_label_key %}stamp_previews.colors.{{ preview_ink_color }}{% endcapture %}
+            {% assign preview_ink_label = preview_ink_label_key | t %}
+            <button
+              class="smm-upload__preview-ink-option smm-upload__preview-ink-option--{{ preview_ink_color }}"
+              type="button"
+              data-preview-ink-color="{{ preview_ink_color }}"
+              aria-pressed="false"
+              aria-label="{{ 'stamp_previews.select_color' | t: color: preview_ink_label | escape }}"
+            >
+              <span class="smm-upload__preview-ink-swatch" aria-hidden="true"></span>
+              <span>{{ preview_ink_label }}</span>
+            </button>
+          {% endfor %}
+        </div>
+      </fieldset>
+    {% endif %}
 
     <h3 class="smm-upload__stamp-previews-title" id="smm-stamp-preview-title-{{ block.id }}">
       {{ 'stamp_previews.title' | t }}

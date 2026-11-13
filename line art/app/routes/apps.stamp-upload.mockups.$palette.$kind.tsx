@@ -2,6 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { LoaderFunctionArgs } from "react-router";
 import { getShopFromAppProxy } from "../lib/http.server";
+import {
+  resolveStampPreviewProfile,
+  stampPreviewAssetFilename,
+  type StampPreviewKind,
+  type StampPreviewPalette
+} from "../lib/stamp-preview-profiles";
 import { authenticate } from "../shopify.server";
 
 const palettes = new Set(["regular", "white"]);
@@ -10,8 +16,10 @@ const kinds = new Set(["bag", "cup", "box"]);
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const context = await authenticate.public.appProxy(request);
   const shop = getShopFromAppProxy(context, request);
+  const url = new URL(request.url);
   const palette = String(params.palette || "").toLowerCase();
   const kind = String(params.kind || "").toLowerCase();
+  const profile = resolveStampPreviewProfile(url.searchParams.get("profile"));
 
   if (!shop) {
     throw new Response("Shop could not be verified.", { status: 401 });
@@ -27,7 +35,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       "stamp-mockups",
       "v3",
       "client",
-      `${palette}-${kind}.webp`
+      stampPreviewAssetFilename({
+        profile,
+        palette: palette as StampPreviewPalette,
+        kind: kind as StampPreviewKind
+      })
     )
   );
 

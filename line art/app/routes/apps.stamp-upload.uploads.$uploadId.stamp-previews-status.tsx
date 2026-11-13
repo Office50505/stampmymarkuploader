@@ -5,6 +5,7 @@ import {
   refreshStampPreviewGeneration,
   stampPreviewKinds
 } from "../lib/stamp-previews.server";
+import { resolveStampPreviewProfile } from "../lib/stamp-preview-profiles";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const context = await authenticate.public.appProxy(request);
@@ -16,6 +17,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   const url = new URL(request.url);
   const sessionId = url.searchParams.get("sessionId");
+  const previewProfile = resolveStampPreviewProfile(
+    url.searchParams.get("previewProfile")
+  );
   const result = await refreshStampPreviewGeneration({
     shop,
     uploadId: params.uploadId || "",
@@ -32,6 +36,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   return jsonResponse({
     ok: true,
     uploadId: result.upload.uploadId,
+    previewProfile,
     inkColor,
     sourceVersion,
     previews: stampPreviewKinds.map((kind) => {

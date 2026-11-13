@@ -1,12 +1,10 @@
 {% liquid
   assign selected_variant = product.selected_or_first_available_variant
   assign max_bytes = block.settings.max_file_size_mb | times: 1048576
-  assign product_template_suffix = template.suffix | default: product.template_suffix | default: '' | downcase | replace: '_', '-' | replace: ' ', '-'
+  assign normalized_product_title = product.title | default: '' | downcase
   assign preview_profile = 'permanent'
-  if product_template_suffix contains 'custom-stamp'
+  if normalized_product_title contains 'custom stamp'
     assign preview_profile = 'custom'
-  elsif product_template_suffix contains 'permanent-stamp'
-    assign preview_profile = 'permanent'
   endif
   assign preview_bag_label = 'stamp_previews.bag' | t
   assign preview_bag_alt = 'stamp_previews.bag_alt' | t

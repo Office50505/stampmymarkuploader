@@ -541,6 +541,7 @@
   box-sizing: border-box;
   object-fit: contain;
   padding: 3%;
+  transform: scale(1.16);
 }
 
 .smm-upload__stamp-preview-card[data-stamp-preview-card="line_art"][data-ink-color="black"] .smm-upload__stamp-preview-media img {

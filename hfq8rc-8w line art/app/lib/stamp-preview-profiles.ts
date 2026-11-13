@@ -67,22 +67,22 @@ const permanentPlacementQuads: Record<
 
 const customPlacementQuads: Record<StampPreviewKind, StampPreviewQuad> = {
   bag: [
-    { x: 385, y: 550 },
-    { x: 869, y: 550 },
-    { x: 869, y: 1034 },
-    { x: 385, y: 1034 }
+    { x: 327, y: 450 },
+    { x: 927, y: 450 },
+    { x: 927, y: 1050 },
+    { x: 327, y: 1050 }
   ],
   cup: [
-    { x: 390, y: 540 },
-    { x: 864, y: 540 },
-    { x: 864, y: 1014 },
-    { x: 390, y: 1014 }
+    { x: 327, y: 450 },
+    { x: 927, y: 450 },
+    { x: 927, y: 1050 },
+    { x: 327, y: 1050 }
   ],
   box: [
-    { x: 335, y: 280 },
-    { x: 919, y: 280 },
-    { x: 919, y: 864 },
-    { x: 335, y: 864 }
+    { x: 327, y: 475 },
+    { x: 927, y: 475 },
+    { x: 927, y: 1075 },
+    { x: 327, y: 1075 }
   ]
 };
 

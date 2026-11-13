@@ -25,7 +25,7 @@
     "properties[Printmivo line art]",
     "properties[StampMyMark line art]"
   ];
-  const instantMockupAssetVersion = "6";
+  const instantMockupAssetVersion = "7";
   const instantCanvasSize = 640;
   const instantArtworkSize = 512;
   const instantArtworkContentSize = Math.round((752 / 768) * instantArtworkSize);
@@ -49,14 +49,14 @@
     },
     custom: {
       regular: {
-        bag: [[385, 550], [869, 550], [869, 1034], [385, 1034]],
-        cup: [[390, 540], [864, 540], [864, 1014], [390, 1014]],
-        box: [[335, 280], [919, 280], [919, 864], [335, 864]]
+        bag: [[327, 450], [927, 450], [927, 1050], [327, 1050]],
+        cup: [[327, 450], [927, 450], [927, 1050], [327, 1050]],
+        box: [[327, 475], [927, 475], [927, 1075], [327, 1075]]
       },
       white: {
-        bag: [[385, 550], [869, 550], [869, 1034], [385, 1034]],
-        cup: [[390, 540], [864, 540], [864, 1014], [390, 1014]],
-        box: [[335, 280], [919, 280], [919, 864], [335, 864]]
+        bag: [[327, 450], [927, 450], [927, 1050], [327, 1050]],
+        cup: [[327, 450], [927, 450], [927, 1050], [327, 1050]],
+        box: [[327, 475], [927, 475], [927, 1075], [327, 1075]]
       }
     }
   };
@@ -1142,7 +1142,9 @@
     const image = find(lightbox, "[data-stamp-preview-lightbox-image]");
     const caption = find(lightbox, "[data-stamp-preview-lightbox-caption]");
     const counter = find(lightbox, "[data-stamp-preview-lightbox-counter]");
-    const label = find(card, "figcaption")?.textContent?.trim() || "Stamp preview";
+    const label =
+      find(card, "[data-stamp-preview-label]")?.textContent?.trim() ||
+      "Stamp preview";
 
     lightbox.dataset.previewKind = card.dataset.stampPreviewCard || "";
     lightbox.dataset.inkColor = card.dataset.inkColor || "";

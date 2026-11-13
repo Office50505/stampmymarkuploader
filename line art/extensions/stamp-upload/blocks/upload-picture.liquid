@@ -8,17 +8,23 @@
   endif
   assign preview_bag_label = 'stamp_previews.bag' | t
   assign preview_bag_alt = 'stamp_previews.bag_alt' | t
+  assign preview_bag_description = 'stamp_previews.bag_description' | t
   assign preview_cup_label = 'stamp_previews.cup' | t
   assign preview_cup_alt = 'stamp_previews.cup_alt' | t
+  assign preview_cup_description = 'stamp_previews.cup_description' | t
   assign preview_box_label = 'stamp_previews.box' | t
   assign preview_box_alt = 'stamp_previews.box_alt' | t
+  assign preview_box_description = 'stamp_previews.box_description' | t
   if preview_profile == 'custom'
     assign preview_bag_label = 'stamp_previews.custom_kraft_bag' | t
     assign preview_bag_alt = 'stamp_previews.custom_kraft_bag_alt' | t
+    assign preview_bag_description = 'stamp_previews.custom_kraft_bag_description' | t
     assign preview_cup_label = 'stamp_previews.custom_white_bag' | t
     assign preview_cup_alt = 'stamp_previews.custom_white_bag_alt' | t
+    assign preview_cup_description = 'stamp_previews.custom_white_bag_description' | t
     assign preview_box_label = 'stamp_previews.custom_box' | t
     assign preview_box_alt = 'stamp_previews.custom_box_alt' | t
+    assign preview_box_description = 'stamp_previews.custom_box_description' | t
   endif
 %}
 
@@ -163,7 +169,19 @@
           <img data-stamp-preview-image alt="{{ 'stamp_previews.line_art_alt' | t | escape }}" width="640" height="640" loading="eager" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
-        <figcaption>{{ 'stamp_previews.line_art' | t }}</figcaption>
+        <figcaption>
+          <span class="smm-upload__stamp-preview-caption-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <rect x="3.5" y="5" width="25" height="22" rx="2.5" stroke="currentColor" stroke-width="2.2"/>
+              <circle cx="10" cy="11.5" r="2" fill="currentColor"/>
+              <path d="m6.5 23 6.2-6 4.1 3.7 3.1-3 5.6 5.3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="smm-upload__stamp-preview-caption-copy">
+            <strong data-stamp-preview-label>{{ 'stamp_previews.line_art' | t }}</strong>
+            <span>{{ 'stamp_previews.line_art_description' | t }}</span>
+          </span>
+        </figcaption>
       </figure>
 
       <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="bag" data-state="waiting">
@@ -177,7 +195,25 @@
           <img data-stamp-preview-image alt="{{ preview_bag_alt | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
-        <figcaption>{{ preview_bag_label }}</figcaption>
+        <figcaption>
+          <span class="smm-upload__stamp-preview-caption-icon" aria-hidden="true">
+            {% if preview_profile == 'custom' %}
+              <svg viewBox="0 0 32 32" fill="none">
+                <path d="M6 11h20l-1.3 16H7.3L6 11Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M11 12V9a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            {% else %}
+              <svg viewBox="0 0 32 32" fill="none">
+                <path d="M8 5h16l-1.6 22H9.6L8 5Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M7 5h18M11 10h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            {% endif %}
+          </span>
+          <span class="smm-upload__stamp-preview-caption-copy">
+            <strong data-stamp-preview-label>{{ preview_bag_label }}</strong>
+            <span>{{ preview_bag_description }}</span>
+          </span>
+        </figcaption>
       </figure>
 
       <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="cup" data-state="waiting">
@@ -191,7 +227,25 @@
           <img data-stamp-preview-image alt="{{ preview_cup_alt | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
-        <figcaption>{{ preview_cup_label }}</figcaption>
+        <figcaption>
+          <span class="smm-upload__stamp-preview-caption-icon" aria-hidden="true">
+            {% if preview_profile == 'custom' %}
+              <svg viewBox="0 0 32 32" fill="none">
+                <path d="M6 11h20l-1.3 16H7.3L6 11Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M11 12V9a5 5 0 0 1 10 0v3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            {% else %}
+              <svg viewBox="0 0 32 32" fill="none">
+                <path d="M8 7h16l-2 20H10L8 7Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+                <path d="M6.5 7h19M10 4h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+              </svg>
+            {% endif %}
+          </span>
+          <span class="smm-upload__stamp-preview-caption-copy">
+            <strong data-stamp-preview-label>{{ preview_cup_label }}</strong>
+            <span>{{ preview_cup_description }}</span>
+          </span>
+        </figcaption>
       </figure>
 
       <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="box" data-state="waiting">
@@ -205,7 +259,18 @@
           <img data-stamp-preview-image alt="{{ preview_box_alt | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
-        <figcaption>{{ preview_box_label }}</figcaption>
+        <figcaption>
+          <span class="smm-upload__stamp-preview-caption-icon" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <path d="m5 9 11-5 11 5v14l-11 5-11-5V9Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+              <path d="m5.5 9.3 10.5 5 10.5-5M16 14.3V28M11 6.3l10.5 5" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <span class="smm-upload__stamp-preview-caption-copy">
+            <strong data-stamp-preview-label>{{ preview_box_label }}</strong>
+            <span>{{ preview_box_description }}</span>
+          </span>
+        </figcaption>
       </figure>
     </div>
   </section>

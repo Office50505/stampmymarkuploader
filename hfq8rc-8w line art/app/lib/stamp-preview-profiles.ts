@@ -79,10 +79,10 @@ const customPlacementQuads: Record<StampPreviewKind, StampPreviewQuad> = {
     { x: 390, y: 1014 }
   ],
   box: [
-    { x: 420, y: 365 },
-    { x: 834, y: 365 },
-    { x: 834, y: 779 },
-    { x: 420, y: 779 }
+    { x: 335, y: 280 },
+    { x: 919, y: 280 },
+    { x: 919, y: 864 },
+    { x: 335, y: 864 }
   ]
 };
 

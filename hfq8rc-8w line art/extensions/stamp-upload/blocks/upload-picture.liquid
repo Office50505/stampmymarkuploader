@@ -1,6 +1,27 @@
 {% liquid
   assign selected_variant = product.selected_or_first_available_variant
   assign max_bytes = block.settings.max_file_size_mb | times: 1048576
+  assign product_template_suffix = template.suffix | default: product.template_suffix | default: '' | downcase | replace: '_', '-' | replace: ' ', '-'
+  assign preview_profile = 'permanent'
+  if product_template_suffix contains 'custom-stamp'
+    assign preview_profile = 'custom'
+  elsif product_template_suffix contains 'permanent-stamp'
+    assign preview_profile = 'permanent'
+  endif
+  assign preview_bag_label = 'stamp_previews.bag' | t
+  assign preview_bag_alt = 'stamp_previews.bag_alt' | t
+  assign preview_cup_label = 'stamp_previews.cup' | t
+  assign preview_cup_alt = 'stamp_previews.cup_alt' | t
+  assign preview_box_label = 'stamp_previews.box' | t
+  assign preview_box_alt = 'stamp_previews.box_alt' | t
+  if preview_profile == 'custom'
+    assign preview_bag_label = 'stamp_previews.custom_bag' | t
+    assign preview_bag_alt = 'stamp_previews.custom_bag_alt' | t
+    assign preview_cup_label = 'stamp_previews.custom_pizza_box' | t
+    assign preview_cup_alt = 'stamp_previews.custom_pizza_box_alt' | t
+    assign preview_box_label = 'stamp_previews.custom_carton' | t
+    assign preview_box_alt = 'stamp_previews.custom_carton_alt' | t
+  endif
 %}
 
 <link rel="stylesheet" href="{{ 'stamp-upload.css' | asset_url }}" media="print" onload="this.media='all'">
@@ -16,6 +37,7 @@
   data-product-gid="gid://shopify/Product/{{ product.id }}"
   data-product-handle="{{ product.handle | escape }}"
   data-product-title="{{ product.title | escape }}"
+  data-preview-profile="{{ preview_profile }}"
   data-variant-id="{{ selected_variant.id }}"
   data-variant-gid="gid://shopify/ProductVariant/{{ selected_variant.id }}"
   data-variant-title="{{ selected_variant.title | escape }}"
@@ -153,10 +175,10 @@
             <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
             <span class="smm-upload__stamp-preview-sheen"></span>
           </div>
-          <img data-stamp-preview-image alt="{{ 'stamp_previews.bag_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
+          <img data-stamp-preview-image alt="{{ preview_bag_alt | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
-        <figcaption>{{ 'stamp_previews.bag' | t }}</figcaption>
+        <figcaption>{{ preview_bag_label }}</figcaption>
       </figure>
 
       <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="cup" data-state="waiting">
@@ -167,10 +189,10 @@
             <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
             <span class="smm-upload__stamp-preview-sheen"></span>
           </div>
-          <img data-stamp-preview-image alt="{{ 'stamp_previews.cup_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
+          <img data-stamp-preview-image alt="{{ preview_cup_alt | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
-        <figcaption>{{ 'stamp_previews.cup' | t }}</figcaption>
+        <figcaption>{{ preview_cup_label }}</figcaption>
       </figure>
 
       <figure class="smm-upload__stamp-preview-card" data-stamp-preview-card="box" data-state="waiting">
@@ -181,10 +203,10 @@
             <span class="smm-upload__stamp-preview-orb smm-upload__stamp-preview-orb--three"></span>
             <span class="smm-upload__stamp-preview-sheen"></span>
           </div>
-          <img data-stamp-preview-image alt="{{ 'stamp_previews.box_alt' | t | escape }}" width="640" height="640" loading="lazy" hidden>
+          <img data-stamp-preview-image alt="{{ preview_box_alt | escape }}" width="640" height="640" loading="lazy" hidden>
           <span class="smm-upload__stamp-preview-state" data-stamp-preview-state>{{ 'stamp_previews.waiting' | t }}</span>
         </div>
-        <figcaption>{{ 'stamp_previews.box' | t }}</figcaption>
+        <figcaption>{{ preview_box_label }}</figcaption>
       </figure>
     </div>
   </section>

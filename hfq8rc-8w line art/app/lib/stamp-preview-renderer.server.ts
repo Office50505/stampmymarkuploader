@@ -1,10 +1,14 @@
 import path from "node:path";
 import sharp from "sharp";
 import type { InkColor } from "./line-art.server";
-import type { StampPreviewKind } from "./stamp-previews.server";
-
-type Point = { x: number; y: number };
-type Quad = [Point, Point, Point, Point];
+import {
+  resolveStampPreviewPalette,
+  stampPreviewAssetFilename,
+  stampPreviewPlacementQuads,
+  type StampPreviewKind,
+  type StampPreviewProfile,
+  type StampPreviewQuad
+} from "./stamp-preview-profiles";
 
 const canvasSize = 1254;
 const artworkSize = 768;
@@ -12,52 +16,13 @@ const artworkContentSize = 752;
 const minimumArtworkContentSize = Math.round(artworkContentSize * 0.58);
 const targetInkArea = artworkContentSize * artworkContentSize * 0.5;
 
-const placementQuads: Record<"regular" | "white", Record<StampPreviewKind, Quad>> = {
-  regular: {
-    box: [
-      { x: 363, y: 388 },
-      { x: 891, y: 388 },
-      { x: 891, y: 916 },
-      { x: 363, y: 916 }
-    ],
-    cup: [
-      { x: 426, y: 456 },
-      { x: 828, y: 456 },
-      { x: 810, y: 841 },
-      { x: 444, y: 841 }
-    ],
-    bag: [
-      { x: 425, y: 525 },
-      { x: 829, y: 525 },
-      { x: 806, y: 895 },
-      { x: 448, y: 895 }
-    ]
-  },
-  white: {
-    box: [
-      { x: 363, y: 350 },
-      { x: 891, y: 350 },
-      { x: 891, y: 878 },
-      { x: 363, y: 878 }
-    ],
-    cup: [
-      { x: 426, y: 456 },
-      { x: 828, y: 456 },
-      { x: 810, y: 841 },
-      { x: 444, y: 841 }
-    ],
-    bag: [
-      { x: 425, y: 525 },
-      { x: 829, y: 525 },
-      { x: 806, y: 895 },
-      { x: 448, y: 895 }
-    ]
-  }
-};
-
-const mockupPath = (kind: StampPreviewKind, color: InkColor) => {
-  const palette = color === "white" ? "white" : "regular";
-  const filename = `${palette}-${kind}.webp`;
+const mockupPath = (
+  profile: StampPreviewProfile,
+  kind: StampPreviewKind,
+  color: InkColor
+) => {
+  const palette = resolveStampPreviewPalette(color);
+  const filename = stampPreviewAssetFilename({ profile, palette, kind });
 
   return path.join(
     process.cwd(),
@@ -103,8 +68,8 @@ const solveLinearSystem = (matrix: number[][], values: number[]) => {
   return augmented.map((row) => row[size]);
 };
 
-const destinationToArtworkTransform = (quad: Quad) => {
-  const targets: Quad = [
+const destinationToArtworkTransform = (quad: StampPreviewQuad) => {
+  const targets: StampPreviewQuad = [
     { x: 0, y: 0 },
     { x: artworkSize - 1, y: 0 },
     { x: artworkSize - 1, y: artworkSize - 1 },
@@ -299,7 +264,11 @@ const sampleArtwork = (
   ] as const;
 };
 
-const warpArtwork = (artwork: Buffer, quad: Quad, color: InkColor) => {
+const warpArtwork = (
+  artwork: Buffer,
+  quad: StampPreviewQuad,
+  color: InkColor
+) => {
   const transform = destinationToArtworkTransform(quad);
   const overlay = Buffer.alloc(canvasSize * canvasSize * 4);
   const minX = Math.max(0, Math.floor(Math.min(...quad.map((point) => point.x))));
@@ -349,18 +318,24 @@ const warpArtwork = (artwork: Buffer, quad: Quad, color: InkColor) => {
 };
 
 const renderPreparedStampPreview = async ({
+  profile,
   kind,
   preparedArtwork,
   color
 }: {
+  profile: StampPreviewProfile;
   kind: StampPreviewKind;
   preparedArtwork: Buffer;
   color: InkColor;
 }) => {
   const startedAt = Date.now();
-  const palette = color === "white" ? "white" : "regular";
-  const overlay = warpArtwork(preparedArtwork, placementQuads[palette][kind], color);
-  const composite = await sharp(mockupPath(kind, color))
+  const palette = resolveStampPreviewPalette(color);
+  const overlay = warpArtwork(
+    preparedArtwork,
+    stampPreviewPlacementQuads[profile][palette][kind],
+    color
+  );
+  const composite = await sharp(mockupPath(profile, kind, color))
     .resize(canvasSize, canvasSize, { fit: "cover" })
     .composite([
       {
@@ -398,10 +373,12 @@ const renderPreparedStampPreview = async ({
 };
 
 export const renderStampPreviews = async ({
+  profile,
   kinds,
   artwork,
   color
 }: {
+  profile: StampPreviewProfile;
   kinds: StampPreviewKind[];
   artwork: Buffer;
   color: InkColor;
@@ -412,21 +389,28 @@ export const renderStampPreviews = async ({
 
   return Promise.all(
     kinds.map((kind) =>
-      renderPreparedStampPreview({ kind, preparedArtwork, color })
+      renderPreparedStampPreview({ profile, kind, preparedArtwork, color })
     )
   );
 };
 
 export const renderStampPreview = async ({
+  profile,
   kind,
   artwork,
   color
 }: {
+  profile: StampPreviewProfile;
   kind: StampPreviewKind;
   artwork: Buffer;
   color: InkColor;
 }) => {
-  const [preview] = await renderStampPreviews({ kinds: [kind], artwork, color });
+  const [preview] = await renderStampPreviews({
+    profile,
+    kinds: [kind],
+    artwork,
+    color
+  });
 
   return preview.body;
 };

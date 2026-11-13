@@ -25,7 +25,7 @@
     "properties[Printmivo line art]",
     "properties[StampMyMark line art]"
   ];
-  const instantMockupAssetVersion = "1";
+  const instantMockupAssetVersion = "2";
   const instantCanvasSize = 640;
   const instantArtworkSize = 512;
   const instantArtworkContentSize = Math.round((752 / 768) * instantArtworkSize);
@@ -35,15 +35,29 @@
   const instantTargetInkArea =
     instantArtworkContentSize * instantArtworkContentSize * 0.5;
   const instantPlacementQuads = {
-    regular: {
-      box: [[363, 388], [891, 388], [891, 916], [363, 916]],
-      cup: [[426, 456], [828, 456], [810, 841], [444, 841]],
-      bag: [[425, 525], [829, 525], [806, 895], [448, 895]]
+    permanent: {
+      regular: {
+        box: [[363, 388], [891, 388], [891, 916], [363, 916]],
+        cup: [[426, 456], [828, 456], [810, 841], [444, 841]],
+        bag: [[425, 525], [829, 525], [806, 895], [448, 895]]
+      },
+      white: {
+        box: [[363, 350], [891, 350], [891, 878], [363, 878]],
+        cup: [[426, 456], [828, 456], [810, 841], [444, 841]],
+        bag: [[425, 525], [829, 525], [806, 895], [448, 895]]
+      }
     },
-    white: {
-      box: [[363, 350], [891, 350], [891, 878], [363, 878]],
-      cup: [[426, 456], [828, 456], [810, 841], [444, 841]],
-      bag: [[425, 525], [829, 525], [806, 895], [448, 895]]
+    custom: {
+      regular: {
+        bag: [[367, 470], [887, 470], [887, 990], [367, 990]],
+        cup: [[317, 320], [937, 320], [937, 940], [317, 940]],
+        box: [[347, 395], [907, 395], [907, 955], [347, 955]]
+      },
+      white: {
+        bag: [[367, 470], [887, 470], [887, 990], [367, 990]],
+        cup: [[317, 320], [937, 320], [937, 940], [317, 940]],
+        box: [[347, 395], [907, 395], [907, 955], [347, 955]]
+      }
     }
   };
   const sessionKey = "smm_upload_session_id";
@@ -53,6 +67,10 @@
   const instantTransformCache = new Map();
 
   const find = (root, selector) => root.querySelector(selector);
+
+  function getPreviewProfile(root) {
+    return root.dataset.previewProfile === "custom" ? "custom" : "permanent";
+  }
 
   function getSessionId() {
     let sessionId = window.sessionStorage.getItem(sessionKey);
@@ -1484,8 +1502,8 @@
     });
   }
 
-  function loadInstantMockup(palette, kind) {
-    const key = `${palette}:${kind}:${instantMockupAssetVersion}`;
+  function loadInstantMockup(profile, palette, kind) {
+    const key = `${profile}:${palette}:${kind}:${instantMockupAssetVersion}`;
     const existing = instantMockupPreloads.get(key);
     if (existing) return existing;
 
@@ -1504,7 +1522,7 @@
       image.onerror = reject;
       image.src =
         `${appProxyRoot}mockups/${palette}/${kind}` +
-        `?v=${instantMockupAssetVersion}`;
+        `?profile=${encodeURIComponent(profile)}&v=${instantMockupAssetVersion}`;
     });
 
     instantMockupPreloads.set(key, preload);
@@ -1512,11 +1530,12 @@
     return preload;
   }
 
-  function scheduleInstantMockupPreload() {
+  function scheduleInstantMockupPreload(root) {
+    const profile = getPreviewProfile(root);
     const start = () => {
       ["regular", "white"].forEach((palette) => {
         stampPreviewKinds.forEach((kind) => {
-          loadInstantMockup(palette, kind).catch(() => {
+          loadInstantMockup(profile, palette, kind).catch(() => {
             // Server previews remain the fallback if a static base cannot load.
           });
         });
@@ -1707,13 +1726,13 @@
     return augmented.map((row) => row[size]);
   }
 
-  function getInstantTransform(palette, kind) {
-    const cacheKey = `${palette}:${kind}`;
+  function getInstantTransform(profile, palette, kind) {
+    const cacheKey = `${profile}:${palette}:${kind}`;
     const existing = instantTransformCache.get(cacheKey);
     if (existing) return existing;
 
     const scale = instantCanvasSize / 1254;
-    const quad = instantPlacementQuads[palette][kind].map(([x, y]) => ({
+    const quad = instantPlacementQuads[profile][palette][kind].map(([x, y]) => ({
       x: x * scale,
       y: y * scale
     }));
@@ -1772,8 +1791,8 @@
     );
   }
 
-  function renderInstantMockup(baseImage, mask, palette, kind, color) {
-    const prepared = getInstantTransform(palette, kind);
+  function renderInstantMockup(baseImage, mask, profile, palette, kind, color) {
+    const prepared = getInstantTransform(profile, palette, kind);
     const hex = inkColorHex[color];
     if (!prepared || !hex) return null;
 
@@ -1908,9 +1927,12 @@
         : null);
     if (!mask || renderId !== state.instantPreviewRunId) return false;
 
+    const profile = getPreviewProfile(root);
     const palette = color === "white" ? "white" : "regular";
     const bases = await Promise.all(
-      stampPreviewKinds.map((kind) => loadInstantMockup(palette, kind))
+      stampPreviewKinds.map((kind) =>
+        loadInstantMockup(profile, palette, kind)
+      )
     );
     if (
       renderId !== state.instantPreviewRunId ||
@@ -1924,6 +1946,7 @@
       previewUrl: renderInstantMockup(
         bases[index],
         mask,
+        profile,
         palette,
         kind,
         color
@@ -2125,15 +2148,18 @@
     signal
   ) {
     const deadline = Date.now() + 4 * 60 * 1000;
+    const previewProfile = getPreviewProfile(root);
     const path =
       `${encodeURIComponent(uploadId)}/stamp-previews-status` +
-      `?sessionId=${encodeURIComponent(sessionId)}`;
+      `?sessionId=${encodeURIComponent(sessionId)}` +
+      `&previewProfile=${encodeURIComponent(previewProfile)}`;
 
     while (Date.now() < deadline) {
       if (!isCurrent()) return null;
       const result = await getJson(path, { signal });
       if (!isCurrent()) return null;
       if (
+        result.previewProfile !== previewProfile ||
         result.inkColor !== expectedColor ||
         result.sourceVersion !== expectedSourceVersion
       ) {
@@ -2521,7 +2547,7 @@
         setStatus(
           root,
           root.dataset.stampPreviewsGeneratingMockups ||
-            "Creating your clear cup, paper cup and container previews…"
+            "Creating your product previews…"
         );
       }
 
@@ -2530,10 +2556,12 @@
           uploadId: state.uploadId,
           sessionId,
           inkColor: expectedColor,
-          sourceVersion: expectedSourceVersion
+          sourceVersion: expectedSourceVersion,
+          previewProfile: getPreviewProfile(root)
         }, { signal });
         if (runId !== state.generationRunId) return;
         if (
+          startResult.previewProfile !== getPreviewProfile(root) ||
           startResult.inkColor !== expectedColor ||
           startResult.sourceVersion !== expectedSourceVersion
         ) {
@@ -2845,7 +2873,7 @@
               return null;
             });
           state.instantArtworkPromise = maskPromise;
-          scheduleInstantMockupPreload();
+          scheduleInstantMockupPreload(root);
         }
         reportPerformanceMetric({
           uploadId: state.uploadId,

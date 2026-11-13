@@ -26,7 +26,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     expectedColor: body.inkColor ? String(body.inkColor) : null,
     expectedSourceVersion: Number.isFinite(Number(body.sourceVersion))
       ? Number(body.sourceVersion)
-      : null
+      : null,
+    previewProfile: body.previewProfile ? String(body.previewProfile) : null
   });
 
   if (!result.ok) {
@@ -40,6 +41,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     {
       ok: true,
       uploadId: result.upload.uploadId,
+      previewProfile: result.profile,
       inkColor,
       sourceVersion,
       previews: stampPreviewKinds.map((kind) => {

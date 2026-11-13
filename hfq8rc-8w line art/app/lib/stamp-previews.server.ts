@@ -6,16 +6,23 @@ import { getOwnedUpload, type InkColor } from "./line-art.server";
 import { logPerformanceMetric } from "./performance.server";
 import { renderStampPreviews } from "./stamp-preview-renderer.server";
 import {
+  resolveStampPreviewProfile,
+  stampPreviewKinds,
+  type StampPreviewKind,
+  type StampPreviewProfile
+} from "./stamp-preview-profiles";
+import {
   fetchStoredFile,
   fetchStoredFileIfExists,
   storageBucket,
   uploadStoredFile
 } from "./storage.server";
 
-export const stampPreviewKinds = ["bag", "cup", "box"] as const;
-export type StampPreviewKind = (typeof stampPreviewKinds)[number];
+export { stampPreviewKinds };
+export type { StampPreviewKind, StampPreviewProfile };
 
-const stampPreviewRenderer = "deterministic-v18-revision-safe-batch";
+const stampPreviewRenderer = (profile: StampPreviewProfile) =>
+  `deterministic-v19-product-profile-${profile}`;
 const stampPreviewJobs = new Map<string, Promise<void>>();
 
 const configureFal = () => {
@@ -35,12 +42,13 @@ const isWebp = (body: Buffer) =>
 const generatedStorageKey = (
   shop: string,
   uploadId: string,
+  profile: StampPreviewProfile,
   kind: StampPreviewKind,
   color: InkColor,
   sourceVersion: number
 ) => {
   const shopSlug = shop.replace(/[^a-z0-9.-]/gi, "-").toLowerCase();
-  return `shops/${shopSlug}/uploads/${uploadId}/stamp-preview-${kind}-${color}-${sourceVersion}.webp`;
+  return `shops/${shopSlug}/uploads/${uploadId}/stamp-preview-${profile}-${kind}-${color}-${sourceVersion}.webp`;
 };
 
 export const stampPreviewThumbnailStorageKey = (storageKey: string) =>
@@ -80,14 +88,15 @@ const hasCurrentResult = (
     requestId: string | null;
     sourceLineArtGeneratedAt: Date | null;
   },
-  generatedAt: Date
+  generatedAt: Date,
+  renderer: string
 ) => {
   const isCurrent =
     preview.sourceLineArtGeneratedAt?.getTime() === generatedAt.getTime();
 
   return (
     isCurrent &&
-    preview.model === stampPreviewRenderer &&
+    preview.model === renderer &&
     ((preview.status === "completed" && Boolean(preview.storageKey)) ||
       (preview.status === "processing" && Boolean(preview.requestId)))
   );
@@ -98,13 +107,15 @@ export const startStampPreviewGeneration = async ({
   uploadId,
   sessionId,
   expectedColor,
-  expectedSourceVersion
+  expectedSourceVersion,
+  previewProfile
 }: {
   shop: string;
   uploadId: string;
   sessionId?: string | null;
   expectedColor?: string | null;
   expectedSourceVersion?: number | null;
+  previewProfile?: string | null;
 }) => {
   const owned = await getOwnedUpload({ shop, uploadId, sessionId });
   if (!owned.ok) return owned;
@@ -123,6 +134,8 @@ export const startStampPreviewGeneration = async ({
   }
 
   const color = (upload.lineArtColor || "black") as InkColor;
+  const profile = resolveStampPreviewProfile(previewProfile);
+  const renderer = stampPreviewRenderer(profile);
   const sourceGeneratedAt = upload.lineArtGeneratedAt;
   const sourceVersion = sourceGeneratedAt.getTime();
   if (
@@ -142,7 +155,7 @@ export const startStampPreviewGeneration = async ({
   const existingByKind = new Map(existing.map((preview) => [preview.kind, preview]));
   const pendingKinds = stampPreviewKinds.filter((kind) => {
     const preview = existingByKind.get(kind);
-    return !preview || !hasCurrentResult(preview, sourceGeneratedAt);
+    return !preview || !hasCurrentResult(preview, sourceGeneratedAt, renderer);
   });
 
   if (pendingKinds.length === 0) {
@@ -157,7 +170,7 @@ export const startStampPreviewGeneration = async ({
       mode: "cache",
       previewCount: stampPreviewKinds.length
     });
-    return { ok: true as const, upload, previews: existing };
+    return { ok: true as const, upload, previews: existing, profile };
   }
 
   const isCurrentRevision = async () => {
@@ -178,7 +191,7 @@ export const startStampPreviewGeneration = async ({
     );
   };
 
-  const jobKey = `${uploadId}:${sourceVersion}:${stampPreviewRenderer}`;
+  const jobKey = `${uploadId}:${sourceVersion}:${renderer}`;
   let job = stampPreviewJobs.get(jobKey);
   if (!job) {
     job = (async () => {
@@ -188,6 +201,7 @@ export const startStampPreviewGeneration = async ({
         const stored = await fetchStoredFile(upload.lineArtStorageKey!);
         const sourceBody = Buffer.from(await stored.arrayBuffer());
         const rendered = await renderStampPreviews({
+          profile,
           kinds: [...pendingKinds],
           artwork: sourceBody,
           color
@@ -239,6 +253,7 @@ export const startStampPreviewGeneration = async ({
               const key = generatedStorageKey(
                 shop,
                 uploadId,
+                profile,
                 kind,
                 color,
                 sourceVersion
@@ -262,7 +277,7 @@ export const startStampPreviewGeneration = async ({
                   uploadId,
                   kind,
                   status: "completed",
-                  model: stampPreviewRenderer,
+                  model: renderer,
                   storageKey: key,
                   storageUrl: `bunny://${storageBucket()}/${key}`,
                   contentType: "image/webp",
@@ -272,7 +287,7 @@ export const startStampPreviewGeneration = async ({
                 },
                 update: {
                   status: "completed",
-                  model: stampPreviewRenderer,
+                  model: renderer,
                   requestId: null,
                   storageKey: key,
                   storageUrl: `bunny://${storageBucket()}/${key}`,
@@ -304,13 +319,13 @@ export const startStampPreviewGeneration = async ({
                   uploadId,
                   kind,
                   status: "failed",
-                  model: stampPreviewRenderer,
+                  model: renderer,
                   sourceLineArtGeneratedAt: sourceGeneratedAt,
                   error: message
                 },
                 update: {
                   status: "failed",
-                  model: stampPreviewRenderer,
+                  model: renderer,
                   requestId: null,
                   sourceLineArtGeneratedAt: sourceGeneratedAt,
                   generatedAt: null,
@@ -357,13 +372,13 @@ export const startStampPreviewGeneration = async ({
                 uploadId,
                 kind,
                 status: "failed",
-                model: stampPreviewRenderer,
+                model: renderer,
                 sourceLineArtGeneratedAt: sourceGeneratedAt,
                 error: message
               },
               update: {
                 status: "failed",
-                model: stampPreviewRenderer,
+                model: renderer,
                 requestId: null,
                 sourceLineArtGeneratedAt: sourceGeneratedAt,
                 error: message
@@ -402,7 +417,8 @@ export const startStampPreviewGeneration = async ({
   return {
     ok: true as const,
     upload: currentUpload || upload,
-    previews
+    previews,
+    profile
   };
 };
 
@@ -476,6 +492,7 @@ const refreshOnePreview = async (
     const key = generatedStorageKey(
       shop,
       preview.uploadId,
+      "permanent",
       preview.kind,
       currentUpload.lineArtColor as InkColor,
       sourceVersion

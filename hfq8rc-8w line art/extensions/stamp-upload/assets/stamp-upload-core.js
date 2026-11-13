@@ -25,7 +25,7 @@
     "properties[Printmivo line art]",
     "properties[StampMyMark line art]"
   ];
-  const instantMockupAssetVersion = "7";
+  const instantMockupAssetVersion = "8";
   const instantCanvasSize = 640;
   const instantArtworkSize = 512;
   const instantArtworkContentSize = Math.round((752 / 768) * instantArtworkSize);
@@ -37,9 +37,9 @@
   const instantPlacementQuads = {
     permanent: {
       regular: {
-        box: [[363, 388], [891, 388], [891, 916], [363, 916]],
-        cup: [[426, 456], [828, 456], [810, 841], [444, 841]],
-        bag: [[425, 525], [829, 525], [806, 895], [448, 895]]
+        box: [[347, 350], [907, 350], [907, 760], [347, 760]],
+        cup: [[385, 475], [869, 475], [825, 805], [429, 805]],
+        bag: [[452, 640], [822, 640], [802, 885], [472, 885]]
       },
       white: {
         box: [[363, 350], [891, 350], [891, 878], [363, 878]],

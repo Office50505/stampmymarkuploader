@@ -53,7 +53,7 @@
         "stampmymark_uploader_us_upload_picture_DQdpkC": {
           "type": "shopify://apps/lineartuploader/blocks/upload-picture/390f72cd-ceb4-1227-574d-6a651e01f60918cc43bf",
           "settings": {
-            "button_label": "Upload Your Logo & See Your Stamp",
+            "button_label": "See Your Stamp",
             "required": true,
             "size_option_name": "Size",
             "color_option_name": "Ink color",

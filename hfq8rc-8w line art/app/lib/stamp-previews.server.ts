@@ -22,7 +22,9 @@ export { stampPreviewKinds };
 export type { StampPreviewKind, StampPreviewProfile };
 
 const stampPreviewRenderer = (profile: StampPreviewProfile) =>
-  `deterministic-v19-product-profile-${profile}`;
+  profile === "custom"
+    ? "deterministic-v20-real-custom-products"
+    : "deterministic-v19-product-profile-permanent";
 const stampPreviewJobs = new Map<string, Promise<void>>();
 
 const configureFal = () => {

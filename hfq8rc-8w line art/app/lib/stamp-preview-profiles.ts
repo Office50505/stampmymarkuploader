@@ -67,22 +67,22 @@ const permanentPlacementQuads: Record<
 
 const customPlacementQuads: Record<StampPreviewKind, StampPreviewQuad> = {
   bag: [
-    { x: 367, y: 470 },
-    { x: 887, y: 470 },
-    { x: 887, y: 990 },
-    { x: 367, y: 990 }
+    { x: 385, y: 470 },
+    { x: 869, y: 470 },
+    { x: 869, y: 954 },
+    { x: 385, y: 954 }
   ],
   cup: [
-    { x: 317, y: 320 },
-    { x: 937, y: 320 },
-    { x: 937, y: 940 },
-    { x: 317, y: 940 }
+    { x: 390, y: 540 },
+    { x: 864, y: 540 },
+    { x: 864, y: 1014 },
+    { x: 390, y: 1014 }
   ],
   box: [
-    { x: 347, y: 395 },
-    { x: 907, y: 395 },
-    { x: 907, y: 955 },
-    { x: 347, y: 955 }
+    { x: 420, y: 410 },
+    { x: 834, y: 410 },
+    { x: 834, y: 824 },
+    { x: 420, y: 824 }
   ]
 };
 
@@ -103,9 +103,9 @@ const permanentAssetFilename = (
 ) => `${palette}-${kind}.webp`;
 
 const customAssetFilenames: Record<StampPreviewKind, string> = {
-  bag: "custom-bag.webp",
-  cup: "custom-pizza-box.webp",
-  box: "custom-carton.webp"
+  bag: "custom-kraft-bag.webp",
+  cup: "custom-white-bag.webp",
+  box: "custom-box.webp"
 };
 
 export const stampPreviewAssetFilename = ({

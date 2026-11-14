@@ -462,119 +462,28 @@
     });
   }
 
-  function keepViewportAnchored(root, anchor, initialControls) {
-    if (!anchor || !anchor.isConnected) return;
+  let previewInkSelectionId = 0;
 
-    const anchorTop = anchor.getBoundingClientRect().top;
-    const startedAt = window.performance?.now?.() || Date.now();
-    const shouldRestoreFocus = document.activeElement === anchor;
-    let variantSettled = false;
-    let stableFrames = 0;
-    let cancelled = false;
-    let animationFrame = null;
-    let restoringViewport = false;
+  function dispatchPreviewInkSelection(control) {
+    const originalId = control.id;
+    previewInkSelectionId += 1;
 
-    const restoreViewport = () => {
-      if (cancelled || restoringViewport || !anchor.isConnected) return false;
+    // Minimog focuses the changed variant control after its async refresh. The
+    // real ink control sits above this preview section, so that focus moves the
+    // page away from the customer's preview. Give this programmatic change a
+    // short-lived ID that no longer exists when the refresh completes; the
+    // selected preview button keeps focus and the viewport stays in place.
+    control.id = `smm-preview-ink-selection-${previewInkSelectionId}`;
 
-      const offset = anchor.getBoundingClientRect().top - anchorTop;
-      if (Math.abs(offset) <= 0.5) return false;
-
-      restoringViewport = true;
-      window.scrollBy(0, offset);
-      restoringViewport = false;
-      stableFrames = 0;
-      return true;
-    };
-
-    const handleFocusIn = (event) => {
-      const currentControls = getOptionControls(
-        root,
-        root.dataset.colorOptionName || "Ink color"
-      );
-      if (!currentControls.includes(event.target)) return;
-
-      restoreViewport();
-      if (shouldRestoreFocus && document.activeElement !== anchor) {
-        anchor.focus({ preventScroll: true });
-        restoreViewport();
-      }
-    };
-
-    const cancel = () => {
-      if (cancelled) return;
-      cancelled = true;
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
-      window.removeEventListener("wheel", cancel);
-      window.removeEventListener("touchmove", cancel);
-      window.removeEventListener("keydown", cancel);
-      window.removeEventListener("pointerdown", cancel);
-      window.removeEventListener("scroll", restoreViewport);
-      document.removeEventListener("focusin", handleFocusIn, true);
-      document.removeEventListener("variant:changed", markVariantSettled, true);
-    };
-
-    const markVariantSettled = () => {
-      variantSettled = true;
-      stableFrames = 0;
-    };
-
-    const restore = () => {
-      if (cancelled || !anchor.isConnected) {
-        cancel();
-        return;
-      }
-
-      const elapsed = (window.performance?.now?.() || Date.now()) - startedAt;
-      if (elapsed > 8000) {
-        cancel();
-        return;
-      }
-
-      const currentControls = getOptionControls(
-        root,
-        root.dataset.colorOptionName || "Ink color"
-      );
-      if (
-        !variantSettled &&
-        currentControls.some((control) => !initialControls.includes(control))
-      ) {
-        markVariantSettled();
-      }
-
-      const viewportMoved = restoreViewport();
-      if (!viewportMoved && variantSettled) {
-        stableFrames += 1;
-      }
-
-      if (
-        shouldRestoreFocus &&
-        currentControls.includes(document.activeElement) &&
-        document.activeElement !== anchor
-      ) {
-        anchor.focus({ preventScroll: true });
-        stableFrames = 0;
-      }
-
-      if (variantSettled && stableFrames >= 6) {
-        cancel();
-        return;
-      }
-
-      animationFrame = window.requestAnimationFrame(restore);
-    };
-
-    window.addEventListener("wheel", cancel, { passive: true });
-    window.addEventListener("touchmove", cancel, { passive: true });
-    window.addEventListener("keydown", cancel);
-    window.addEventListener("pointerdown", cancel, { passive: true });
-    window.addEventListener("scroll", restoreViewport, { passive: true });
-    document.addEventListener("focusin", handleFocusIn, true);
-    document.addEventListener("variant:changed", markVariantSettled, true);
-    animationFrame = window.requestAnimationFrame(restore);
+    try {
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+      control.dispatchEvent(new Event("change", { bubbles: true }));
+    } finally {
+      control.id = originalId;
+    }
   }
 
-  function selectInkColor(root, color, anchor) {
+  function selectInkColor(root, color) {
     const controls = getOptionControls(root, root.dataset.colorOptionName || "Ink color");
     const normalizedColor = String(color || "").trim().toLowerCase();
     const control = controls.find(
@@ -585,20 +494,16 @@
 
     if (control.tagName === "SELECT") {
       if (String(control.value).trim().toLowerCase() === normalizedColor) return false;
-      keepViewportAnchored(root, anchor, controls);
       control.value = Array.from(control.options).find(
         (option) => String(option.value).trim().toLowerCase() === normalizedColor
       )?.value || control.value;
-      control.dispatchEvent(new Event("input", { bubbles: true }));
-      control.dispatchEvent(new Event("change", { bubbles: true }));
+      dispatchPreviewInkSelection(control);
       return true;
     }
 
     if (control.checked) return false;
-    keepViewportAnchored(root, anchor, controls);
     control.checked = true;
-    control.dispatchEvent(new Event("input", { bubbles: true }));
-    control.dispatchEvent(new Event("change", { bubbles: true }));
+    dispatchPreviewInkSelection(control);
     return true;
   }
 
@@ -2518,7 +2423,7 @@
         const color = button.dataset.previewInkColor || "";
         if (!supportedInkColors.includes(color)) return;
 
-        const changed = selectInkColor(root, color, button);
+        const changed = selectInkColor(root, color);
         syncPreviewInkControls(root, color);
         showInstantLineArtInk(root, color);
         if (state.uploadId && (!changed || color !== state.inkColor)) {

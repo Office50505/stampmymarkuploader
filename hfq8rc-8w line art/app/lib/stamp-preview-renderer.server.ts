@@ -16,6 +16,14 @@ const artworkContentSize = 752;
 const minimumArtworkContentSize = Math.round(artworkContentSize * 0.58);
 const targetInkArea = artworkContentSize * artworkContentSize * 0.5;
 
+type PreparedArtwork = {
+  data: Buffer;
+  aspectRatio: number;
+  contentSize: number;
+  renderedWidth: number;
+  renderedHeight: number;
+};
+
 const mockupPath = (
   profile: StampPreviewProfile,
   kind: StampPreviewKind,
@@ -167,6 +175,20 @@ const visualContentSize = (
   );
 };
 
+const pointDistance = (
+  first: { x: number; y: number },
+  second: { x: number; y: number }
+) => Math.hypot(second.x - first.x, second.y - first.y);
+
+const placementAspectRatio = (quad: StampPreviewQuad) => {
+  const averageWidth =
+    (pointDistance(quad[0], quad[1]) + pointDistance(quad[3], quad[2])) / 2;
+  const averageHeight =
+    (pointDistance(quad[0], quad[3]) + pointDistance(quad[1], quad[2])) / 2;
+
+  return averageWidth / Math.max(1, averageHeight);
+};
+
 const prepareArtwork = async (body: Buffer, color: InkColor) => {
   const decoded = await sharp(body)
     .ensureAlpha()
@@ -203,23 +225,37 @@ const prepareArtwork = async (body: Buffer, color: InkColor) => {
     trimmed.info.width,
     trimmed.info.height
   );
-  const padding = Math.floor((artworkSize - contentSize) / 2);
-
-  return sharp(trimmedPng)
-    .resize(contentSize, contentSize, {
-      fit: "contain",
-      background: { r: 0, g: 0, b: 0, alpha: 0 }
-    })
+  const aspectRatio = trimmed.info.width / Math.max(1, trimmed.info.height);
+  const renderedWidth =
+    aspectRatio >= 1
+      ? contentSize
+      : Math.max(1, Math.round(contentSize * aspectRatio));
+  const renderedHeight =
+    aspectRatio >= 1
+      ? Math.max(1, Math.round(contentSize / aspectRatio))
+      : contentSize;
+  const left = Math.floor((artworkSize - renderedWidth) / 2);
+  const top = Math.floor((artworkSize - renderedHeight) / 2);
+  const data = await sharp(trimmedPng)
+    .resize(renderedWidth, renderedHeight, { fit: "fill" })
     .extend({
-      top: padding,
-      bottom: artworkSize - contentSize - padding,
-      left: padding,
-      right: artworkSize - contentSize - padding,
+      top,
+      bottom: artworkSize - renderedHeight - top,
+      left,
+      right: artworkSize - renderedWidth - left,
       background: { r: 0, g: 0, b: 0, alpha: 0 }
     })
     .ensureAlpha()
     .raw()
     .toBuffer();
+
+  return {
+    data,
+    aspectRatio,
+    contentSize,
+    renderedWidth,
+    renderedHeight
+  } satisfies PreparedArtwork;
 };
 
 const sampleArtwork = (
@@ -265,7 +301,7 @@ const sampleArtwork = (
 };
 
 const warpArtwork = (
-  artwork: Buffer,
+  artwork: PreparedArtwork,
   quad: StampPreviewQuad,
   color: InkColor
 ) => {
@@ -276,6 +312,22 @@ const warpArtwork = (
   const minY = Math.max(0, Math.floor(Math.min(...quad.map((point) => point.y))));
   const maxY = Math.min(canvasSize - 1, Math.ceil(Math.max(...quad.map((point) => point.y))));
   const opacity = color === "white" ? 0.95 : 0.93;
+  // The homography maps a square source onto a rectangular product area.
+  // Counter-scale the artwork inside that square so the final stamp keeps
+  // the uploaded logo's original width-to-height ratio.
+  const surfaceAspectRatio = placementAspectRatio(quad);
+  const compensatedAspectRatio = artwork.aspectRatio / surfaceAspectRatio;
+  const compensatedWidth =
+    compensatedAspectRatio >= 1
+      ? artwork.contentSize
+      : Math.max(1, Math.round(artwork.contentSize * compensatedAspectRatio));
+  const compensatedHeight =
+    compensatedAspectRatio >= 1
+      ? Math.max(1, Math.round(artwork.contentSize / compensatedAspectRatio))
+      : artwork.contentSize;
+  const sourceScaleX = artwork.renderedWidth / compensatedWidth;
+  const sourceScaleY = artwork.renderedHeight / compensatedHeight;
+  const artworkCenter = (artworkSize - 1) / 2;
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
@@ -294,7 +346,24 @@ const warpArtwork = (
         continue;
       }
 
-      const [red, green, blue, alpha] = sampleArtwork(artwork, sourceX, sourceY);
+      const compensatedSourceX =
+        artworkCenter + (sourceX - artworkCenter) * sourceScaleX;
+      const compensatedSourceY =
+        artworkCenter + (sourceY - artworkCenter) * sourceScaleY;
+      if (
+        compensatedSourceX < 0 ||
+        compensatedSourceX > artworkSize - 1 ||
+        compensatedSourceY < 0 ||
+        compensatedSourceY > artworkSize - 1
+      ) {
+        continue;
+      }
+
+      const [red, green, blue, alpha] = sampleArtwork(
+        artwork.data,
+        compensatedSourceX,
+        compensatedSourceY
+      );
       if (alpha === 0) continue;
       const index = (y * canvasSize + x) * 4;
       const fineVariation = ((x * 17 + y * 31) % 7) / 100;
@@ -325,7 +394,7 @@ const renderPreparedStampPreview = async ({
 }: {
   profile: StampPreviewProfile;
   kind: StampPreviewKind;
-  preparedArtwork: Buffer;
+  preparedArtwork: PreparedArtwork;
   color: InkColor;
 }) => {
   const startedAt = Date.now();

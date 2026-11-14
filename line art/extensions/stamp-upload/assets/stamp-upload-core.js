@@ -25,7 +25,7 @@
     "properties[Printmivo line art]",
     "properties[StampMyMark line art]"
   ];
-  const instantMockupAssetVersion = "9";
+  const instantMockupAssetVersion = "11";
   const instantCanvasSize = 640;
   const instantArtworkSize = 512;
   const instantArtworkContentSize = Math.round((752 / 768) * instantArtworkSize);
@@ -37,9 +37,9 @@
   const instantPlacementQuads = {
     permanent: {
       regular: {
-        box: [[291, 309], [963, 309], [963, 801], [291, 801]],
-        cup: [[337, 442], [917, 442], [865, 838], [389, 838]],
-        bag: [[406, 569], [868, 569], [843, 876], [431, 876]]
+        box: [[241, 272], [1013, 272], [1013, 838], [241, 838]],
+        cup: [[279, 402], [975, 402], [913, 878], [341, 878]],
+        bag: [[337, 523], [937, 523], [905, 922], [369, 922]]
       },
       white: {
         box: [[363, 350], [891, 350], [891, 878], [363, 878]],
@@ -1690,7 +1690,14 @@
     for (let index = 0; index < alpha.length; index += 1) {
       alpha[index] = preparedPixels.data[index * 4 + 3];
     }
-    return { alpha, size: instantArtworkSize };
+    return {
+      alpha,
+      size: instantArtworkSize,
+      aspectRatio,
+      contentSize,
+      renderedWidth,
+      renderedHeight
+    };
   }
 
   function solveInstantLinearSystem(matrix, values) {
@@ -1726,6 +1733,23 @@
       }
     }
     return augmented.map((row) => row[size]);
+  }
+
+  function instantPointDistance(first, second) {
+    return Math.hypot(second.x - first.x, second.y - first.y);
+  }
+
+  function instantPlacementAspectRatio(quad) {
+    const averageWidth =
+      (instantPointDistance(quad[0], quad[1]) +
+        instantPointDistance(quad[3], quad[2])) /
+      2;
+    const averageHeight =
+      (instantPointDistance(quad[0], quad[3]) +
+        instantPointDistance(quad[1], quad[2])) /
+      2;
+
+    return averageWidth / Math.max(1, averageHeight);
   }
 
   function getInstantTransform(profile, palette, kind) {
@@ -1773,7 +1797,11 @@
     });
     const transform = solveInstantLinearSystem(matrix, values);
     if (!transform) return null;
-    const prepared = { quad, transform };
+    const prepared = {
+      quad,
+      transform,
+      surfaceAspectRatio: instantPlacementAspectRatio(quad)
+    };
     instantTransformCache.set(cacheKey, prepared);
     return prepared;
   }
@@ -1837,6 +1865,21 @@
     );
     const opacity = color === "white" ? 0.95 : 0.93;
     const transform = prepared.transform;
+    // Match the server renderer: counter-scale the square mask before its
+    // rectangular surface warp so the visible logo keeps its true proportions.
+    const compensatedAspectRatio =
+      mask.aspectRatio / prepared.surfaceAspectRatio;
+    const compensatedWidth =
+      compensatedAspectRatio >= 1
+        ? mask.contentSize
+        : Math.max(1, Math.round(mask.contentSize * compensatedAspectRatio));
+    const compensatedHeight =
+      compensatedAspectRatio >= 1
+        ? Math.max(1, Math.round(mask.contentSize / compensatedAspectRatio))
+        : mask.contentSize;
+    const sourceScaleX = mask.renderedWidth / compensatedWidth;
+    const sourceScaleY = mask.renderedHeight / compensatedHeight;
+    const artworkCenter = (mask.size - 1) / 2;
 
     for (let y = minY; y <= maxY; y += 1) {
       for (let x = minX; x <= maxX; x += 1) {
@@ -1856,7 +1899,24 @@
           continue;
         }
 
-        const alpha = sampleInstantMaskAlpha(mask, sourceX, sourceY);
+        const compensatedSourceX =
+          artworkCenter + (sourceX - artworkCenter) * sourceScaleX;
+        const compensatedSourceY =
+          artworkCenter + (sourceY - artworkCenter) * sourceScaleY;
+        if (
+          compensatedSourceX < 0 ||
+          compensatedSourceX > mask.size - 1 ||
+          compensatedSourceY < 0 ||
+          compensatedSourceY > mask.size - 1
+        ) {
+          continue;
+        }
+
+        const alpha = sampleInstantMaskAlpha(
+          mask,
+          compensatedSourceX,
+          compensatedSourceY
+        );
         if (alpha <= 0) continue;
         const outputIndex = (y * instantCanvasSize + x) * 4;
         const fineVariation = ((x * 17 + y * 31) % 7) / 100;

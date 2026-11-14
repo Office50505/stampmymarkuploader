@@ -24,7 +24,7 @@ export type { StampPreviewKind, StampPreviewProfile };
 const stampPreviewRenderer = (profile: StampPreviewProfile) =>
   profile === "custom"
     ? "deterministic-v24-styled-custom-product-scenes"
-    : "deterministic-v21-wide-logo-scaled-products";
+    : "deterministic-v23-larger-aspect-correct-product-stamps";
 const stampPreviewJobs = new Map<string, Promise<void>>();
 
 const configureFal = () => {

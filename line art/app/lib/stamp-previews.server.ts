@@ -21,10 +21,15 @@ import {
 export { stampPreviewKinds };
 export type { StampPreviewKind, StampPreviewProfile };
 
-const stampPreviewRenderer = (profile: StampPreviewProfile) =>
+const stampPreviewRenderer = (
+  profile: StampPreviewProfile,
+  color: InkColor
+) =>
   profile === "custom"
     ? "deterministic-v24-styled-custom-product-scenes"
-    : "deterministic-v23-larger-aspect-correct-product-stamps";
+    : color === "white"
+      ? "deterministic-v24-matched-dark-white-ink-products"
+      : "deterministic-v23-larger-aspect-correct-product-stamps";
 const stampPreviewJobs = new Map<string, Promise<void>>();
 
 const configureFal = () => {
@@ -137,7 +142,7 @@ export const startStampPreviewGeneration = async ({
 
   const color = (upload.lineArtColor || "black") as InkColor;
   const profile = resolveStampPreviewProfile(previewProfile);
-  const renderer = stampPreviewRenderer(profile);
+  const renderer = stampPreviewRenderer(profile, color);
   const sourceGeneratedAt = upload.lineArtGeneratedAt;
   const sourceVersion = sourceGeneratedAt.getTime();
   if (

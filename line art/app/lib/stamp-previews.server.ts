@@ -28,8 +28,8 @@ const stampPreviewRenderer = (
   profile === "custom"
     ? "deterministic-v24-styled-custom-product-scenes"
     : color === "white"
-      ? "deterministic-v24-matched-dark-white-ink-products"
-      : "deterministic-v23-larger-aspect-correct-product-stamps";
+      ? "deterministic-v25-matched-dark-clear-cup-safe-area"
+      : "deterministic-v24-light-clear-cup-safe-area";
 const stampPreviewJobs = new Map<string, Promise<void>>();
 
 const configureFal = () => {

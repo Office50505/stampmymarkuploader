@@ -25,7 +25,7 @@
     "properties[Printmivo line art]",
     "properties[StampMyMark line art]"
   ];
-  const instantMockupAssetVersion = "12";
+  const instantMockupAssetVersion = "13";
   const instantCanvasSize = 640;
   const instantArtworkSize = 512;
   const instantArtworkContentSize = Math.round((752 / 768) * instantArtworkSize);
@@ -39,12 +39,12 @@
       regular: {
         box: [[241, 272], [1013, 272], [1013, 838], [241, 838]],
         cup: [[279, 402], [975, 402], [913, 878], [341, 878]],
-        bag: [[337, 523], [937, 523], [905, 922], [369, 922]]
+        bag: [[352, 523], [922, 523], [892, 922], [382, 922]]
       },
       white: {
         box: [[241, 272], [1013, 272], [1013, 838], [241, 838]],
         cup: [[279, 402], [975, 402], [913, 878], [341, 878]],
-        bag: [[337, 523], [937, 523], [905, 922], [369, 922]]
+        bag: [[352, 523], [922, 523], [892, 922], [382, 922]]
       }
     },
     custom: {

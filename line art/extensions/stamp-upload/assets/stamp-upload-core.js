@@ -2434,9 +2434,22 @@
         const color = button.dataset.previewInkColor || "";
         if (!supportedInkColors.includes(color)) return;
 
+        // White ink is generated as a separate line-art variant. Never
+        // recolor the currently rendered artwork when either side is white.
+        const previousRenderedColor = String(
+          state.inkColor ||
+            find(root, '[data-stamp-preview-card="line_art"]')?.dataset.inkColor ||
+            ""
+        )
+          .trim()
+          .toLowerCase();
         const changed = selectInkColor(root, color);
         syncPreviewInkControls(root, color);
-        showInstantLineArtInk(root, color);
+        if (previousRenderedColor !== "white" && color !== "white") {
+          showInstantLineArtInk(root, color);
+        } else {
+          state.instantPreviewRunId += 1;
+        }
         if (state.uploadId && (!changed || color !== state.inkColor)) {
           requestInkGeneration(color);
         }
@@ -2705,33 +2718,50 @@
       state.inkSwitchTarget = requestedColor;
       state.desiredInkColor = requestedColor;
       state.inkUpdateFallbackColor = null;
-      const instantPreviewStartedAt = performanceNow();
-      renderInstantProductPreviews(root, state, requestedColor)
-        .then((rendered) => {
-          if (!rendered) {
+      const renderedColor = String(
+        state.inkColor ||
+          find(root, '[data-stamp-preview-card="line_art"]')?.dataset.inkColor ||
+          ""
+      )
+        .trim()
+        .toLowerCase();
+      const canUseInstantInkPreview =
+        renderedColor !== "white" && requestedColor !== "white";
+      if (canUseInstantInkPreview) {
+        const instantPreviewStartedAt = performanceNow();
+        renderInstantProductPreviews(root, state, requestedColor)
+          .then((rendered) => {
+            if (!rendered) {
+              showInkUpdateFallback(requestedColor);
+              return;
+            }
+            settleInstantInkPreview(requestedColor);
+            reportPerformanceMetric({
+              uploadId: state.uploadId,
+              sessionId,
+              phase: "instant_preview",
+              outcome: "success",
+              startedAt: instantPreviewStartedAt,
+              inkColor: requestedColor,
+              mode: "browser_composite"
+            });
+          })
+          .catch(() => {
             showInkUpdateFallback(requestedColor);
-            return;
-          }
-          settleInstantInkPreview(requestedColor);
-          reportPerformanceMetric({
-            uploadId: state.uploadId,
-            sessionId,
-            phase: "instant_preview",
-            outcome: "success",
-            startedAt: instantPreviewStartedAt,
-            inkColor: requestedColor,
-            mode: "browser_composite"
           });
-        })
-        .catch(() => {
-          showInkUpdateFallback(requestedColor);
-        });
+      } else {
+        // Cancel any in-flight browser composite while the dedicated server
+        // variant is being generated.
+        state.instantPreviewRunId += 1;
+      }
       state.generationRunId += 1;
       const runId = state.generationRunId;
       cancelScheduledInkChange();
       cancelActiveGeneration();
       syncPreviewInkControls(root, requestedColor);
-      showInstantLineArtInk(root, requestedColor);
+      if (canUseInstantInkPreview) {
+        showInstantLineArtInk(root, requestedColor);
+      }
 
       // Product themes can emit more than one change event while replacing a
       // variant control. Coalesce them into exactly one latest-color request.

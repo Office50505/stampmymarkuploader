@@ -1464,10 +1464,13 @@
 
     const image = find(card, "[data-stamp-preview-image]");
     const status = find(card, "[data-stamp-preview-state]");
+    const displayLabel =
+      find(card, "[data-stamp-preview-label]")?.textContent?.trim().toLowerCase() || kind;
     const labels = {
       waiting: "Waiting for line art",
       generating: kind === "line_art" ? "Drawing line art…" : `Creating ${kind}…`,
-      updating: kind === "line_art" ? "Applying ink color…" : `Updating ${kind}…`,
+      updating:
+        kind === "line_art" ? "Applying ink color…" : `Updating ${displayLabel}…`,
       failed: "Preview failed"
     };
 
@@ -2168,12 +2171,9 @@
         "Creating your clear cup, paper cup and container previews…"
     );
     if (preserveExisting) {
-      showInstantLineArtInk(
-        root,
-        getSelectedInkColor(root),
-        lineArtFullPreviewUrl,
-        lineArtPreviewVersion
-      );
+      // Keep the line-art card in the state established by the ink-switch
+      // flow. Reapplying an instant recolor here can briefly restore the old
+      // master while the server-generated replacement is still loading.
     } else {
       setStampPreviewCard(
         root,
@@ -2535,6 +2535,15 @@
     function showInkSwitchGenerating() {
       state.previewReady = false;
       state.uploading = true;
+      const lineArtCard = find(root, '[data-stamp-preview-card="line_art"]');
+      const renderedColor = String(
+        state.inkColor || lineArtCard?.dataset.inkColor || ""
+      )
+        .trim()
+        .toLowerCase();
+      const selectedColor = getSelectedInkColor(root);
+      const masterFamilyChanged =
+        (renderedColor === "white") !== (selectedColor === "white");
       setStampPreviewSummary(
         root,
         "generating",
@@ -2545,11 +2554,12 @@
       ["line_art", ...stampPreviewKinds].forEach((kind) => {
         const card = find(root, `[data-stamp-preview-card="${kind}"]`);
         const image = card && find(card, "[data-stamp-preview-image]");
-        setStampPreviewCard(
-          root,
-          kind,
-          image?.getAttribute("src") ? "updating" : "generating"
-        );
+        const lineArtNeedsNewMaster = kind === "line_art" && masterFamilyChanged;
+        setStampPreviewCard(root, kind, lineArtNeedsNewMaster
+          ? "generating"
+          : image?.getAttribute("src")
+            ? "updating"
+            : "generating");
       });
       setButton(trigger, "uploading", "Updating previews…");
       setStatus(

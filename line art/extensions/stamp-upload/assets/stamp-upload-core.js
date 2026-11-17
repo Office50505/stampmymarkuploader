@@ -156,12 +156,23 @@
         canvas.toBlob(resolve, outputType, webpQuality);
       });
 
-      // Never trade a customer's original for a larger version.
-      if (!optimizedBlob || optimizedBlob.size >= file.size) return file;
+      // Safari may ignore the requested WebP encoder and return JPEG/PNG
+      // bytes instead. Trust the Blob's actual MIME type so the server's
+      // content sniffing and the upload metadata stay in sync.
+      const actualOutputType = optimizedBlob?.type?.toLowerCase() || "";
+      if (!optimizedBlob || !allowedTypes.includes(actualOutputType)) return file;
 
-      const outputExtension = outputType === "image/png" ? ".png" : ".webp";
+      // Never trade a customer's original for a larger version.
+      if (optimizedBlob.size >= file.size) return file;
+
+      const outputExtension =
+        actualOutputType === "image/png"
+          ? ".png"
+          : actualOutputType === "image/webp"
+            ? ".webp"
+            : ".jpg";
       return new File([optimizedBlob], file.name.replace(/\.[^.]+$/, outputExtension), {
-        type: outputType,
+        type: actualOutputType,
         lastModified: file.lastModified,
       });
     } catch (_error) {

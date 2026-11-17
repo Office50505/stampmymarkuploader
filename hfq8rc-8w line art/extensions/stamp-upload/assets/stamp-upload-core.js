@@ -1420,7 +1420,7 @@
     if (image.getAttribute("src") === previewUrl) {
       image.hidden = false;
       image.dataset.fullPreviewUrl = fullPreviewUrl;
-      card.dataset.state = "ready";
+      card.dataset.state = card.dataset.smmHoldUpdating === "true" ? "updating" : "ready";
       setStampPreviewCardInteractive(card, true);
       scheduleFullStampPreviewPreload(fullPreviewUrl);
       return;
@@ -1436,7 +1436,7 @@
       image.dataset.fullPreviewUrl = fullPreviewUrl;
       image.hidden = false;
       delete image.dataset.pendingPreviewUrl;
-      card.dataset.state = "ready";
+      card.dataset.state = card.dataset.smmHoldUpdating === "true" ? "updating" : "ready";
       setStampPreviewCardInteractive(card, true);
       scheduleFullStampPreviewPreload(fullPreviewUrl);
       image.classList.remove("smm-upload__stamp-preview-image--reveal");
@@ -2495,14 +2495,7 @@
       state.inkUpdateFallbackColor = null;
       state.previewReady = true;
       state.uploading = false;
-      const lineArtCard = find(root, '[data-stamp-preview-card="line_art"]');
-      const lineArtImage = lineArtCard && find(lineArtCard, "[data-stamp-preview-image]");
-      if (lineArtCard && lineArtImage?.getAttribute("src")) {
-        lineArtCard.dataset.state = "ready";
-        setStampPreviewCardInteractive(lineArtCard, true);
-        const lineArtStatus = find(lineArtCard, "[data-stamp-preview-state]");
-        if (lineArtStatus) lineArtStatus.textContent = "";
-      }
+      releaseLineArtUpdating();
       completeGenerationProgress();
       setStampPreviewSummary(
         root,
@@ -2564,6 +2557,18 @@
         root.dataset.stampPreviewsUpdatingColor ||
           "Updating previews for your selected ink…"
       );
+    }
+
+    function releaseLineArtUpdating() {
+      const lineArtCard = find(root, '[data-stamp-preview-card="line_art"]');
+      const lineArtImage = lineArtCard && find(lineArtCard, "[data-stamp-preview-image]");
+      if (!lineArtCard || !lineArtImage?.getAttribute("src")) return;
+
+      delete lineArtCard.dataset.smmHoldUpdating;
+      lineArtCard.dataset.state = "ready";
+      setStampPreviewCardInteractive(lineArtCard, true);
+      const lineArtStatus = find(lineArtCard, "[data-stamp-preview-state]");
+      if (lineArtStatus) lineArtStatus.textContent = "";
     }
 
     // The Permanent Stamp theme's sticky bar predates this Line Art app and
@@ -2762,6 +2767,7 @@
         state.uploading = false;
         state.inkSwitchLoading = false;
         state.inkUpdateFallbackColor = null;
+        releaseLineArtUpdating();
         completeGenerationProgress();
         setStampPreviewSummary(
           root,
@@ -2792,6 +2798,7 @@
           state.previewReady = true;
           state.uploading = false;
           state.inkSwitchLoading = false;
+          releaseLineArtUpdating();
           reportPerformanceMetric({
             uploadId: state.uploadId,
             sessionId,
@@ -3084,6 +3091,11 @@
         // Always swap the standalone card to the freshly generated server
         // result. Recoloring the old image is unsafe after a master-family
         // change and was the source of the stale white artwork bug.
+        const holdLineArtUpdating = state.inkSwitchLoading && preserveExisting;
+        const lineArtCard = find(root, '[data-stamp-preview-card="line_art"]');
+        if (holdLineArtUpdating && lineArtCard) {
+          lineArtCard.dataset.smmHoldUpdating = "true";
+        }
         setStampPreviewCard(
           root,
           "line_art",
@@ -3108,6 +3120,8 @@
         if (preserveExisting && state.inkUpdateFallbackColor !== requestedColor) {
           state.uploading = false;
           state.previewReady = true;
+          state.inkSwitchLoading = false;
+          releaseLineArtUpdating();
           reportPerformanceMetric({
             uploadId: state.uploadId,
             sessionId,
@@ -3129,6 +3143,8 @@
         stopGenerationProgress();
         state.uploading = false;
         state.previewReady = false;
+        state.inkSwitchLoading = false;
+        releaseLineArtUpdating();
         if (!preserveExisting) {
           state.lineArtUrl = null;
           state.lineArtPreviewUrl = null;

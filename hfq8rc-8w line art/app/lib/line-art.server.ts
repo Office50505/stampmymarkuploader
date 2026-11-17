@@ -15,8 +15,14 @@ import {
   uploadStoredFile
 } from "./storage.server";
 import { logPerformanceMetric } from "./performance.server";
+import { renderPdfFirstPageToPng } from "./pdf.server";
 
-const supportedSourceTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const supportedSourceTypes = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+]);
 const lineArtPipelineVersion = "line-art-v7-reference-fidelity";
 const deterministicLineArtModel = "deterministic-monochrome-v1";
 const whiteInkVariantVersion = "white-line-art-ai-v2";
@@ -326,7 +332,7 @@ export const startLineArtGeneration = async ({
     return {
       ok: false as const,
       status: 422,
-      errors: ["Line art generation supports JPG, PNG, and WEBP files."]
+      errors: ["Line art generation supports JPG, PNG, WEBP, and PDF files."]
     };
   }
 
@@ -480,6 +486,12 @@ export const startLineArtGeneration = async ({
       sourceBody = Buffer.from(await stored.arrayBuffer());
     }
 
+    let sourceContentType = upload.contentType;
+    if (upload.contentType === "application/pdf") {
+      sourceBody = await renderPdfFirstPageToPng(sourceBody);
+      sourceContentType = "image/png";
+    }
+
     let fastPathBody: Buffer | null = null;
     if (color !== "white") {
       try {
@@ -507,7 +519,7 @@ export const startLineArtGeneration = async ({
 
     configureFal();
     const sourceBlob = new Blob([new Uint8Array(sourceBody)], {
-      type: upload.contentType
+      type: sourceContentType
     });
     const sourceUrl = await fal.storage.upload(sourceBlob, {
       lifecycle: { expiresIn: "1d" }

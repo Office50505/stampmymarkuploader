@@ -3,8 +3,8 @@
 // Loaded by the small theme-extension bootstrap after Liquid renders the app block.
 
 (function () {
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-  const allowedExtensions = ["jpg", "jpeg", "png", "webp"];
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+  const allowedExtensions = ["jpg", "jpeg", "png", "webp", "pdf"];
   const stampPreviewKinds = ["bag", "cup", "box"];
   const supportedInkColors = ["black", "blue", "green", "purple", "red", "white"];
   const inkColorHex = {
@@ -127,7 +127,11 @@
   }
 
   async function optimizeImageForUpload(file) {
-    if (!allowedTypes.includes(file.type) || file.size <= imageOptimizationThreshold) {
+    if (
+      file.type === "application/pdf" ||
+      !allowedTypes.includes(file.type) ||
+      file.size <= imageOptimizationThreshold
+    ) {
       return file;
     }
 
@@ -2240,6 +2244,11 @@
     preview.innerHTML = "";
   }
 
+  function setPdfProcessingNote(root, visible) {
+    const note = find(root, "[data-pdf-note]");
+    if (note) note.hidden = !visible;
+  }
+
   function showPreview(root, file, onRemove) {
     const preview = find(root, "[data-upload-preview]");
     if (!preview) return;
@@ -2557,6 +2566,7 @@
       state.file = null;
       fileInput.value = "";
       clearPreview(root);
+      setPdfProcessingNote(root, false);
       resetStampPreviews(root);
       setTextFieldsVisible(root, false, true);
       setLineItemProperties(root, form, "", "", "", "");
@@ -3124,12 +3134,16 @@
       let metricsUploadId = null;
 
       const maxBytes = Number(root.dataset.maxBytes || "0");
+      const isPdf =
+        selectedFile.type === "application/pdf" ||
+        getExtension(selectedFile.name) === "pdf";
       if (!(allowedTypes.includes(selectedFile.type) || allowedExtensions.includes(getExtension(selectedFile.name)))) {
         fileInput.value = "";
         clearPreview(root);
         setTextFieldsVisible(root, false, false);
         clearTextLineItemProperties(root, form);
-        setStatus(root, "Please upload a JPG, PNG, or WEBP file.", "error");
+        setPdfProcessingNote(root, false);
+        setStatus(root, "Please upload a JPG, PNG, WEBP, or PDF file.", "error");
         return;
       }
 
@@ -3137,8 +3151,14 @@
       // never add the product while its artwork is still being processed.
       state.uploading = true;
       if (required) setAddToCartEnabled(form, false);
-      setButton(trigger, "uploading", "Preparing photo…");
-      setStatus(root, "Preparing photo for a faster upload…");
+      setPdfProcessingNote(root, isPdf);
+      setButton(trigger, "uploading", isPdf ? "Preparing PDF…" : "Preparing photo…");
+      setStatus(
+        root,
+        isPdf
+          ? "PDF detected — preparing the first page. This may take a little longer…"
+          : "Preparing photo for a faster upload…"
+      );
       const file = await optimizeImageForUpload(selectedFile);
 
       if (maxBytes && file.size > maxBytes) {
@@ -3146,6 +3166,7 @@
         setButton(trigger, "idle", idleLabel);
         fileInput.value = "";
         clearPreview(root);
+        setPdfProcessingNote(root, false);
         setTextFieldsVisible(root, false, false);
         clearTextLineItemProperties(root, form);
         setStatus(root, `File is too large. Maximum size is ${formatFileSize(maxBytes)}.`, "error");
@@ -3184,6 +3205,7 @@
       stopGenerationProgress();
       generationProgress = 0;
       clearPreview(root);
+      setPdfProcessingNote(root, isPdf);
       resetStampPreviews(root);
       setTextFieldsVisible(root, false, false);
       setLineItemProperties(root, form, "", "", "", "");
@@ -3268,6 +3290,7 @@
         state.file = null;
         fileInput.value = "";
         clearPreview(root);
+        setPdfProcessingNote(root, false);
         resetStampPreviews(root);
         setTextFieldsVisible(root, false, false);
         setLineItemProperties(root, form, "", "", "", "");

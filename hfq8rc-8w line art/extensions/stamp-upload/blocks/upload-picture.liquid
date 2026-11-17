@@ -86,10 +86,14 @@
   <input
     class="smm-upload__input"
     type="file"
-    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+    accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf"
     data-upload-input
     hidden
   >
+
+  <p class="smm-upload__pdf-note" data-pdf-note hidden>
+    PDF detected — preparing the first page may take a little longer.
+  </p>
 
   <input type="hidden" name="properties[_stampmymark_upload_id]" data-upload-id-property disabled>
   <input type="hidden" name="properties[_stampmymark_original_filename]" data-upload-filename-property disabled>

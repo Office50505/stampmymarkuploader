@@ -1895,6 +1895,12 @@
     return true;
   }
 
+  function invalidateInstantStampPreviews(root) {
+    root.querySelectorAll("[data-stamp-preview-card]").forEach((card) => {
+      delete card.dataset.instantInkColor;
+    });
+  }
+
   async function renderInstantProductPreviews(root, state, color) {
     const renderId = state.instantPreviewRunId + 1;
     state.instantPreviewRunId = renderId;
@@ -2853,36 +2859,53 @@
           throw new Error("The line-art revision could not be verified.");
         }
 
+        const previousRenderedColor = String(
+          state.inkColor ||
+            find(root, '[data-stamp-preview-card="line_art"]')?.dataset.inkColor ||
+            ""
+        )
+          .trim()
+          .toLowerCase();
+        const masterFamilyChanged =
+          (previousRenderedColor === "white") !== (result.color === "white");
+
         state.lineArtUrl = result.lineArtUrl;
         state.lineArtPreviewUrl = result.previewUrl;
         state.lineArtFullPreviewUrl = result.fullPreviewUrl || result.previewUrl;
         state.lineArtPreviewVersion = result.version || null;
         state.inkColor = result.color;
-        if (!state.instantArtworkMask && !state.instantArtworkPromise) {
-          const maskSourceUrl = withPreviewVersion(
-            state.lineArtFullPreviewUrl || state.lineArtPreviewUrl,
-            state.lineArtPreviewVersion
-          );
-          const maskUploadId = state.uploadId;
-          const maskPromise = prepareInstantArtworkMask(maskSourceUrl)
-            .then((mask) => {
-              if (
-                state.uploadId === maskUploadId &&
-                state.instantArtworkPromise === maskPromise
-              ) {
-                state.instantArtworkMask = mask;
-              }
-              return mask;
-            })
-            .catch(() => {
-              if (state.instantArtworkPromise === maskPromise) {
-                state.instantArtworkPromise = null;
-              }
-              return null;
-            });
-          state.instantArtworkPromise = maskPromise;
-          scheduleInstantMockupPreload(root);
+        // A white result and a regular result are different artwork masters.
+        // Drop the old mask and any instant cards when crossing that boundary
+        // so a later regular color cannot reuse white artwork (or vice versa).
+        if (masterFamilyChanged) {
+          state.instantPreviewRunId += 1;
+          state.instantArtworkMask = null;
+          state.instantArtworkPromise = null;
+          invalidateInstantStampPreviews(root);
         }
+        const maskSourceUrl = withPreviewVersion(
+          state.lineArtFullPreviewUrl || state.lineArtPreviewUrl,
+          state.lineArtPreviewVersion
+        );
+        const maskUploadId = state.uploadId;
+        const maskPromise = prepareInstantArtworkMask(maskSourceUrl)
+          .then((mask) => {
+            if (
+              state.uploadId === maskUploadId &&
+              state.instantArtworkPromise === maskPromise
+            ) {
+              state.instantArtworkMask = mask;
+            }
+            return mask;
+          })
+          .catch(() => {
+            if (state.instantArtworkPromise === maskPromise) {
+              state.instantArtworkPromise = null;
+            }
+            return null;
+          });
+        state.instantArtworkPromise = maskPromise;
+        scheduleInstantMockupPreload(root);
         reportPerformanceMetric({
           uploadId: state.uploadId,
           sessionId,
@@ -2901,23 +2924,17 @@
           state.artworkUrl,
           state.lineArtUrl
         );
-        if (preserveExisting) {
-          showInstantLineArtInk(
-            root,
-            result.color,
-            state.lineArtFullPreviewUrl,
-            state.lineArtPreviewVersion
-          );
-        } else {
-          setStampPreviewCard(
-            root,
-            "line_art",
-            "ready",
-            state.lineArtPreviewUrl,
-            state.lineArtFullPreviewUrl,
-            state.lineArtPreviewVersion
-          );
-        }
+        // Always swap the standalone card to the freshly generated server
+        // result. Recoloring the old image is unsafe after a master-family
+        // change and was the source of the stale white artwork bug.
+        setStampPreviewCard(
+          root,
+          "line_art",
+          "ready",
+          state.lineArtPreviewUrl,
+          state.lineArtFullPreviewUrl,
+          state.lineArtPreviewVersion
+        );
         if (preserveExisting) await wait(80, signal);
         if (runId !== state.generationRunId) return;
         await generateStampPreviews(

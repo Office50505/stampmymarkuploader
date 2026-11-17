@@ -1968,6 +1968,13 @@
     image.dataset.fullPreviewUrl = previewUrl;
     image.hidden = false;
     delete image.dataset.pendingPreviewUrl;
+    image.classList.remove("smm-upload__stamp-preview-image--reveal");
+    void image.offsetWidth;
+    image.classList.add("smm-upload__stamp-preview-image--reveal");
+    window.setTimeout(
+      () => image.classList.remove("smm-upload__stamp-preview-image--reveal"),
+      300
+    );
     if (status) status.textContent = "";
     setStampPreviewCardInteractive(card, true);
   }
@@ -2089,6 +2096,14 @@
     if (!image?.getAttribute("src")) return;
 
     recolorLineArtPreviewInstantly(image, card.dataset.inkColor);
+
+    image.classList.remove("smm-upload__stamp-preview-image--reveal");
+    void image.offsetWidth;
+    image.classList.add("smm-upload__stamp-preview-image--reveal");
+    window.setTimeout(
+      () => image.classList.remove("smm-upload__stamp-preview-image--reveal"),
+      300
+    );
 
     card.dataset.state = "ready";
     setStampPreviewCardInteractive(card, true);
@@ -2387,6 +2402,7 @@
       instantArtworkMask: null,
       instantArtworkPromise: null,
       instantPreviewRunId: 0,
+      inkSwitchLoading: false,
       inkUpdateFallbackColor: null,
       file: null
     };
@@ -2515,6 +2531,33 @@
       );
     }
 
+    function showInkSwitchGenerating() {
+      state.previewReady = false;
+      state.uploading = true;
+      setStampPreviewSummary(
+        root,
+        "generating",
+        root.dataset.stampPreviewsUpdatingColor ||
+          "Updating previews for your selected ink…"
+      );
+      setStampPreviewProgress(root, 8);
+      ["line_art", ...stampPreviewKinds].forEach((kind) => {
+        const card = find(root, `[data-stamp-preview-card="${kind}"]`);
+        const image = card && find(card, "[data-stamp-preview-image]");
+        setStampPreviewCard(
+          root,
+          kind,
+          image?.getAttribute("src") ? "updating" : "generating"
+        );
+      });
+      setButton(trigger, "uploading", "Updating previews…");
+      setStatus(
+        root,
+        root.dataset.stampPreviewsUpdatingColor ||
+          "Updating previews for your selected ink…"
+      );
+    }
+
     // The Permanent Stamp theme's sticky bar predates this Line Art app and
     // discovers required uploaders through this marker. Add it only after the
     // Line Art module owns the block so the legacy uploader cannot initialize it.
@@ -2580,6 +2623,7 @@
       state.instantArtworkMask = null;
       state.instantArtworkPromise = null;
       state.instantPreviewRunId += 1;
+      state.inkSwitchLoading = false;
       state.inkUpdateFallbackColor = null;
       state.previewReady = false;
       state.file = null;
@@ -2626,7 +2670,7 @@
         preserveExisting && state.inkUpdateFallbackColor === expectedColor;
       state.previewReady = preserveExisting && !visibleFallback;
       state.uploading = !preserveExisting || visibleFallback;
-      if (!preserveExisting || visibleFallback) {
+      if (!preserveExisting || visibleFallback || state.inkSwitchLoading) {
         showMockupsGenerating(
           root,
           state.lineArtPreviewUrl,
@@ -2708,6 +2752,7 @@
 
         state.previewReady = true;
         state.uploading = false;
+        state.inkSwitchLoading = false;
         state.inkUpdateFallbackColor = null;
         completeGenerationProgress();
         setStampPreviewSummary(
@@ -2738,6 +2783,7 @@
         if (preserveExisting && state.inkUpdateFallbackColor !== expectedColor) {
           state.previewReady = true;
           state.uploading = false;
+          state.inkSwitchLoading = false;
           reportPerformanceMetric({
             uploadId: state.uploadId,
             sessionId,
@@ -2819,6 +2865,7 @@
       state.inkSwitchTarget = requestedColor;
       state.desiredInkColor = requestedColor;
       state.inkUpdateFallbackColor = null;
+      state.inkSwitchLoading = true;
       const renderedColor = String(
         state.inkColor ||
           find(root, '[data-stamp-preview-card="line_art"]')?.dataset.inkColor ||
@@ -2828,6 +2875,8 @@
         .toLowerCase();
       const canUseInstantInkPreview =
         renderedColor !== "white" && requestedColor !== "white";
+      showInkSwitchGenerating();
+      startGenerationProgress(8, 70);
       if (canUseInstantInkPreview) {
         const instantPreviewStartedAt = performanceNow();
         renderInstantProductPreviews(root, state, requestedColor)

@@ -245,6 +245,64 @@ export const recolorLineArtAlphaMask = async ({
     .toBuffer();
 };
 
+/**
+ * Build the dedicated white-ink artwork variant. This intentionally does not
+ * recolor a black master: it preserves the source's internal white details
+ * while converting either transparent artwork or a flattened black/white
+ * reference into white marks on transparent pixels.
+ */
+export const prepareWhiteInkLineArt = async ({ source }: { source: Buffer }) => {
+  const image = await decodeRgba(source);
+  const { data, width, height } = image;
+  const pixelCount = width * height;
+  let transparentPixels = 0;
+  const borderLuminances: number[] = [];
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = (y * width + x) * 4;
+      const alpha = data[index + 3];
+      if (alpha < 250) transparentPixels += 1;
+      if (x < 3 || y < 3 || x >= width - 3 || y >= height - 3) {
+        borderLuminances.push(
+          0.2126 * data[index] +
+            0.7152 * data[index + 1] +
+            0.0722 * data[index + 2]
+        );
+      }
+    }
+  }
+
+  const hasTransparency = transparentPixels / pixelCount >= 0.001;
+  const lightBackground = percentile(borderLuminances, 0.1) > 220;
+  const recolored = Buffer.alloc(data.length);
+
+  for (let index = 0; index < data.length; index += 4) {
+    const luminance =
+      0.2126 * data[index] +
+      0.7152 * data[index + 1] +
+      0.0722 * data[index + 2];
+    recolored[index] = 255;
+    recolored[index + 1] = 255;
+    recolored[index + 2] = 255;
+
+    if (hasTransparency) {
+      recolored[index + 3] = data[index + 3];
+    } else {
+      // Flattened white-background art uses dark pixels as marks; flattened
+      // dark-background art uses bright pixels as marks.
+      const markAlpha = lightBackground ? 255 - luminance : luminance;
+      recolored[index + 3] = Math.max(0, Math.min(255, Math.round(markAlpha)));
+    }
+  }
+
+  return sharp(recolored, {
+    raw: { width, height, channels: 4 }
+  })
+    .png({ compressionLevel: 6, adaptiveFiltering: true })
+    .toBuffer();
+};
+
 export const tryCreateMonochromeLineArt = async ({
   source,
   inkHex

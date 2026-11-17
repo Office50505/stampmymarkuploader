@@ -2495,6 +2495,14 @@
       state.inkUpdateFallbackColor = null;
       state.previewReady = true;
       state.uploading = false;
+      const lineArtCard = find(root, '[data-stamp-preview-card="line_art"]');
+      const lineArtImage = lineArtCard && find(lineArtCard, "[data-stamp-preview-image]");
+      if (lineArtCard && lineArtImage?.getAttribute("src")) {
+        lineArtCard.dataset.state = "ready";
+        setStampPreviewCardInteractive(lineArtCard, true);
+        const lineArtStatus = find(lineArtCard, "[data-stamp-preview-state]");
+        if (lineArtStatus) lineArtStatus.textContent = "";
+      }
       completeGenerationProgress();
       setStampPreviewSummary(
         root,
@@ -2911,6 +2919,11 @@
       syncPreviewInkControls(root, requestedColor);
       if (canUseInstantInkPreview) {
         showInstantLineArtInk(root, requestedColor);
+        const lineArtCard = find(root, '[data-stamp-preview-card="line_art"]');
+        const lineArtImage = lineArtCard && find(lineArtCard, "[data-stamp-preview-image]");
+        if (lineArtCard && lineArtImage?.getAttribute("src")) {
+          setStampPreviewCard(root, "line_art", "updating");
+        }
       }
 
       // Product themes can emit more than one change event while replacing a

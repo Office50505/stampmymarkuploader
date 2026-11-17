@@ -42,9 +42,9 @@ const renderPdfFirstPageToPngUnsafe = async (body: Buffer) => {
   globalWithDocument.document = document;
 
   try {
-    const { getDocument, SVGGraphics } = await import(
-      "pdfjs-dist/legacy/build/pdf.js"
-    );
+    const pdfjsModule = await import("pdfjs-dist/legacy/build/pdf.js");
+    const { getDocument, SVGGraphics } =
+      (pdfjsModule.default ?? pdfjsModule) as typeof pdfjsModule;
     const loadingTask = getDocument({
       data: new Uint8Array(body),
       disableFontFace: true,

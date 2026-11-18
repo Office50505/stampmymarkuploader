@@ -1,3 +1,6 @@
+packages:
+  - extensions/*
+
 allowBuilds:
   '@parcel/watcher': set this to true or false
   '@prisma/client': set this to true or false

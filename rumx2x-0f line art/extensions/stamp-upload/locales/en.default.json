@@ -1,6 +1,6 @@
 {
   "line_art": {
-    "upload_help": "Upload your logo to create a stamp-ready line-art preview in your selected ink color.",
+    "upload_help": "Apna logo upload karein aur selected ink color mein stamp-ready line-art preview banayein.",
     "preparing": "Preparing your artwork…",
     "generating": "Creating stamp-ready line art…",
     "ready": "Your line-art preview is ready.",
@@ -13,7 +13,7 @@
     "select_color": "Show previews in {{ color }} ink",
     "updating_color": "Updating previews for your selected ink…",
     "generating_line_art": "Drawing your stamp line art…",
-    "generating_mockups": "Creating your product previews…",
+    "generating_mockups": "Aapke product previews ban rahe hain…",
     "ready": "Previews ready",
     "failed": "One or more previews could not be created.",
     "timeout": "The product previews are taking longer than expected. Please try again.",

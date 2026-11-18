@@ -237,7 +237,7 @@
         stickyButton.disabled = true;
         stickyButton.classList.add("printmivo-sticky-product-atc__button--upload");
         stickyButton.removeAttribute("aria-busy");
-        stickyLabel.textContent = "Preview failed — change file";
+        stickyLabel.textContent = "Preview nahi bana — file badlein";
       } else if (state === "uploaded") {
         stickyButton.disabled = Boolean(sourceButton?.disabled);
         stickyButton.classList.remove("printmivo-sticky-product-atc__button--upload");
@@ -2416,8 +2416,8 @@
         "ready",
         root.dataset.stampPreviewsReady || "Previews ready"
       );
-      setButton(trigger, "uploaded", "Change File");
-      setStatus(root, "Your stamp previews are ready.", "success");
+      setButton(trigger, "uploaded", "File badlein");
+      setStatus(root, "Aapke stamp previews ready hain.", "success");
     }
 
     function showInkUpdateFallback(color) {
@@ -2617,11 +2617,11 @@
           preserveExisting
         );
         startGenerationProgress(preserveExisting ? 78 : 62, 94, preserveExisting);
-        setButton(trigger, "uploading", "Creating 3 product previews…");
+        setButton(trigger, "uploading", "3 product previews ban rahe hain…");
         setStatus(
           root,
           root.dataset.stampPreviewsGeneratingMockups ||
-            "Creating your product previews…"
+            "Aapke product previews ban rahe hain…"
         );
       }
 
@@ -2699,8 +2699,8 @@
           "ready",
           root.dataset.stampPreviewsReady || "Previews ready"
         );
-        setButton(trigger, "uploaded", "Change File");
-        setStatus(root, "Your stamp previews are ready.", "success");
+        setButton(trigger, "uploaded", "File badlein");
+        setStatus(root, "Aapke stamp previews ready hain.", "success");
 
         reportPerformanceMetric({
           uploadId: state.uploadId,
@@ -2757,7 +2757,7 @@
             root.dataset.stampPreviewsFailed ||
             "One or more previews could not be created."
         );
-        setButton(trigger, "failed", "Change File");
+        setButton(trigger, "failed", "File badlein");
         setStatus(
           root,
           error.message ||
@@ -3082,7 +3082,7 @@
           "failed",
           error.message || root.dataset.lineArtFailed || "Line art generation failed."
         );
-        setButton(trigger, "failed", "Change File");
+        setButton(trigger, "failed", "File badlein");
         setStatus(
           root,
           "Your logo is uploaded. The previews could not be updated, but you can still add to cart.",

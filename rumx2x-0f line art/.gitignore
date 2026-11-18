@@ -1,0 +1,10 @@
+node_modules
+build
+.react-router
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-journal
+extensions/*/dist
+.DS_Store

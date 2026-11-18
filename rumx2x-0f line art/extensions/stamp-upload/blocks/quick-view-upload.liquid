@@ -1,0 +1,16 @@
+{{ 'stamp-upload.css' | asset_url | stylesheet_tag }}
+
+<div
+  data-smm-line-art-quick-view-loader
+  data-smm-module-url="{{ 'stamp-upload-core.js' | asset_url }}"
+  hidden
+></div>
+
+{% schema %}
+{
+  "name": "Line Art quick view",
+  "target": "body",
+  "javascript": "stamp-upload.js",
+  "settings": []
+}
+{% endschema %}

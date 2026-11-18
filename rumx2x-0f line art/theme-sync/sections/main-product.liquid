@@ -1,0 +1,1335 @@
+{% if template.suffix == 'stickers' or template.suffix == 'custom-stickers' %}
+  {{ 'printmivo-sticker-product.css' | asset_url | stylesheet_tag }}
+  {{ 'printmivo-stamp-product.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'printmivo-sticker-product.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'printmivo-sticker-upsell.js' | asset_url }}" defer="defer"></script>
+{% endif %}
+{% if template.suffix == 'stamps' or template.suffix == 'stamps-v1' or template.suffix == 'permanent' or template.suffix == 'line-art' %}
+  <script src="{{ 'printmivo-upload-gate.js' | asset_url }}" defer="defer"></script>
+{% endif %}
+{% if template.suffix == 'custom-stickers' %}
+  <script src="{{ 'printmivo-upload-gate.js' | asset_url }}" defer="defer"></script>
+{% endif %}
+{% if template.suffix == 'permanent' or template.suffix == 'line-art' %}
+  <link rel="stylesheet" href="{{ 'printmivo-cart-ladder.css' | asset_url }}" media="print" onload="this.media='all'">
+  <noscript>{{ 'printmivo-cart-ladder.css' | asset_url | stylesheet_tag }}</noscript>
+  <script src="{{ 'printmivo-permanent-product.js' | asset_url }}" defer="defer"></script>
+  <script>
+    (() => {
+      let loaded = false;
+      const loadCartLadder = () => {
+        if (loaded) return;
+        loaded = true;
+        const script = document.createElement('script');
+        script.src = {{ 'printmivo-cart-ladder.js' | asset_url | json }};
+        script.defer = true;
+        document.head.appendChild(script);
+      };
+      document.addEventListener('cart:updated', loadCartLadder, { once: true });
+      document.addEventListener('cart:refresh', loadCartLadder, { once: true });
+      document.addEventListener('click', (event) => {
+        if (event.target.closest('[data-open-cart-drawer], .m-cart-icon-bubble')) loadCartLadder();
+      });
+    })();
+  </script>
+{% endif %}
+{% if section.settings.show_zoom_button %}
+  <script>
+    (() => {
+      let loading = false;
+      let ready = false;
+      let pendingIndex = null;
+      const loadPhotoSwipe = (index) => {
+        if (typeof index === 'number') pendingIndex = index;
+        if (loading || ready) return;
+        loading = true;
+        [{{ 'photoswipe.css' | asset_url | json }}, {{ 'component-photoswipe.css' | asset_url | json }}].forEach((href) => {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = href;
+          document.head.appendChild(link);
+        });
+        const script = document.createElement('script');
+        script.src = {{ 'photoswipe.js' | asset_url | json }};
+        script.onload = () => {
+          ready = true;
+          document.dispatchEvent(new CustomEvent('printmivo:photoswipe-ready', { detail: { index: pendingIndex } }));
+          pendingIndex = null;
+        };
+        document.head.appendChild(script);
+      };
+      const getMediaItem = (target) => target.closest?.('.m-media-gallery .m-product-media--item[data-index]');
+      document.addEventListener('pointerover', (event) => {
+        if (getMediaItem(event.target)) loadPhotoSwipe();
+      }, { passive: true });
+      document.addEventListener('click', (event) => {
+        const item = getMediaItem(event.target);
+        if (!item || ready) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        loadPhotoSwipe(Number(item.dataset.index) || 0);
+      }, true);
+    })();
+  </script>
+  <noscript>
+    {{ 'photoswipe.css' | asset_url | stylesheet_tag }}
+    {{ 'component-photoswipe.css' | asset_url | stylesheet_tag }}
+    <script src="{{ 'photoswipe.js' | asset_url }}" defer="defer"></script>
+  </noscript>
+{% endif %}
+
+{%- if product.quantity_price_breaks_configured? -%}
+  {{ 'component-volume-pricing.css' | asset_url | stylesheet_tag }}
+  <script src="{{ 'show-more.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'price-per-item.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+
+{%- liquid
+  assign container = section.settings.container
+  assign layout = section.settings.layout
+  if container == 'w-full'
+    assign container = 'container-full'
+  endif
+  if layout == 'layout-7'
+    assign container = 'container-full'
+  endif
+  assign first_3d_model = product.media | where: 'media_type', 'model' | first
+
+  assign animation_effect = settings.animations
+  assign animated = false
+  if animation_effect != 'none'
+    assign animated = true
+  endif
+
+  assign enable_variant_group_img = false
+  if section.settings.enable_variant_group_images and product.metafields['foxecom-bs-kit']['variant-images'].value.enable
+    assign enable_variant_group_img = true
+  endif
+
+  assign disable_selected_variant_default = section.settings.disable_selected_variant_default
+
+  if product.has_only_default_variant
+    assign enable_variant_group_img = false
+    assign disable_selected_variant_default = false
+  endif
+-%}
+
+{%- if first_3d_model -%}
+  <link
+    id="ModelViewerStyle"
+    rel="stylesheet"
+    href="https://cdn.shopify.com/shopifycloud/model-viewer-ui/assets/v1.0/model-viewer-ui.css"
+    media="print"
+    onload="this.media='all'"
+  >
+{%- endif -%}
+{%- capture variant_option_none_text -%}
+  {%- render 'new-locale', key: 'products.product.choose_an_option' -%}
+{%- endcapture -%}
+<product-info
+  id="MainProduct-{{ section.id }}"
+  data-section-type="product-page"
+  data-section-id="{{ section.id }}"
+  data-layout="{{ layout }}"
+  data-product-handle="{{ product.handle }}"
+  data-url="{{ product.url }}"
+  data-update-url="true"
+  data-enable-history-state="{{ section.settings.enable_history_state }}"
+  data-product-id="{{ product.id }}"
+  data-container="{{ container }}"
+  data-enable-variant-group-images="{{ enable_variant_group_img }}"
+  data-disable-selected-variant-default="{{ disable_selected_variant_default }}"
+  data-variant-option-none-text="{{ variant_option_none_text }}"
+  data-show-featured-media="{{ section.settings.show_featured_media }}"
+  class="m-main-product m-gradient m-color-{{ settings.default_color_scheme }} m:block{% if template.suffix == 'stickers' %} printmivo-sticker-product{% elsif template.suffix == 'custom-stickers' %} printmivo-sticker-product printmivo-stamp-product--permanent printmivo-custom-sticker-product{% elsif template.suffix == 'stamps' or template.suffix == 'stamps-v1' %} printmivo-stamp-product--rubber{% elsif template.suffix == 'permanent' or template.suffix == 'line-art' %} printmivo-stamp-product--permanent{% endif %}"
+>
+  <div class="{{ container }}">
+    {% liquid
+      assign media_class = 'm:w-full md:m:w-1/2'
+      assign info_class = 'm:w-full md:m:w-1/2'
+      assign wrapper_class = 'm:flex m:flex-wrap'
+      case layout
+        when 'layout-2'
+          assign media_class = 'm:w-full md:m:w-7/12'
+          assign info_class = 'm:w-full md:m:w-5/12'
+          assign column_gap = '70px'
+        when 'layout-3'
+          assign media_class = 'm:w-full md:m:w-7/12'
+          assign info_class = 'm:w-full md:m:w-5/12'
+          assign column_gap = '70px'
+        when 'layout-5'
+          assign media_class = 'm:w-full md:m:w-7/12'
+          assign info_class = 'm:w-full md:m:w-5/12 '
+          assign column_gap = '70px'
+        when 'layout-7'
+          assign media_class = 'm:w-full'
+          if product.media.size == 1
+            assign media_class = 'container-narrow'
+          endif
+          assign info_class = 'container-narrow md:m:text-center'
+          assign wrapper_class = 'm:flex m:flex-wrap md:m:block m-product-media--layout-7'
+        else
+          assign column_gap = '50px'
+      endcase
+    %}
+    <div
+      class="m-main-product--wrapper {{ wrapper_class }} "
+      style="--column-gap: {{ column_gap }}; --column-gap-mobile: 20px;"
+    >
+      <product-recently-viewed data-product-id="{{ product.id }}" class="m:hidden"></product-recently-viewed>
+      <div class="m-main-product--media m:column {{ media_class }}">
+        <div class="m-product-media--desktop m-product-media--wrapper m-product-media--{{ section.settings.layout }} m:justify-end">
+          {% render 'product-media',
+            section: section,
+            template_product: true,
+            show_thumbnails_mobile: section.settings.show_nav_media_mobile,
+            show_pagination_mobile: section.settings.show_pagination_mobile
+          %}
+
+          {% if section.settings.show_atwl %}
+            {%- liquid
+              assign wishlist_app = settings.wishlist_app
+            -%}
+            {% if wishlist_app == 'growave' %}
+              {% comment %}theme-check-disable MissingTemplate{% endcomment %}
+              {% capture the_snippet_fave_icon %}{% render 'ssw-widget-faveicon' with product.id %}{% endcapture %}
+              {% comment %}theme-check-enable MissingTemplate{% endcomment %}
+              <div class="m-product-media--mobile__atwl-button md:m:hidden">
+                {% unless the_snippet_fave_icon contains 'Liquid error' %}
+                  {{ the_snippet_fave_icon }}
+                {% else %}
+                  {% render 'mm-ssw-widget-faveicon' with product.id %}
+                {% endunless %}
+              </div>
+            {% else %}
+              {% render 'tooltip',
+                type: 'wishlist',
+                product: product,
+                class_name: 'm-tooltip--top m-product-media--mobile__atwl-button !md:m:hidden'
+              %}
+            {% endif %}
+          {% endif %}
+          {%- if first_3d_model -%}
+            <div class="m-product-media__xr-button md:m:hidden">
+              <button
+                class="m-xr-button m:w-full m:flex m:items-center m:justify-center"
+                type="button"
+                aria-label="{%- render 'new-locale', key: 'products.product.xr_button_label' -%}"
+                data-shopify-xr
+                data-shopify-model3d-id="{{ first_3d_model.id }}"
+                data-shopify-title="title"
+                data-shopify-xr-hidden
+              >
+                <svg
+                  class="m-svg-icon"
+                  fill="currentColor"
+                  xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
+                  focusable="false"
+                  role="presentation"
+                  viewBox="0 0 18 21"
+                >
+                  <path d="M7.67998 20.629L1.28002 16.723C0.886205 16.4784 0.561675 16.1368 0.337572 15.731C0.113468 15.3251 -0.00274623 14.8686 -1.39464e-05 14.405V6.59497C-0.00238367 6.13167 0.113819 5.6755 0.33751 5.26978C0.561202 4.86405 0.884959 4.52227 1.278 4.27698L7.67796 0.377014C8.07524 0.131403 8.53292 0.000877102 8.99999 9.73346e-08C9.46678 -0.000129605 9.92446 0.129369 10.322 0.374024V0.374024L16.722 4.27399C17.1163 4.51985 17.4409 4.86287 17.6647 5.27014C17.8885 5.67742 18.0039 6.13529 18 6.59998V14.409C18.0026 14.8725 17.8864 15.3289 17.6625 15.7347C17.4386 16.1405 17.1145 16.4821 16.721 16.727L10.321 20.633C9.92264 20.8742 9.46565 21.0012 8.99999 21C8.53428 20.9998 8.07761 20.8714 7.67998 20.629V20.629ZM8.72398 2.078L2.32396 5.97803C2.22303 6.04453 2.14066 6.13551 2.08452 6.24255C2.02838 6.34959 2.00031 6.46919 2.00298 6.59003V14.4C2.00026 14.5205 2.02818 14.6396 2.08415 14.7463C2.14013 14.853 2.22233 14.9438 2.32298 15.01L7.99999 18.48V10.919C8.00113 10.5997 8.08851 10.2867 8.25292 10.0129C8.41732 9.73922 8.65267 9.51501 8.93401 9.36401L15.446 5.841L9.28001 2.08002C9.19614 2.02738 9.09901 1.99962 8.99999 2C8.90251 1.99972 8.8069 2.02674 8.72398 2.078V2.078Z" fill="currentColor"></path>
+                </svg>
+                <span class="m-xr-button--label">{%- render 'new-locale', key: 'products.product.xr_button' -%}</span>
+              </button>
+            </div>
+          {%- endif -%}
+        </div>
+      </div>
+      <div class="m-main-product--info m:column {{ info_class }}{% if animated %} m-scroll-trigger animate--{{ animation_effect }}{% endif %}">
+        <div class="m-product-info--wrapper m:text-color-body">
+          {% render 'main-product-blocks', section: section, product: product %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if template.suffix != 'permanent' and template.suffix != 'line-art' %}
+    {% if section.settings.use_sticky_atc or section.settings.use_sticky_atc_on_mobile %}
+      {% render 'sticky-atc', section: section, product: product, first_3d_model: first_3d_model %}
+    {% endif %}
+  {% endif %}
+
+  {%- if enable_variant_group_img -%}
+    <script id="variantGroup" type="application/json">
+      {{ product.metafields.foxecom-bs-kit.variant-images.value | json }}
+    </script>
+  {%- endif -%}
+</product-info>
+{% if template.suffix == 'stickers' or template.suffix == 'custom-stickers' %}
+  {%- liquid
+    assign sticker_selected_variant = product.selected_or_first_available_variant
+    if template.suffix == 'custom-stickers'
+      assign sticker_variant_summary = sticker_selected_variant.title | split: ' - $' | first | replace: ' Most Popular', ''
+    else
+      assign sticker_variant_parts = sticker_selected_variant.title | split: ' — '
+      assign sticker_variant_name = sticker_variant_parts | first
+      assign sticker_variant_dimension = sticker_variant_parts | last | replace: '"', ' in'
+    endif
+    if product.has_only_default_variant
+      assign sticker_variant_summary = 'printmivo_sticker.sticky.ready' | t
+    elsif sticker_selected_variant.title contains 'Bundle'
+      assign sticker_variant_summary = 'printmivo_sticker.sticky.bundle_selection' | t
+    elsif template.suffix != 'custom-stickers'
+      assign sticker_variant_summary = sticker_variant_name | append: ' · ' | append: sticker_variant_dimension
+    endif
+    assign sticker_art_asset = blank
+    case product.handle
+      when 'positive-affirmation-stickers-motivational-quote-vinyl'
+        assign sticker_art_asset = 'affirmation-you-got-this.png'
+      when 'motivational-quote-stickers-inspirational-vinyl-daily-affirmation'
+        assign sticker_art_asset = 'printmivo-motivational-stickers-product.png'
+      when 'cat-lover-stickers-feline-friends-vinyl'
+        assign sticker_art_asset = 'printmivo-vinyl-cat-sticker.png'
+      when 'coffee-lover-stickers-cafe-culture-caffeine-vinyl'
+        assign sticker_art_asset = 'printmivo-vinyl-coffee-sticker.png'
+      when 'sunset-beach-vibes-stickers-tropical-paradise-vinyl'
+        assign sticker_art_asset = 'printmivo-vinyl-beach-sticker.png'
+      when 'kawaii-cute-stickers-adorable-chibi-characters-vinyl'
+        assign sticker_art_asset = 'printmivo-vinyl-kawaii-sticker.png'
+    endcase
+  -%}
+  <div
+    class="printmivo-sticker-sticky-atc"
+    data-printmivo-sticker-sticky-atc
+    data-section-id="{{ section.id }}"
+    data-money-format="{{ shop.money_format | escape }}"
+    data-currency="{{ cart.currency.iso_code | default: shop.currency }}"
+    data-bundle-selection="{{ 'printmivo_sticker.sticky.bundle_selection' | t | escape }}"
+    {% if template.suffix == 'custom-stickers' %}
+      data-printmivo-sticker-requires-upload="true"
+      data-printmivo-sticker-sticky-upload-label="{{ 'printmivo_stamp.permanent_bundle.sticky_upload' | t | escape }}"
+    {% endif %}
+    hidden
+  >
+    <div class="printmivo-sticker-sticky-atc__inner">
+      <div class="printmivo-sticker-sticky-atc__summary">
+        <span class="printmivo-sticker-sticky-atc__thumb" aria-hidden="true">
+          {% if sticker_art_asset != blank %}
+            <img
+              src="{{ sticker_art_asset | asset_url }}"
+              width="160"
+              height="160"
+              alt=""
+              loading="eager"
+              data-printmivo-sticker-sticky-image
+            >
+          {% elsif product.featured_image != blank %}
+            <img
+              src="{{ product.featured_image | image_url: width: 240 }}"
+              width="240"
+              height="240"
+              alt=""
+              loading="eager"
+              data-printmivo-sticker-sticky-image
+            >
+          {% endif %}
+        </span>
+        <div class="printmivo-sticker-sticky-atc__selection">
+          <span class="printmivo-sticker-sticky-atc__title">{{ product.title }}</span>
+          <span class="printmivo-sticker-sticky-atc__variant">
+            <span data-printmivo-sticker-sticky-selection>{{ sticker_variant_summary }}</span>
+            {% unless product.has_only_default_variant %}
+              <span aria-hidden="true">·</span>
+              <button type="button" data-printmivo-sticker-sticky-change>{{ 'printmivo_sticker.sticky.change' | t }}</button>
+            {% endunless %}
+          </span>
+          <strong data-printmivo-sticker-sticky-price>{{ sticker_selected_variant.price | money }}</strong>
+        </div>
+      </div>
+      <button
+        class="printmivo-sticker-sticky-atc__button"
+        type="button"
+        data-printmivo-sticker-sticky-trigger
+        {% unless sticker_selected_variant.available %}disabled{% endunless %}
+      >
+        <svg data-printmivo-sticker-cart-icon aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M5.5 8.5h13l1 12h-15z"></path>
+          <path d="M9 9V6.5a3 3 0 0 1 6 0V9"></path>
+        </svg>
+        <svg data-printmivo-sticker-upload-icon aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 15V3"></path>
+          <path d="m7.5 7.5 4.5-4.5 4.5 4.5"></path>
+          <path d="M5 14.5V18a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-3.5"></path>
+        </svg>
+        <span data-printmivo-sticker-sticky-button-label>
+          {% if sticker_selected_variant.available %}
+            {{ 'products.product.add_to_cart' | t }}
+          {% else %}
+            {{ 'products.product.sold_out' | t }}
+          {% endif %}
+        </span>
+      </button>
+    </div>
+  </div>
+{% endif %}
+{% if template.suffix == 'permanent' or template.suffix == 'line-art' %}
+  {%- assign permanent_sticky_variant = product.selected_or_first_available_variant -%}
+  <div class="printmivo-sticky-product-atc" data-printmivo-sticky-product-atc hidden>
+    <div class="printmivo-sticky-product-atc__inner">
+      <div class="printmivo-sticky-product-atc__summary">
+        {% if product.featured_image != blank %}
+          <span class="printmivo-sticky-product-atc__thumb" aria-hidden="true">
+            <img
+              src="{{ product.featured_image | image_url: width: 96 }}"
+              width="96"
+              height="96"
+              alt=""
+              loading="eager"
+              decoding="async"
+            >
+          </span>
+        {% endif %}
+        <div class="printmivo-sticky-product-atc__selection">
+          <span class="printmivo-sticky-product-atc__title">{{ product.title }}</span>
+          <span class="printmivo-sticky-product-atc__label" data-printmivo-sticky-product-label></span>
+          <strong class="printmivo-sticky-product-atc__price" data-printmivo-sticky-product-price>{{ permanent_sticky_variant.price | money }}</strong>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="printmivo-sticky-product-atc__button"
+        data-printmivo-sticky-product-trigger
+        data-printmivo-sticky-product-upload-label="{{ 'printmivo_stamp.permanent_bundle.sticky_upload' | t | escape }}"
+        disabled
+      >
+        <svg data-printmivo-sticky-product-cart-icon aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M5.5 8.5h13l1 12h-15z"></path>
+          <path d="M9 9V6.5a3 3 0 0 1 6 0V9"></path>
+        </svg>
+        <svg data-printmivo-sticky-product-upload-icon aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M12 15V3"></path>
+          <path d="m7.5 7.5 4.5-4.5 4.5 4.5"></path>
+          <path d="M5 14.5V18a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-3.5"></path>
+        </svg>
+        <span data-printmivo-sticky-product-button-label>{{ 'products.product.add_to_cart' | t }}</span>
+      </button>
+    </div>
+  </div>
+  {% render 'printmivo-bundle-upgrade-dialog', product: product, section: section %}
+{% elsif template.suffix == 'stickers' or template.suffix == 'custom-stickers' %}
+  {% render 'printmivo-sticker-upsell-dialog', product: product, section: section %}
+{% endif %}
+{% if product.media.size > 0 %}
+  <script src="{{ 'product-media.js' | asset_url }}" defer="defer"></script>
+{% endif %}
+{%- if first_3d_model -%}
+  <script type="application/json" id="ModelJSON-{{ product.id }}">
+    {{ product.media | where: 'media_type', 'model' | json }}
+  </script>
+  <script src="{{ 'product-model.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+{%- if product.options_with_values.size > 0 -%}
+  <script src="{{ 'variant-picker.js' | asset_url }}" defer="defer"></script>
+{%- endif -%}
+
+<script src="{{ 'product-info.js' | asset_url }}" defer="defer"></script>
+
+{%- render 'product-data' -%}
+
+{% schema %}
+{
+  "name": "Product information",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "[Watch tutorial](https://foxecom.link/olxmn9) or [read How-to](https://foxecom.link/QlS05K)"
+    },
+    {
+      "type": "paragraph",
+      "content": "Need more advanced customization? Use [Teeinblue Product Personalizer](https://teeinblue.com/install/teeinblue?ref=foxecom) app"
+    },
+    {
+      "type": "header",
+      "content": "General"
+    },
+    {
+      "type": "select",
+      "id": "container",
+      "label": "Container type",
+      "default": "container",
+      "options": [
+        {
+          "value": "container-fluid",
+          "label": "Default"
+        },
+        {
+          "value": "w-full",
+          "label": "Full width"
+        },
+        {
+          "value": "container",
+          "label": "Use container box"
+        }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Layout",
+      "default": "layout-6",
+      "options": [
+        {
+          "value": "layout-4",
+          "label": "Standard"
+        },
+        {
+          "value": "layout-1",
+          "label": "Grid 1 column"
+        },
+        {
+          "value": "layout-3",
+          "label": "Grid 2 columns"
+        },
+        {
+          "value": "layout-2",
+          "label": "Grid mix"
+        },
+        {
+          "value": "layout-5",
+          "label": "Slider 2 columns"
+        },
+        {
+          "value": "layout-6",
+          "label": "Slider vertical"
+        },
+        {
+          "value": "layout-7",
+          "label": "Slider full width"
+        }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "show_atwl",
+      "label": "Show Add to wishlist",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_history_state",
+      "label": "Enable history state",
+      "info": "This will add a '?variant={variant_id}' to the browser's URL",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_variant_group_images",
+      "label": "Enable variant group images",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "disable_selected_variant_default",
+      "label": "Disable selected variant by default",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Product media"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_featured_media",
+      "label": "Show featured media by default",
+      "default": true,
+      "info": "If unchecked, the selected variant's image will be show on page load."
+    },
+    {
+      "type": "checkbox",
+      "id": "show_zoom_button",
+      "label": "Enable image zoom",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_video_autoplay",
+      "label": "Enable video autoplay",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_nav_media_mobile",
+      "label": "Show thumbnails on mobile",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "show_pagination_mobile",
+      "label": "Show pagination on mobile",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Sticky Add to cart"
+    },
+    {
+      "type": "checkbox",
+      "id": "use_sticky_atc",
+      "label": "Show on desktop",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "use_sticky_atc_on_mobile",
+      "label": "Show on mobile",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_dynamic_checkout",
+      "label": "Show dynamic checkout buttons",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky_atc_wishtlist",
+      "label": "Show wishlist button",
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "sticky_atc_compare",
+      "label": "Show compare button",
+      "default": false
+    }
+  ],
+  "blocks": [
+    {
+      "type": "@app"
+    },
+    {
+      "type": "title",
+      "name": "Product title",
+      "limit": 1
+    },
+    {
+      "type": "rating",
+      "name": "Product rating",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "To display a rating, add a product reviews app.\nGo to Theme settings -> Integrated apps -> Product reviews to choose the app which you are using."
+        }
+      ]
+    },
+    {
+      "type": "price",
+      "name": "Price",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_saving",
+          "default": false,
+          "label": "Show saving amount"
+        },
+        {
+          "type": "select",
+          "label": "Type",
+          "id": "sale_badge_type",
+          "default": "percentage",
+          "options": [
+            {
+              "label": "Percentage",
+              "value": "percentage"
+            },
+            {
+              "label": "Text",
+              "value": "text"
+            },
+            {
+              "label": "Fixed amount",
+              "value": "fixed_amount"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "variant_picker",
+      "name": "Variants selector",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "[Watch tutorial](https://foxecom.link/bqhGMd) or [read How-to](https://foxecom.link/F7UNEx)"
+        },
+        {
+          "type": "header",
+          "content": "Size guide settings"
+        },
+        {
+          "type": "text",
+          "id": "size_title",
+          "default": "Size",
+          "label": "Size option title",
+          "info": "Enter the option titles which you want to show Size guide button, separate with a comma"
+        }
+      ]
+    },
+    {
+      "type": "buy_buttons",
+      "name": "Buy buttons",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_quantity_selector",
+          "default": true,
+          "label": "Show quantity selector"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_atc_button",
+          "default": true,
+          "label": "Show Add-to-cart button"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_dynamic_checkout",
+          "default": true,
+          "label": "Show dynamic checkout buttons",
+          "info": "Using the payment methods available on your store, customers see their preferred option, like PayPal or Apple Pay. [Learn more](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_gift_card_recipient",
+          "default": true,
+          "label": "Show recipient form for gift card products",
+          "info": "When enabled, gift card products can optionally be sent to a recipient with a personal message."
+        }
+      ]
+    },
+    {
+      "type": "meta",
+      "name": "Product meta",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_collections",
+          "label": "Show collections list",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_vendor",
+          "label": "Show product vendor",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "show_type",
+          "label": "Show product type",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "show_availability",
+          "label": "Show availability",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "show_sku",
+          "label": "Show SKU",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "badge",
+      "name": "Custom tags",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "[Read How-to](https://foxecom.link/VafwzY)"
+        },
+        {
+          "type": "header",
+          "content": "Valid formats"
+        },
+        {
+          "type": "paragraph",
+          "content": "tag__hot_[DISPLAY_TEXT]"
+        },
+        {
+          "type": "paragraph",
+          "content": "tag__new_[DISPLAY_TEXT]"
+        },
+        {
+          "type": "paragraph",
+          "content": "tag__sale_[DISPLAY_TEXT]"
+        },
+        {
+          "type": "paragraph",
+          "content": "Example: tag__hot_-50% OFF, tag__new_NEW ARRIVAL"
+        }
+      ]
+    },
+    {
+      "type": "description",
+      "name": "Full description",
+      "limit": 1
+    },
+    {
+      "type": "short_description",
+      "name": "Short description",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Add a metafield with namespace \"descriptor.short_description\" to display. [Add metafield](https://shopify.com/admin/metafields/product/create). [Watch tutorial](https://foxecom.link/QegRTH)"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "name": "Text",
+      "settings": [
+        {
+          "type": "text",
+          "id": "text",
+          "default": "Text block",
+          "label": "Text"
+        },
+        {
+          "type": "select",
+          "label": "Text style",
+          "id": "text_style",
+          "default": "body",
+          "options": [
+            {
+              "label": "Body text",
+              "value": "body"
+            },
+            {
+              "label": "Subtitle",
+              "value": "subtitle"
+            },
+            {
+              "label": "Uppercase",
+              "value": "uppercase"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "custom_text",
+      "name": "Richtext",
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "content",
+          "label": "Custom text"
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "name": "Image",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Image"
+        },
+        {
+          "type": "url",
+          "id": "image_link",
+          "label": "Image link"
+        },
+        {
+          "type": "range",
+          "id": "image_width",
+          "label": "Image width",
+          "min": 0,
+          "default": 100,
+          "max": 100,
+          "unit": "%",
+          "step": 2
+        },
+        {
+          "type": "select",
+          "label": "Image alignment",
+          "id": "image_alignment",
+          "default": "start",
+          "options": [
+            {
+              "label": "Left",
+              "value": "start"
+            },
+            {
+              "label": "Center",
+              "value": "center"
+            },
+            {
+              "label": "Right",
+              "value": "end"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "custom_liquid",
+      "name": "Custom liquid",
+      "settings": [
+        {
+          "type": "liquid",
+          "id": "custom_liquid",
+          "label": "Custom liquid"
+        }
+      ]
+    },
+    {
+      "type": "visitors",
+      "name": "Visitors counter",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "color_scheme",
+          "id": "color_scheme",
+          "label": "Color scheme"
+        },
+        {
+          "type": "text",
+          "id": "live_views_text",
+          "label": "Visitor count text",
+          "default": "<strong>{count_number}</strong> <strong>people</strong> are viewing this right now"
+        },
+        {
+          "type": "text",
+          "id": "live_views_range",
+          "label": "Visitor count range",
+          "default": "20-30"
+        },
+        {
+          "type": "text",
+          "id": "live_view_duration",
+          "label": "Change count number every",
+          "default": "10",
+          "info": "Seconds"
+        },
+        {
+          "type": "checkbox",
+          "id": "live_view_icon_blinks",
+          "label": "Visitor count icon blinks",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "shipping",
+      "name": "Shipping information",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_delivery_times",
+          "label": "Show delivery estimation",
+          "info": "How delivery times are generated?",
+          "default": true
+        },
+        {
+          "type": "text",
+          "id": "deliver_text",
+          "label": "Delivery text",
+          "default": "Estimated Delivery:"
+        },
+        {
+          "type": "text",
+          "id": "deliver_days",
+          "label": "Deliver in:",
+          "info": "days (+/- 2 days)",
+          "default": "7"
+        },
+        {
+          "type": "text",
+          "id": "date_format",
+          "label": "Date format",
+          "default": "%b %d",
+          "info": "Example: %m/%d [Learn more about date format here.](http://strftime.net/)"
+        },
+        {
+          "type": "checkbox",
+          "id": "show_shipping_text",
+          "label": "Show Shipping text",
+          "default": true
+        },
+        {
+          "type": "richtext",
+          "id": "shipping_text",
+          "label": "Shipping text",
+          "default": "<p><strong>Shipping: </strong>Free shipping on $80+. $9.99 flat-rate below $80.</p>"
+        }
+      ]
+    },
+    {
+      "type": "trust_badge",
+      "name": "Trust badge",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "richtext",
+          "id": "trust_badges_text",
+          "label": "Heading",
+          "default": "<p>Guarantee safe & secure checkout</p>"
+        },
+        {
+          "type": "image_picker",
+          "id": "trust_badges_image",
+          "label": "Trust badges image"
+        },
+        {
+          "type": "text",
+          "id": "trust_badges_image_width",
+          "label": "Image width",
+          "default": "100%"
+        },
+        {
+          "type": "select",
+          "label": "Heading position",
+          "id": "position",
+          "default": "below",
+          "options": [
+            {
+              "label": "Text above image",
+              "value": "above"
+            },
+            {
+              "label": "Text below image",
+              "value": "below"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "collapsible_tab",
+      "name": "Collapsible tab",
+      "settings": [
+        {
+          "type": "text",
+          "id": "heading",
+          "label": "Heading",
+          "default": "Collapsible tab"
+        },
+        {
+          "type": "richtext",
+          "label": "Content",
+          "id": "content"
+        },
+        {
+          "type": "liquid",
+          "label": "Content by Liquid",
+          "id": "liquid",
+          "info": "Example: {{product.description}}"
+        },
+        {
+          "type": "checkbox",
+          "label": "Default open",
+          "id": "default_open",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "addons",
+      "name": "Addon buttons",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "checkbox",
+          "id": "show_atcp",
+          "label": "Show Add to compare",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_ask_a_question",
+          "label": "Show Ask a Question",
+          "default": true
+        },
+        {
+          "type": "checkbox",
+          "id": "show_social",
+          "label": "Show social share",
+          "default": true
+        }
+      ]
+    },
+    {
+      "type": "foxkit_stock_countdown",
+      "name": "Stock countdown",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "This block has been deprecated since version 3.5.0. Please use the App block instead by selecting \"Add block\" -> \"Apps\" -> \"FoxKit - Stock countdown\". [Learn more](https://docs.minimog.co/foxkit-app/how-to-set-up-foxkit-features)"
+        }
+      ]
+    },
+    {
+      "type": "foxkit_countdown_timer",
+      "name": "Countdown timer",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "This block has been deprecated since version 3.5.0. Please use the App block instead by selecting \"Add block\" -> \"Apps\" -> \"FoxKit - Countdown timer\". [Learn more](https://docs.minimog.co/foxkit-app/how-to-set-up-foxkit-features)"
+        }
+      ]
+    },
+    {
+      "type": "custom_field",
+      "name": "Custom field",
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Need more advanced customization? Use [Teeinblue Product Personalizer](https://teeinblue.com/install/teeinblue?ref=foxecom) app"
+        },
+        {
+          "type": "text",
+          "label": "Field name",
+          "id": "title",
+          "default": "Custom text",
+          "info": "Required, don't leave it blank"
+        },
+        {
+          "type": "select",
+          "label": "Field type",
+          "id": "field_type",
+          "default": "text",
+          "options": [
+            {
+              "label": "Single line text",
+              "value": "text"
+            },
+            {
+              "label": "Multiline text",
+              "value": "textarea"
+            },
+            {
+              "label": "Select",
+              "value": "select"
+            }
+          ]
+        },
+        {
+          "type": "textarea",
+          "label": "Options",
+          "id": "field_options",
+          "info": "Each option in a new line"
+        },
+        {
+          "type": "text",
+          "label": "Placeholder",
+          "id": "field_placeholder"
+        },
+        {
+          "type": "checkbox",
+          "label": "Required",
+          "id": "field_required",
+          "default": false,
+          "info": "If you use “Required” with a checkbox, then the checkbox will need to be checked for the customer to add the item to the cart."
+        },
+        {
+          "type": "checkbox",
+          "label": "Show at checkout",
+          "id": "show_at_checkout",
+          "default": true,
+          "info": "Uncheck this if you don't want the captured information to be shown in the order summary on the checkout pages."
+        }
+      ]
+    },
+    {
+      "type": "image_field",
+      "name": "Upload image field",
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "This field cannot work with Dynamic checkout buttons, so if using it, the dynamic checkout buttons will be disabled."
+        },
+        {
+          "type": "text",
+          "label": "Field name",
+          "id": "title",
+          "default": "Custom image",
+          "info": "Required, don't leave it blank"
+        },
+        {
+          "type": "checkbox",
+          "label": "Required",
+          "id": "field_required",
+          "default": false,
+          "info": "If you use “Required” with a checkbox, then the checkbox will need to be checked for the customer to add the item to the cart."
+        },
+        {
+          "type": "checkbox",
+          "label": "Show at checkout",
+          "id": "show_at_checkout",
+          "default": true,
+          "info": "Uncheck this if you don't want the captured information to be shown in the order summary on the checkout pages."
+        }
+      ]
+    },
+    {
+      "type": "breadcrumb",
+      "name": "Breadcrumb",
+      "limit": 1
+    },
+    {
+      "type": "complementary",
+      "name": "Complementary products",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "To select complementary products, add the Search & Discovery app. [Learn more](https://shopify.dev/themes/product-merchandising/recommendations)"
+        },
+        {
+          "type": "text",
+          "id": "block_heading",
+          "default": "Pairs well with",
+          "label": "Heading"
+        },
+        {
+          "type": "checkbox",
+          "id": "make_collapsible_row",
+          "default": false,
+          "label": "Show as collapsible tab"
+        },
+        {
+          "type": "range",
+          "id": "product_list_limit",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "default": 10,
+          "label": "Maximum products to show"
+        },
+        {
+          "type": "range",
+          "id": "products_per_page",
+          "min": 1,
+          "max": 3,
+          "step": 1,
+          "default": 2,
+          "label": "Number of products per page"
+        },
+        {
+          "type": "header",
+          "content": "Product card"
+        },
+        {
+          "type": "select",
+          "id": "pcard_image_ratio",
+          "label": "Aspect ratio",
+          "default": "original",
+          "options": [
+            {
+              "value": "original",
+              "label": "Adapt to image"
+            },
+            {
+              "value": "1/1",
+              "label": "1:1"
+            },
+            {
+              "value": "3/4",
+              "label": "3:4"
+            },
+            {
+              "value": "4/3",
+              "label": "4:3"
+            },
+            {
+              "value": "16/9",
+              "label": "16:9"
+            }
+          ]
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_variant_options",
+          "label": "Enable variant options",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_quick_view",
+          "label": "Enable quick view button",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_quick_add",
+          "label": "Enable add to cart button",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_compare",
+          "label": "Enable compare button",
+          "default": false
+        },
+        {
+          "type": "checkbox",
+          "id": "enable_wishlist",
+          "label": "Enable wishlist button",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "inventory_status",
+      "name": "Inventory status",
+      "limit": 1,
+      "settings": [
+        {
+          "type": "paragraph",
+          "content": "Inventory thresholds can be changed in \"Theme Settings > Product Inventory\"."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_indicator_bar",
+          "label": "Show inventory indicator bar",
+          "default": true
+        },
+        {
+          "type": "header",
+          "content": "Messages"
+        },
+        {
+          "type": "richtext",
+          "id": "normal_text",
+          "label": "Text for normal inventory"
+        },
+        {
+          "type": "richtext",
+          "id": "low_text",
+          "label": "Text for low inventory",
+          "default": "<p>- Hurry! Limited stock left.</p>"
+        },
+        {
+          "type": "richtext",
+          "id": "outofstock_text",
+          "label": "Text for out of stock"
+        },
+        {
+          "type": "richtext",
+          "id": "backordered_text",
+          "label": "Text for backordered",
+          "default": "<p>Backordered</p>"
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

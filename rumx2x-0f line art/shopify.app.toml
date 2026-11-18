@@ -1,21 +1,12 @@
-name = "lineartuploader"
-# Replace this with the client ID of the Shopify app created for rumx2x-0f.myshopify.com.
-client_id = "REPLACE_WITH_NEW_SHOPIFY_CLIENT_ID"
+client_id = "9dc8f1829341aefbe3da0809ba8fbdce"
 application_url = "https://stampmybrand-lineart-uploader.up.railway.app"
 embedded = true
+name = "lineartuploader"
 
-[build]
-automatically_update_urls_on_dev = true
-
-[access_scopes]
-scopes = "read_products,read_orders,write_app_proxy"
-
-[auth]
-redirect_urls = [
-  "https://stampmybrand-lineart-uploader.up.railway.app/auth/callback",
-  "https://stampmybrand-lineart-uploader.up.railway.app/auth/shopify/callback",
-  "https://stampmybrand-lineart-uploader.up.railway.app/api/auth/callback"
-]
+[app_proxy]
+url = "https://stampmybrand-lineart-uploader.up.railway.app/apps/stamp-upload"
+subpath = "line-art-upload"
+prefix = "apps"
 
 [webhooks]
 api_version = "2026-10"
@@ -28,7 +19,15 @@ uri = "/webhooks/orders/create"
 topics = ["app/uninstalled"]
 uri = "/webhooks/app/uninstalled"
 
-[app_proxy]
-url = "https://stampmybrand-lineart-uploader.up.railway.app/apps/stamp-upload"
-subpath = "line-art-upload"
-prefix = "apps"
+[access_scopes]
+scopes = "read_orders,read_products,write_app_proxy"
+
+[auth]
+redirect_urls = [
+  "https://stampmybrand-lineart-uploader.up.railway.app/auth/callback",
+  "https://stampmybrand-lineart-uploader.up.railway.app/auth/shopify/callback",
+  "https://stampmybrand-lineart-uploader.up.railway.app/api/auth/callback"
+]
+
+[build]
+automatically_update_urls_on_dev = true

@@ -1,10 +1,10 @@
 # Railway Deployment
 
-The production project and app service are both named `rumx2x-0f-lineart-uploader`. The service deploys the `main` branch of `Office50505/stampmymarkuploader` with root directory `/rumx2x-0f line art`.
+The production project and app service are both named `lineartuploader`. The service deploys the `main` branch of `Office50505/stampmymarkuploader` with root directory `/line art`.
 
 ## Services
 
-- `rumx2x-0f-lineart-uploader`: Node web service at `https://stampmybrand-lineart-uploader.up.railway.app`, port 8080
+- `lineartuploader`: Node web service, public HTTPS domain, port 8080
 - `Postgres`: isolated app database
 
 The repository includes `railway.json`, which runs:
@@ -20,16 +20,15 @@ healthcheck: /healthcheck
 ```text
 SHOPIFY_API_KEY
 SHOPIFY_API_SECRET
-SHOPIFY_APP_URL=https://stampmybrand-lineart-uploader.up.railway.app
-SHOPIFY_SHOP_DOMAIN=rumx2x-0f.myshopify.com
-SCOPES=read_products,read_orders,write_app_proxy
+SHOPIFY_APP_URL
+SCOPES=read_products,read_orders
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 FAL_KEY
 FAL_LINE_ART_MODEL=openai/gpt-image-2.6/flare/edit
 BUNNY_STORAGE_ENDPOINT
 BUNNY_STORAGE_ZONE
 BUNNY_STORAGE_ACCESS_KEY
-SHOP_CUSTOM_DOMAIN=
+SHOP_CUSTOM_DOMAIN=printmivo.com
 UPLOAD_MAX_BYTES=26214400
 UPLOAD_RETENTION_DAYS=30
 UPLOAD_DELETE_EXPIRED_OBJECTS=false

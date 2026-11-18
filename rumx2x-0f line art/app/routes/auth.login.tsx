@@ -22,7 +22,7 @@ export default function AuthLogin() {
             <s-text-field
               label="Shop domain"
               name="shop"
-              placeholder="rumx2x-0f.myshopify.com"
+              placeholder="stampmymark.myshopify.com"
             ></s-text-field>
             <s-button type="submit" variant="primary">
               Continue

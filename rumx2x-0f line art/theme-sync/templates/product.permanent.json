@@ -53,7 +53,7 @@
         "stampmymark_uploader_us_upload_picture_DQdpkC": {
           "type": "shopify://apps/stampmymark-uploader-us/blocks/upload-picture/01a13a49-4d98-7c89-830e-8271b2193be4",
           "settings": {
-            "button_label": "Upload Your Logo",
+            "button_label": "Apna logo upload karein",
             "required": true,
             "size_option_name": "Size",
             "max_file_size_mb": 25,

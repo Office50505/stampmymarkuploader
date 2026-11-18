@@ -4,7 +4,7 @@
   assign normalized_product_title = product.title | default: '' | downcase
   assign upload_button_label = block.settings.button_label | strip
   if upload_button_label == blank or upload_button_label == 'Upload Logo & Create Line Art' or upload_button_label == 'Upload Logo & See Your Stamp'
-    assign upload_button_label = 'See Your Stamp'
+    assign upload_button_label = 'Apna logo upload karein'
   endif
   assign preview_profile = 'permanent'
   if normalized_product_title contains 'custom stamp'
@@ -365,7 +365,7 @@
       "type": "text",
       "id": "button_label",
       "label": "Button label",
-      "default": "See Your Stamp"
+      "default": "Apna logo upload karein"
     },
     {
       "type": "checkbox",
